@@ -121,6 +121,18 @@ test('client explicitly accepts exact contract version, separately from provider
   const call=await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='decide_service_contract'));expect(call.args).toEqual({p_contract_id:'contract-1',p_content_hash:'a'.repeat(64),p_decision:'aceito'});
   await page.locator('#logout').click();await expect(page.locator('#contracts')).toBeEmpty();
 });
+test('bilaterally accepted agreement downloads a verifiable receipt',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});
+  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:'2026-10-19T12:01:00Z'});});
+  await page.locator('#refresh').click();
+  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Baixar comprovante do acordo'}).click();const download=await downloadPromise;
+  expect(download.suggestedFilename()).toBe('acordo-contract-service-v1.json');
+  const receipt=JSON.parse(await readFile(await download.path(),'utf8'));
+  expect(receipt).toMatchObject({receipt_type:'servico_certo_agreement_acceptance',agreement:{id:'contract-1',request_id:'contract-service',version:1,content_hash:'a'.repeat(64)}});
+  expect(receipt.acceptances.map(x=>x.actor_id)).toEqual(['10000000-0000-4000-8000-000000000001','provider-id']);
+  expect(receipt.notice).toContain('Não é assinatura digital certificada');
+  await expect(page.locator('#status')).toContainText('Guarde o arquivo em local seguro');
+});
 test('a revised contract requires fresh acceptance and preserves refused version',async({page})=>{
   await login(page);await seedContractContext(page,{contract:true,refused:true});await expect(page.locator('[data-contract="contract-1"]')).toContainText('Esta versão foi recusada');await expect(page.locator('[data-contract="contract-1"] button')).toHaveCount(0);
   await expect(page.locator('[data-contract="contract-2"]')).toContainText('Cliente: aguardando decisão');await expect(page.getByRole('button',{name:'Aceitar esta versão'})).toBeDisabled();await page.getByRole('button',{name:'Recusar esta versão'}).click();await expect(page.locator('[data-contract="contract-2"]')).toContainText('Esta versão foi recusada');expect(await page.evaluate(()=>window.testState.contractDecisions.filter(d=>d.contract_id==='contract-1').length)).toBe(2);

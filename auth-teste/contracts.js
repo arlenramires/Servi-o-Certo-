@@ -1,4 +1,5 @@
 import {parseMoneyToCents,formatCents} from './money.js';
+import {downloadAgreementReceipt} from './agreement-receipt.js';
 
 export function createContractPanel({api,getContext,message,friendly}) {
   const el=id=>document.getElementById(id);
@@ -51,7 +52,13 @@ export function createContractPanel({api,getContext,message,friendly}) {
         const receipt=entries.find(d=>d.actor_id===id);
         article.append(node('small',label+': '+(receipt?(receipt.decision==='aceito'?'aceitou':'recusou')+' em '+new Date(receipt.created_at).toLocaleString('pt-BR'):'aguardando decisão')));
       }
-      article.append(node('p',rejected?'Esta versão foi recusada. Uma nova versão exige novos aceites.':entries.length===2?'Acordo aceito por ambas as partes. Pagamento e execução são etapas seguintes.':'Leia o acordo e registre sua decisão.','muted'));
+      const bilaterallyAccepted=[c.client_id,c.provider_id].every(id=>entries.some(d=>d.actor_id===id&&d.decision==='aceito'));
+      article.append(node('p',rejected?'Esta versão foi recusada. Uma nova versão exige novos aceites.':bilaterallyAccepted?'Acordo aceito por ambas as partes. Pagamento e execução são etapas seguintes.':'Leia o acordo e registre sua decisão.','muted'));
+      if(bilaterallyAccepted) {
+        const receipt=node('button','Baixar comprovante do acordo','secondary');receipt.type='button';
+        receipt.onclick=()=>{try{downloadAgreementReceipt(c,entries);message('Comprovante gerado. Guarde o arquivo em local seguro.');}catch(error){message(error.message);}};
+        article.append(receipt,node('small','O arquivo registra a versão, o hash e os dois aceites; não comprova pagamento nem substitui assinatura certificada.'));
+      }
       if(c.id===latest?.id&&!own&&!rejected&&request.status==='aceito') {
         const label=node('label','','check'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.setAttribute('aria-label','Li esta versão e concordo');
         label.append(checkbox,node('span','Li esta versão e concordo com escopo, valores, prazos e etapas.'));article.append(label);

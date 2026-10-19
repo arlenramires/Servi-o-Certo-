@@ -13,10 +13,11 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 7. [Abertura e manifestação de contestação](ENTREGA-2026-10-19-CONTESTACOES.md). As partes registram relato e manifestação imutáveis com acesso protegido; análise administrativa, provas e efeitos financeiros não foram automatizados.
 8. [Proposta de vistoria antes do orçamento](ENTREGA-2026-10-19-VISTORIAS.md). Prestador registra finalidade, data e valor previsto; cliente aceita ou recusa. Aceite permanece pendente de pagamento e não confirma agenda.
 9. [Mensagens não lidas por serviço](ENTREGA-2026-10-19-MENSAGENS-NAO-LIDAS.md). Cliente e prestador recebem contagem privada das mensagens da outra parte; abrir a conversa registra a leitura. Push e e-mail não fazem parte desta entrega.
+10. [Comprovante exportável do acordo](ENTREGA-2026-10-19-COMPROVANTE-ACORDO.md). Após o aceite bilateral, as partes podem baixar a versão, o hash e os dois registros de aceite em JSON. O arquivo não comprova pagamento nem substitui assinatura certificada.
 
 ## Próximas entregas prioritárias
 
-- Acordos: revisar texto/processo com responsável jurídico, homologar com contas confirmadas e avaliar comprovante exportável. Não tratar o hash ou aceite implementado como assinatura certificada ou validação jurídica.
+- Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
 - Administração de análises com trilha de auditoria, documentos privados e provisionamento seguro do proprietário. Banco sem conta do proprietário confirmada; não escolher administrador por metadados de cadastro.
 - Homologar execução, conclusão e avaliações com contas confirmadas no ambiente conectado. O fluxo não movimenta nem comprova pagamento ou repasse.
 - Vistorias: após autorização do gateway sandbox, confirmar pagamento/agendamento e implementar a regra comercial de repasse ou abatimento. Provas privadas e análise administrativa das contestações dependem de armazenamento e proprietário verificado. Homologar esses fluxos com contas confirmadas no ambiente conectado.
