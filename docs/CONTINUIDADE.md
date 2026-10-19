@@ -7,12 +7,13 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 1. [Autenticação, pedidos, aceite e chat com testes](ENTREGA-2026-10-19.md). Código no commit `5c6bfa81f62335f1be25627e579adfe49a51c454`, CI aprovado: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/39206997735.
 2. [Orçamento estruturado e decisão protegida](ENTREGA-2026-10-19-ORCAMENTOS.md). Verificar o commit e o GitHub Actions associado a este arquivo antes da próxima alteração.
 3. [Acordo versionado com aceite das partes](ENTREGA-2026-10-19-CONTRATOS.md). Código integrado à conversa do serviço; revisão jurídica, identidade e homologação comercial pendentes.
+4. [Execução, conclusão confirmada e avaliações](ENTREGA-2026-10-19-EXECUCAO.md). Migração preparada e validada somente no PostgreSQL isolado; verificar commit e CI antes da próxima alteração.
 
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico, homologar com contas confirmadas e avaliar comprovante exportável. Não tratar o hash ou aceite implementado como assinatura certificada ou validação jurídica.
 - Administração de análises com trilha de auditoria, documentos privados e provisionamento seguro do proprietário. Banco sem conta do proprietário confirmada; não escolher administrador por metadados de cadastro.
-- Fluxo de execução e conclusão com confirmação do cliente e avaliação das partes. Não marcar pagamento ou repasse como realizado por simulação.
+- Homologar execução, conclusão e avaliações com contas confirmadas no ambiente conectado. O fluxo não movimenta nem comprova pagamento ou repasse.
 - Vistorias, extras, cancelamento, reencaminhamento e disputas com estados controlados e provas.
 - Gateway sandbox: definir provedor e obter credenciais de teste por meio seguro; checkout, webhooks idempotentes, split, garantias, estornos e reconciliação dependem dessa integração.
 - Homologação hospedada, e-mails reais, notificações, localização/ETA, LGPD, empacotamento Android e preparação de produção.

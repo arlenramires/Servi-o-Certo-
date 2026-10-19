@@ -87,3 +87,19 @@ test('a revised contract requires fresh acceptance and preserves refused version
   await login(page);await seedContractContext(page,{contract:true,refused:true});await expect(page.locator('[data-contract="contract-1"]')).toContainText('Esta versão foi recusada');await expect(page.locator('[data-contract="contract-1"] button')).toHaveCount(0);
   await expect(page.locator('[data-contract="contract-2"]')).toContainText('Cliente: aguardando decisão');await expect(page.getByRole('button',{name:'Aceitar esta versão'})).toBeDisabled();await page.getByRole('button',{name:'Recusar esta versão'}).click();await expect(page.locator('[data-contract="contract-2"]')).toContainText('Esta versão foi recusada');expect(await page.evaluate(()=>window.testState.contractDecisions.filter(d=>d.contract_id==='contract-1').length)).toBe(2);
 });
+
+test('provider starts a bilaterally accepted service and requests completion',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
+  await page.evaluate(()=>{const c=window.testState.contracts[0];window.testState.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});
+  await page.locator('#refresh').click();await page.getByRole('button',{name:'Iniciar serviço'}).click();await expect(page.locator('#execution')).toContainText('Serviço em andamento');
+  await page.getByRole('button',{name:'Solicitar confirmação de conclusão'}).click();await expect(page.locator('#execution')).toContainText('Aguardando confirmação do cliente');
+  expect(await page.evaluate(()=>window.testState.executionEvents.map(e=>e.event_type))).toEqual(['iniciado','conclusao_solicitada']);
+});
+
+test('client confirms completion and submits one immutable rating without payment claim',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});
+  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0],r=s.requests.find(r=>r.id==='contract-service');s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()},{request_id:r.id,actor_id:r.provider_id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});});
+  await page.locator('#refresh').click();await page.getByRole('button',{name:'Confirmar serviço concluído'}).click();await expect(page.locator('#execution')).toContainText('Nenhum pagamento ou repasse');
+  await page.locator('#ratingScore').selectOption('5');await page.locator('#ratingComment').fill('Serviço bem executado');await page.locator('#saveRating').click();await expect(page.locator('#ratings')).toContainText('5/5');await expect(page.locator('#ratingForm')).toBeHidden();
+  expect(await page.evaluate(()=>window.testState.ratings.map(r=>({score:r.score,comment:r.comment})))).toEqual([{score:5,comment:'Serviço bem executado'}]);
+});

@@ -2,6 +2,7 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './supabase-config.js';
 import { parseMoneyToCents, formatCents } from './money.js';
 import { createContractPanel } from './contracts.js';
+import { createExecutionPanel } from './execution.js';
 
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
@@ -20,11 +21,16 @@ function friendly(error) {
     SC003:'Esta versão já foi recusada ou substituída. Atualize o serviço.',
     SC004:'O documento mudou. Atualize e leia a versão correta antes do aceite.',
     SC005:'Confira datas, responsabilidades e valores das etapas.',
-    SC006:'Sua decisão já foi registrada e não pode ser alterada nesta versão.' })[error?.code]
+    SC006:'Sua decisão já foi registrada e não pode ser alterada nesta versão.',
+    SE001:'Este serviço ainda não pode ser iniciado.',SE002:'O início depende do aceite do acordo pelas duas partes.',
+    SE003:'O serviço precisa estar em andamento.',SE004:'Aguarde o prestador solicitar a confirmação de conclusão.',
+    SE005:'A avaliação só é liberada após a conclusão.',SE006:'Confira a nota e o comentário.',
+    SE007:'Sua avaliação já foi registrada e não pode ser alterada.' })[error?.code]
     || (error instanceof InputError ? error.message : 'Não foi possível concluir. Verifique sua conexão e tente novamente.');
 }
 class InputError extends Error {}
 const contracts=createContractPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly});
+const execution=createExecutionPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 function text(tag, value, className) { const node=document.createElement(tag); node.textContent=value; if(className)node.className=className; return node; }
 async function busy(id, task) {
   el(id).disabled=true;
@@ -33,6 +39,7 @@ async function busy(id, task) {
 function clearWorkspace() {
   profile=null; selected=null; ++conversationGeneration;
   contracts.reset();
+  execution.reset();
   for(const id of ['workspace','clientPanel','providerPanel','providerApply','adminPanel','conversation']) el(id).hidden=true;
   for(const id of ['requests','opportunities','messages','quotes','applications','identity','profile']) el(id).replaceChildren();
   for(const id of ['password','newPassword','message','description','experience','quoteAmount','quoteDescription']) el(id).value='';
@@ -90,7 +97,7 @@ async function refresh(ticket=generation) {
     const card=text('article','','service');
     card.append(text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state),text('p',r.description));
     if(r.scheduled_for)card.append(text('small','Agendado: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));
-    if(['aceito','em_andamento'].includes(r.status)) {
+    if(['aceito','em_andamento','concluido'].includes(r.status)) {
       const button=text('button','Abrir conversa','secondary');button.onclick=()=>busy('refresh',()=>openConversation(r));card.append(button);
     }
     el('requests').append(card);
@@ -111,7 +118,7 @@ async function refresh(ticket=generation) {
       el('opportunities').append(card);
     }
   }
-  if(selected)await openConversation(selected);
+  if(selected){const current=requests.find(r=>r.id===selected.id);if(current)await openConversation(current);}
 }
 async function openConversation(request) {
   const ticket=generation, conversationTicket=++conversationGeneration;
@@ -131,6 +138,7 @@ async function openConversation(request) {
   renderQuotes(request,quotes,decisions);
   const acceptedDecision=decisions.find(d=>d.decision==='aceita');
   await contracts.load(request,quotes.find(q=>q.id===acceptedDecision?.quote_id)||null);
+  await execution.load(request);
 }
 function renderQuotes(request,quotes,decisions) {
   const accepted=decisions.some(d=>d.decision==='aceita');

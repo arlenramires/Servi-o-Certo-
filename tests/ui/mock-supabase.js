@@ -1,5 +1,5 @@
 // UI contract double only. PostgreSQL/RLS are verified separately in database.test.mjs.
-const state=window.testState={user:null,role:window.testRole||'cliente',requests:[],messages:[],quotes:[],decisions:[],contracts:[],contractDecisions:[],calls:[],applications:[]};
+const state=window.testState={user:null,role:window.testRole||'cliente',requests:[],messages:[],quotes:[],decisions:[],contracts:[],contractDecisions:[],executionEvents:[],ratings:[],calls:[],applications:[]};
 let listener=()=>{};
 const response=data=>Promise.resolve({data,error:null});
 const account={id:'10000000-0000-4000-8000-000000000001',email:'teste@example.invalid'};
@@ -22,7 +22,7 @@ class Query {
       if(this.table==='provider_applications')state.applications.push({...item,status:'pendente'});
       return {data:null,error:null};
     }
-    let data=({profiles:[{id:account.id,role:state.role,full_name:'Pessoa de teste',is_available:true}],professions:[{id:1,name:'Eletricista'},{id:2,name:'Pintor'}],provider_applications:state.applications,service_requests:state.requests,provider_service_areas:[],service_messages:state.messages,service_quotes:state.quotes,service_quote_decisions:state.decisions,service_contracts:state.contracts,service_contract_decisions:state.contractDecisions})[this.table]||[];
+    let data=({profiles:[{id:account.id,role:state.role,full_name:'Pessoa de teste',is_available:true}],professions:[{id:1,name:'Eletricista'},{id:2,name:'Pintor'}],provider_applications:state.applications,service_requests:state.requests,provider_service_areas:[],service_messages:state.messages,service_quotes:state.quotes,service_quote_decisions:state.decisions,service_contracts:state.contracts,service_contract_decisions:state.contractDecisions,service_execution_events:state.executionEvents,service_ratings:state.ratings})[this.table]||[];
     if(this.table==='profiles'&&window.missingProfile)data=[];
     for(const [key,value] of this.filters)data=data.filter(r=>Array.isArray(value)?value.includes(r[key]):r[key]===value);
     return {data:this.single?(data[0]||null):data,error:null};
@@ -42,6 +42,11 @@ export function createClient(){return {
       if(!state.contractDecisions.some(d=>d.contract_id===args.p_contract_id&&d.actor_id===account.id))state.contractDecisions.push({contract_id:args.p_contract_id,actor_id:account.id,decision:args.p_decision,content_hash:args.p_content_hash,created_at:new Date().toISOString()});
       return {data:true,error:null};
     }
+    const request=state.requests.find(r=>r.id===args?.p_request_id);
+    if(name==='start_service'){request.status='em_andamento';if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='iniciado'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'iniciado',created_at:new Date().toISOString()});return {data:true,error:null};}
+    if(name==='request_service_completion'){if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='conclusao_solicitada'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});return {data:true,error:null};}
+    if(name==='confirm_service_completion'){request.status='concluido';if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='conclusao_confirmada'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'conclusao_confirmada',created_at:new Date().toISOString()});return {data:true,error:null};}
+    if(name==='rate_completed_service'){const id='rating-'+Date.now();state.ratings.push({id,request_id:request.id,reviewer_id:account.id,reviewee_id:request.provider_id===account.id?request.client_id:request.provider_id,score:args.p_score,comment:args.p_comment,created_at:new Date().toISOString()});return {data:id,error:null};}
     return {data:name==='available_requests'?[{request_id:'open-request',requested_profession:'Eletricista',requested_at:new Date().toISOString()}]:name==='accept_request'?false:true,error:null};
   },
   auth:{
