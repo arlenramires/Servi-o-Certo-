@@ -6,10 +6,11 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 1. [Autenticação, pedidos, aceite e chat com testes](ENTREGA-2026-10-19.md). Código no commit `5c6bfa81f62335f1be25627e579adfe49a51c454`, CI aprovado: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/39206997735.
 2. [Orçamento estruturado e decisão protegida](ENTREGA-2026-10-19-ORCAMENTOS.md). Verificar o commit e o GitHub Actions associado a este arquivo antes da próxima alteração.
+3. [Contrato versionado e aceite bilateral](ENTREGA-2026-10-19-CONTRATOS.md). Migração preparada e validada somente no PostgreSQL isolado; não aplicada ao Supabase conectado. Verificar o commit e o GitHub Actions associado a este arquivo antes da próxima alteração.
 
 ## Próximas entregas prioritárias
 
-- Contrato digital vinculado ao orçamento aceito: conteúdo imutável/versionado, escopo, valor, prazo, etapas e aceite separado de cada parte; testar acesso, duplicação e alteração indevida. Não tratar texto não revisado como validação jurídica.
+- Revisão jurídica do texto-base do contrato e evolução dos contratos para adicionais, cancelamentos, garantias e disputas. Não tratar o texto técnico versionado como validação jurídica.
 - Administração de análises com trilha de auditoria, documentos privados e provisionamento seguro do proprietário. Banco sem conta do proprietário confirmada; não escolher administrador por metadados de cadastro.
 - Fluxo de execução e conclusão com confirmação do cliente e avaliação das partes. Não marcar pagamento ou repasse como realizado por simulação.
 - Vistorias, extras, cancelamento, reencaminhamento e disputas com estados controlados e provas.

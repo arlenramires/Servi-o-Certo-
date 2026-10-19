@@ -27,7 +27,7 @@ export async function baseline(db) {
 
 async function applyDeliveries(db) {
   const dir=new URL('../supabase/migrations/',import.meta.url);
-  for(const suffix of ['_secure_matching_and_signup.sql','_quote_decision_integrity.sql']) {
+  for(const suffix of ['_secure_matching_and_signup.sql','_quote_decision_integrity.sql','_contracts_from_accepted_quotes.sql']) {
     const files=(await readdir(dir)).filter(f=>f.endsWith(suffix));
     assert.equal(files.length,1);
     await db.exec(await readFile(new URL(files[0],dir),'utf8'));
@@ -51,5 +51,14 @@ test('PostgreSQL: quote privacy, correct request, immutable decisions and single
     await baseline(db);await applyDeliveries(db);
     const result=await db.exec(await readFile(new URL('../supabase/tests/quote-flow.sql',import.meta.url),'utf8'));
     assert.ok(result.some(x=>x.rows?.some(r=>r.result==='quote-flow: passed')));
+  }finally{await db.close();}
+});
+
+test('PostgreSQL: immutable contract snapshot and separate participant acceptances',async()=>{
+  const db=new PGlite();
+  try {
+    await baseline(db);await applyDeliveries(db);
+    const result=await db.exec(await readFile(new URL('../supabase/tests/contract-flow.sql',import.meta.url),'utf8'));
+    assert.ok(result.some(x=>x.rows?.some(r=>r.result==='contract-flow: passed')));
   }finally{await db.close();}
 });

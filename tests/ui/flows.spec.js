@@ -51,3 +51,12 @@ test('client rejects one proposal then accepts another and sees immutable histor
   expect(await page.evaluate(()=>window.testState.decisions.map(d=>({quote_id:d.quote_id,request_id:d.request_id,decision:d.decision})))).toEqual([{quote_id:'q1',request_id:'accepted-service',decision:'recusada'},{quote_id:'q2',request_id:'accepted-service',decision:'aceita'}]);
   await page.locator('#logout').click();await expect(page.locator('#quotes')).toBeEmpty();
 });
+
+test('accepted quote generates versioned contract and records client acceptance',async({page})=>{
+  await login(page);await seedAcceptedService(page);
+  await page.evaluate(()=>{window.testState.quotes.push({id:'accepted-quote',request_id:'accepted-service',provider_id:'provider-id',amount_cents:45000,description:'Pintura completa em três dias',status:'proposta',created_at:new Date().toISOString()});window.testState.decisions.push({quote_id:'accepted-quote',request_id:'accepted-service',decision:'aceita',created_at:new Date().toISOString()});});
+  await page.locator('#refresh').click();await page.getByRole('button',{name:'Gerar contrato do orçamento aceito'}).click();
+  await expect(page.locator('#contract')).toContainText('Contrato v1');await expect(page.locator('#contract')).toContainText('450,00');await expect(page.locator('#contract')).toContainText('Pintura completa em três dias');
+  await page.getByRole('button',{name:'Li e confirmo este contrato'}).click();await expect(page.locator('#contract')).toContainText('Cliente: confirmado');await expect(page.locator('#contract')).toContainText('Prestador: aguardando');
+  const stored=await page.evaluate(()=>({contracts:window.testState.contracts.length,acceptance:window.testState.acceptances[0]}));expect(stored.contracts).toBe(1);expect(stored.acceptance.party_role).toBe('cliente');expect(stored.acceptance.accepted_fingerprint).toBe('fingerprint-accepted-quote');
+});

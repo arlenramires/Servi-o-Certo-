@@ -25,7 +25,7 @@ async function busy(id, task) {
 function clearWorkspace() {
   profile=null; selected=null; ++conversationGeneration;
   for(const id of ['workspace','clientPanel','providerPanel','providerApply','adminPanel','conversation']) el(id).hidden=true;
-  for(const id of ['requests','opportunities','messages','quotes','applications','identity','profile']) el(id).replaceChildren();
+  for(const id of ['requests','opportunities','messages','quotes','contract','applications','identity','profile']) el(id).replaceChildren();
   for(const id of ['password','newPassword','message','description','experience','quoteAmount','quoteDescription']) el(id).value='';
 }
 function authView() {
@@ -111,15 +111,18 @@ async function openConversation(request) {
   const results=await Promise.all([
     api.from('service_messages').select('id,sender_id,body,created_at').eq('request_id',request.id).order('created_at',{ascending:true}).limit(200),
     api.from('service_quotes').select('id,request_id,provider_id,amount_cents,description,status,created_at').eq('request_id',request.id).order('created_at',{ascending:false}).limit(100),
-    api.from('service_quote_decisions').select('quote_id,decision,created_at').eq('request_id',request.id).order('created_at',{ascending:false}).limit(200)
+    api.from('service_quote_decisions').select('quote_id,decision,created_at').eq('request_id',request.id).order('created_at',{ascending:false}).limit(200),
+    api.from('service_contracts').select('id,request_id,quote_id,client_id,provider_id,profession,scope_and_deadline,amount_cents,scheduled_for,stages,terms_version,terms_text,content_fingerprint,created_at').eq('request_id',request.id).maybeSingle()
   ]);
   if(ticket!==generation||conversationTicket!==conversationGeneration)return;
-  const [messages,quotes,decisions]=results.map(r=>check(r)||[]);
+  const messages=check(results[0])||[],quotes=check(results[1])||[],decisions=check(results[2])||[],contract=check(results[3]);
   selected=request;el('conversation').hidden=false;el('selectedRequest').textContent=request.profession+' · '+request.id;
   el('messages').replaceChildren();
   if(!messages.length)el('messages').append(text('p','Inicie a conversa sobre o serviço.'));
   for(const m of messages) { const item=text('article','','chat-message');item.append(text('small',m.sender_id===user.id?'Você':'Outra parte'),text('p',m.body));el('messages').append(item); }
   renderQuotes(request,quotes,decisions);
+  const accepted=decisions.find(d=>d.decision==='aceita');
+  await renderContract(request,accepted,contract,conversationTicket);
 }
 function renderQuotes(request,quotes,decisions) {
   const accepted=decisions.some(d=>d.decision==='aceita');
@@ -149,6 +152,39 @@ function renderQuotes(request,quotes,decisions) {
     }
     el('quotes').append(item);
   }
+}
+async function renderContract(request,accepted,contract,conversationTicket) {
+  el('contractArea').hidden=!accepted;
+  el('contract').replaceChildren();
+  if(!accepted)return;
+  if(!contract) {
+    const button=text('button','Gerar contrato do orçamento aceito');button.type='button';
+    button.onclick=async()=>{button.disabled=true;try{
+      check(await api.rpc('create_contract_from_accepted_quote',{p_quote_id:accepted.quote_id}));
+      if(selected?.id===request.id)await openConversation(request);
+      message('Contrato versionado gerado. Cliente e prestador ainda precisam confirmar separadamente.');
+    }catch(error){message(friendly(error));}finally{button.disabled=false;}};
+    el('contract').append(text('p','O orçamento foi aceito, mas o contrato ainda não foi gerado.'),button);return;
+  }
+  const result=await api.from('service_contract_acceptances').select('signed_by,party_role,accepted_at').eq('contract_id',contract.id).order('accepted_at',{ascending:true});
+  if(conversationTicket!==conversationGeneration)return;
+  const acceptances=check(result)||[],mine=acceptances.some(a=>a.signed_by===user.id);
+  const item=text('article','','service');item.dataset.contract=contract.id;
+  item.append(text('h3','Contrato v'+contract.terms_version+' · '+formatCents(contract.amount_cents)),
+    text('p',contract.profession+' — '+contract.scope_and_deadline),
+    text('small','Etapas: '+contract.stages.map(s=>s.title+' ('+formatCents(s.amount_cents)+')').join('; ')),
+    text('p',contract.terms_text),
+    text('small','Cliente: '+(acceptances.some(a=>a.party_role==='cliente')?'confirmado':'aguardando')+' · Prestador: '+(acceptances.some(a=>a.party_role==='prestador')?'confirmado':'aguardando')));
+  if(!mine) {
+    const button=text('button','Li e confirmo este contrato');button.type='button';
+    button.onclick=async()=>{button.disabled=true;try{
+      check(await api.from('service_contract_acceptances').insert({contract_id:contract.id,signed_by:user.id,party_role:profile.role,accepted_fingerprint:contract.content_fingerprint}));
+      if(selected?.id===request.id)await openConversation(request);
+      message('Seu aceite do contrato foi registrado.');
+    }catch(error){message(friendly(error));}finally{button.disabled=false;}};
+    item.append(button);
+  }
+  el('contract').append(item);
 }
 el('action').onchange=()=>{
   const action=el('action').value;
