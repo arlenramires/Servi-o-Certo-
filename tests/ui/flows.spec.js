@@ -31,6 +31,26 @@ test('layout fits viewport',async({page})=>{
   await login(page);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
+test('client cancels an open request with an audited reason and no fee claim',async({page})=>{
+  await login(page);
+  await page.evaluate(()=>window.testState.requests.push({id:'client-cancellation',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido que não é mais necessário',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
+  await page.locator('#refresh').click();await page.getByRole('button',{name:'Cancelar pedido'}).click();await expect(page.locator('#cancellationPanel')).toBeVisible();
+  await page.locator('#cancellationReason').fill('O serviço não será mais necessário');await page.locator('#confirmCancellation').click();
+  await expect(page.locator('#status')).toContainText('Nenhuma taxa foi cobrada');await expect(page.locator('#requests')).toContainText('Cancelado');
+  expect(await page.evaluate(()=>({request:window.testState.requests[0].status,audit:window.testState.cancellations[0]}))).toMatchObject({request:'cancelado',audit:{actor_role:'cliente',reason:'O serviço não será mais necessário',outcome:'cancelado_cliente',fee_status:'nao_avaliada'}});
+});
+
+test('provider cancellation creates a new open request for another professional',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);
+  await page.evaluate(()=>window.testState.requests.push({id:'provider-cancellation',client_id:'client-id',provider_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido a ser reencaminhado',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
+  await page.locator('#refresh').click();await page.getByRole('button',{name:'Cancelar e reencaminhar'}).click();await page.locator('#cancellationReason').fill('Tive um imprevisto antes do início');await page.locator('#confirmCancellation').click();
+  await expect(page.locator('#status')).toContainText('novo chamado criado');
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>({id:r.id,status:r.status,provider_id:r.provider_id,replaces_request_id:r.replaces_request_id})))).toEqual([
+    {id:'provider-cancellation',status:'cancelado',provider_id:'10000000-0000-4000-8000-000000000001',replaces_request_id:undefined},
+    expect.objectContaining({status:'aberto',provider_id:null,replaces_request_id:'provider-cancellation'})
+  ]);
+});
+
 async function seedAcceptedService(page){
   await page.evaluate(()=>window.testState.requests.push({id:'accepted-service',profession:'Pintor',description:'Pintar sala com escopo definido',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
   await page.locator('#refresh').click();await page.getByRole('button',{name:'Abrir conversa'}).click();

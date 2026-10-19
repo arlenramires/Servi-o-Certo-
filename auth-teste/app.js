@@ -3,6 +3,7 @@ import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './supabase-config.js';
 import { parseMoneyToCents, formatCents } from './money.js';
 import { createContractPanel } from './contracts.js';
 import { createExecutionPanel } from './execution.js';
+import { createCancellationPanel } from './cancellation.js';
 
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
@@ -26,11 +27,13 @@ function friendly(error) {
     SE003:'O serviço precisa estar em andamento.',SE004:'Aguarde o prestador solicitar a confirmação de conclusão.',
     SE005:'A avaliação só é liberada após a conclusão.',SE006:'Confira a nota e o comentário.',
     SE007:'Sua avaliação já foi registrada e não pode ser alterada.' })[error?.code]
+    || ({CN001:'Explique o motivo com pelo menos 10 caracteres.',CN002:'Este serviço não pode ser cancelado por este fluxo.'})[error?.code]
     || (error instanceof InputError ? error.message : 'Não foi possível concluir. Verifique sua conexão e tente novamente.');
 }
 class InputError extends Error {}
 const contracts=createContractPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly});
 const execution=createExecutionPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
+const cancellations=createCancellationPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 function text(tag, value, className) { const node=document.createElement(tag); node.textContent=value; if(className)node.className=className; return node; }
 async function busy(id, task) {
   el(id).disabled=true;
@@ -40,6 +43,7 @@ function clearWorkspace() {
   profile=null; selected=null; ++conversationGeneration;
   contracts.reset();
   execution.reset();
+  cancellations.reset();
   for(const id of ['workspace','clientPanel','providerPanel','providerApply','adminPanel','conversation']) el(id).hidden=true;
   for(const id of ['requests','opportunities','messages','quotes','applications','identity','profile']) el(id).replaceChildren();
   for(const id of ['password','newPassword','message','description','experience','quoteAmount','quoteDescription']) el(id).value='';
@@ -97,6 +101,7 @@ async function refresh(ticket=generation) {
     const card=text('article','','service');
     card.append(text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state),text('p',r.description));
     if(r.scheduled_for)card.append(text('small','Agendado: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));
+    const cancelButton=cancellations.buttonFor(r);if(cancelButton)card.append(cancelButton);
     if(['aceito','em_andamento','concluido'].includes(r.status)) {
       const button=text('button','Abrir conversa','secondary');button.onclick=()=>busy('refresh',()=>openConversation(r));card.append(button);
     }

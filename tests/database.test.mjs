@@ -41,6 +41,9 @@ async function applyDeliveries(db) {
   const executionFiles=(await readdir(dir)).filter(f=>f.endsWith('_service_execution_completion_ratings.sql'));
   assert.equal(executionFiles.length,1);
   await db.exec(await readFile(new URL(executionFiles[0],dir),'utf8'));
+  const cancellationFiles=(await readdir(dir)).filter(f=>f.endsWith('_prestart_cancellation_reassignment.sql'));
+  assert.equal(cancellationFiles.length,1);
+  await db.exec(await readFile(new URL(cancellationFiles[0],dir),'utf8'));
 }
 
 test('PostgreSQL: signup, RLS, locality, qualification, atomic claim and chat',async()=>{
@@ -78,5 +81,14 @@ test('PostgreSQL: bilateral start, provider completion request, client confirmat
     await baseline(db);await applyDeliveries(db);
     const result=await db.exec(await readFile(new URL('../supabase/tests/execution-flow.sql',import.meta.url),'utf8'));
     assert.ok(result.some(x=>x.rows?.some(r=>r.result==='execution-flow: passed')));
+  }finally{await db.close();}
+});
+
+test('PostgreSQL: pre-start cancellation, audit and safe provider reassignment',async()=>{
+  const db=new PGlite();
+  try {
+    await baseline(db);await applyDeliveries(db);
+    const result=await db.exec(await readFile(new URL('../supabase/tests/cancellation-flow.sql',import.meta.url),'utf8'));
+    assert.ok(result.some(x=>x.rows?.some(r=>r.result==='cancellation-flow: passed')));
   }finally{await db.close();}
 });
