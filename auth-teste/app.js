@@ -108,13 +108,19 @@ async function loadAccount(nextUser) {
 }
 async function refresh(ticket=generation) {
   if(!profile||!user||recovery)return;
-  const requests=check(await api.from('service_requests').select('id,profession,description,status,created_at,city,state,scheduled_for').order('created_at',{ascending:false}).limit(100))||[];
+  const [requestResult,unreadResult]=await Promise.all([
+    api.from('service_requests').select('id,profession,description,status,created_at,city,state,scheduled_for').order('created_at',{ascending:false}).limit(100),
+    api.rpc('unread_service_message_counts')
+  ]);
+  const requests=check(requestResult)||[],unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)]));
   if(ticket!==generation)return;
   el('requests').replaceChildren();
   if(!requests.length)el('requests').append(text('p','Nenhum serviço registrado.'));
   for(const r of requests) {
     const card=text('article','','service');
+    card.dataset.request=r.id;
     card.append(text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state),text('p',r.description));
+    const count=unread.get(r.id)||0;if(count)card.append(text('strong',count+' nova'+(count===1?' mensagem':'s mensagens'),'unread-count'));
     if(r.scheduled_for)card.append(text('small','Agendado: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));
     const cancelButton=cancellations.buttonFor(r);if(cancelButton)card.append(cancelButton);
     if(['aceito','em_andamento','concluido'].includes(r.status)) {
@@ -145,6 +151,8 @@ async function openConversation(request) {
   if(selected?.id!==request.id)for(const id of ['message','quoteAmount','quoteDescription'])el(id).value='';
   el('conversation').hidden=true;
   el('inspectionSection').hidden=true;
+  check(await api.rpc('mark_conversation_read',{p_request_id:request.id}));
+  document.querySelector(`[data-request="${CSS.escape(request.id)}"] .unread-count`)?.remove();
   const results=await Promise.all([
     api.from('service_messages').select('id,sender_id,body,created_at').eq('request_id',request.id).order('created_at',{ascending:true}).limit(200),
     api.from('service_quotes').select('id,request_id,provider_id,amount_cents,description,status,created_at').eq('request_id',request.id).order('created_at',{ascending:false}).limit(100),

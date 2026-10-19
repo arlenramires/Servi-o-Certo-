@@ -1,5 +1,5 @@
 // UI contract double only. PostgreSQL/RLS are verified separately in database.test.mjs.
-const state=window.testState={user:null,role:window.testRole||'cliente',requests:[],messages:[],quotes:[],decisions:[],contracts:[],contractDecisions:[],executionEvents:[],ratings:[],cancellations:[],extras:[],disputes:[],inspections:[],calls:[],applications:[]};
+const state=window.testState={user:null,role:window.testRole||'cliente',requests:[],messages:[],messageReads:[],quotes:[],decisions:[],contracts:[],contractDecisions:[],executionEvents:[],ratings:[],cancellations:[],extras:[],disputes:[],inspections:[],calls:[],applications:[]};
 let listener=()=>{};
 const response=data=>Promise.resolve({data,error:null});
 const account={id:'10000000-0000-4000-8000-000000000001',email:'teste@example.invalid'};
@@ -32,6 +32,15 @@ export function createClient(){return {
   from:table=>new Query(table),
   rpc:async(name,args)=>{
     state.calls.push({rpc:name,args});
+    if(name==='unread_service_message_counts') {
+      const rows=state.requests.map(request=>({request_id:request.id,unread_count:state.messages.filter(m=>m.request_id===request.id&&m.sender_id!==account.id&&new Date(m.created_at)>new Date(state.messageReads.find(x=>x.request_id===request.id&&x.user_id===account.id)?.read_through||0)).length})).filter(x=>x.unread_count);
+      return {data:rows,error:null};
+    }
+    if(name==='mark_conversation_read') {
+      const item=state.messageReads.find(x=>x.request_id===args.p_request_id&&x.user_id===account.id),read_through=new Date().toISOString();
+      if(item)item.read_through=read_through;else state.messageReads.push({request_id:args.p_request_id,user_id:account.id,read_through});
+      return {data:true,error:null};
+    }
     if(name==='propose_service_contract') {
       const r=state.requests.find(r=>r.id===args.p_request_id),decision=state.decisions.find(d=>d.request_id===r.id&&d.decision==='aceita'),q=state.quotes.find(q=>q.id===decision.quote_id);
       const version=state.contracts.filter(c=>c.request_id===r.id).length+1,id='contract-'+version;

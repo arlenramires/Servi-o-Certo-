@@ -21,6 +21,24 @@ test('client creates persisted request, safe text chat and logout clears data',a
   await login(page);await expect(page.locator('#providerPanel')).toBeHidden();await expect(page.locator('#adminPanel')).toBeHidden();await page.locator('#serviceProfession').selectOption('Pintor');await page.locator('#description').fill('<img src=x onerror="window.injected=true"> Pintar sala');await page.locator('#createRequest').click();await expect(page.locator('#requests')).toContainText('Pintar sala');expect(await page.evaluate(()=>window.injected)).toBeUndefined();await expect(page.locator('#requests img')).toHaveCount(0);
   await page.evaluate(()=>window.testState.requests[0].status='aceito');await page.locator('#refresh').click();await page.getByRole('button',{name:'Abrir conversa'}).click();await page.locator('#message').fill('Podemos negociar o orçamento?');await page.locator('#sendMessage').click();await expect(page.locator('#messages')).toContainText('Podemos negociar o orçamento?');await page.locator('#logout').click();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#requests')).toBeEmpty();await expect(page.locator('#messages')).toBeEmpty();
 });
+test('incoming messages show an unread count that clears when conversation opens',async({page})=>{
+  await login(page);
+  await page.evaluate(()=>{
+    const now=Date.now();
+    window.testState.requests.push({id:'unread-service',client_id:'10000000-0000-4000-8000-000000000001',provider_id:'provider-id',profession:'Pintor',description:'Pintura com conversa',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(now-3000).toISOString()});
+    window.testState.messages.push(
+      {id:'incoming-1',request_id:'unread-service',sender_id:'provider-id',body:'Primeira mensagem',created_at:new Date(now-2000).toISOString()},
+      {id:'incoming-2',request_id:'unread-service',sender_id:'provider-id',body:'Segunda mensagem',created_at:new Date(now-1000).toISOString()},
+      {id:'own',request_id:'unread-service',sender_id:'10000000-0000-4000-8000-000000000001',body:'Mensagem própria',created_at:new Date(now).toISOString()}
+    );
+  });
+  await page.locator('#refresh').click();
+  const card=page.locator('[data-request="unread-service"]');
+  await expect(card).toContainText('2 novas mensagens');
+  await card.getByRole('button',{name:'Abrir conversa'}).click();
+  await expect(card.locator('.unread-count')).toHaveCount(0);
+  expect(await page.evaluate(()=>window.testState.messageReads)).toEqual([expect.objectContaining({request_id:'unread-service',user_id:'10000000-0000-4000-8000-000000000001'})]);
+});
 test('provider handles an already claimed opportunity without false success',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await expect(page.locator('#clientPanel')).toBeHidden();await expect(page.locator('#providerApply')).toBeHidden();await page.getByRole('button',{name:'Aceitar chamado'}).click();await expect(page.locator('#status')).toContainText('não está mais disponível');
 });

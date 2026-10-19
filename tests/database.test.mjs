@@ -53,6 +53,9 @@ async function applyDeliveries(db) {
   const inspectionFiles=(await readdir(dir)).filter(f=>f.endsWith('_prequote_inspection_proposal.sql'));
   assert.equal(inspectionFiles.length,1);
   await db.exec(await readFile(new URL(inspectionFiles[0],dir),'utf8'));
+  const readFiles=(await readdir(dir)).filter(f=>f.endsWith('_conversation_unread_tracking.sql'));
+  assert.equal(readFiles.length,1);
+  await db.exec(await readFile(new URL(readFiles[0],dir),'utf8'));
 }
 
 test('PostgreSQL: signup, RLS, locality, qualification, atomic claim and chat',async()=>{
@@ -126,5 +129,14 @@ test('PostgreSQL: provider proposes one private pre-quote inspection for client 
     await baseline(db);await applyDeliveries(db);
     const result=await db.exec(await readFile(new URL('../supabase/tests/inspection-flow.sql',import.meta.url),'utf8'));
     assert.ok(result.some(x=>x.rows?.some(r=>r.result==='inspection-flow: passed')));
+  }finally{await db.close();}
+});
+
+test('PostgreSQL: participants count incoming unread messages and mark conversations read',async()=>{
+  const db=new PGlite();
+  try {
+    await baseline(db);await applyDeliveries(db);
+    const result=await db.exec(await readFile(new URL('../supabase/tests/message-read-flow.sql',import.meta.url),'utf8'));
+    assert.ok(result.some(x=>x.rows?.some(r=>r.result==='message-read-flow: passed')));
   }finally{await db.close();}
 });
