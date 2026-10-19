@@ -1,35 +1,28 @@
-# Serviço Certo — primeira versão demonstrativa
+# Serviço Certo
 
-## O que funciona
-- Layout responsivo azul e branco.
-- Categorias de serviços.
-- Criação de pedido, perfil profissional e envio de proposta.
-- Aceite/recusa de proposta, início e conclusão.
-- Proposta de serviço extra com aprovação do cliente.
-- Comprovante demonstrativo não fiscal com impressão/salvar PDF.
-- Painel administrativo local, exportação JSON e limpeza de dados de teste.
+Desenvolvimento da plataforma de contratação de profissionais, inicialmente em Manaus.
 
-## Limitações importantes
-Esta versão usa `localStorage` no navegador. Os dados não são compartilhados entre dispositivos nem usuários. Não há autenticação real, servidor, segurança de produção, pagamentos, divisão de comissões, GPS ao vivo, notificações ou emissão de nota fiscal. O painel Admin não é protegido. Não use dados pessoais, endereços completos ou dados bancários reais.
+## Versões existentes
 
-## Abrir no computador
-1. Extraia o ZIP.
-2. Abra `index.html` no navegador para experimentar os fluxos básicos.
-3. Para testar o modo PWA/service worker, rode um servidor local: no terminal dentro da pasta, execute `python -m http.server 8000` e acesse `http://localhost:8000`.
+- `index.html`: protótipo público original, preservado. Usa dados locais demonstrativos; não é a versão comercial.
+- `auth-teste/`: área de desenvolvimento conectada ao Supabase, na branch `desenvolvimento-login-supabase`. Inclui autenticação, solicitação de prestador, criação de pedidos, busca/aceite e conversa. Contratos e pagamentos ainda não estão disponíveis.
 
-## Publicar grátis para testar no Android
-1. Crie uma conta em https://github.com/ e um repositório chamado `servico-certo`.
-2. Envie os arquivos desta pasta ao repositório.
-3. Em Settings → Pages, selecione publicar a partir da branch `main` e pasta `/ (root)`.
-4. Abra a URL HTTPS publicada no Chrome do Android.
-5. No menu ⋮, escolha “Instalar app” ou “Adicionar à tela inicial”, se disponível.
+A área de desenvolvimento precisa ser servida por HTTP/HTTPS. Para teste local, rode `python3 -m http.server 8000 --bind 127.0.0.1` e abra `http://127.0.0.1:8000/auth-teste/`. Não configure o GitHub Pages público para esta branch como parte dos testes.
 
-A instalação PWA não é um APK e não publica o aplicativo na Play Store. Para publicação comercial será necessário reforçar segurança, criar backend com autenticação e regras de acesso, testar o sistema e atender às políticas da loja.
+## Testes
 
-## Teste rápido
-1. Aba Cliente: preencha seu nome e crie um pedido.
-2. Aba Profissional: preencha nome, especialidade e região.
-3. Envie proposta ao pedido da especialidade correspondente.
-4. Volte à aba Cliente e aceite a proposta.
-5. Confirme início e conclusão; abra o comprovante demonstrativo.
-6. Teste o painel Admin e exportação JSON.
+```sh
+npm ci --ignore-scripts
+npx playwright install --with-deps chromium
+npm run test:all
+```
+
+Consulte [instruções de teste](docs/EXECUTAR-TESTES.md) e [entrega com evidências e pendências](docs/ENTREGA-2026-10-19.md).
+
+O workflow de validação roda no GitHub Actions sem credenciais de produção e sem implantar o aplicativo. Os testes de interface usam uma API controlada; a segurança é testada separadamente com SQL. A validação no viewport Android não equivale a APK nem teste em aparelho físico.
+
+## Condição de lançamento
+
+O aplicativo ainda não está liberado para clientes reais. Faltam homologação com contas confirmadas, administração e validação profissional completas, orçamento/contrato digital, integração financeira sandbox, conclusão/repasse/avaliação de ponta a ponta, LGPD e revisão jurídica/financeira, notificações, empacotamento mobile e configuração de produção.
+
+A chave publishable no navegador é pública. Nunca adicione `service_role`, senhas ou segredos financeiros ao frontend.
