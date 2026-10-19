@@ -1,10 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './supabase-config.js';
+import { parseMoneyToCents, formatCents } from './money.js';
 
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const callbackUrl = new URL(location.pathname, location.origin).href;
-let user = null, profile = null, generation = 0, selected = null;
+let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0;
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
 const message = value => { el('status').textContent = value; };
@@ -22,10 +23,10 @@ async function busy(id, task) {
   try { await task(); } catch(error) { message(friendly(error)); } finally { el(id).disabled=false; }
 }
 function clearWorkspace() {
-  profile=null; selected=null;
+  profile=null; selected=null; ++conversationGeneration;
   for(const id of ['workspace','clientPanel','providerPanel','providerApply','adminPanel','conversation']) el(id).hidden=true;
-  for(const id of ['requests','opportunities','messages','applications','identity','profile']) el(id).replaceChildren();
-  for(const id of ['password','newPassword','message','description','experience']) el(id).value='';
+  for(const id of ['requests','opportunities','messages','quotes','applications','identity','profile']) el(id).replaceChildren();
+  for(const id of ['password','newPassword','message','description','experience','quoteAmount','quoteDescription']) el(id).value='';
 }
 function authView() {
   el('authPanel').hidden=!!user||recovery;
@@ -104,13 +105,50 @@ async function refresh(ticket=generation) {
   if(selected)await openConversation(selected);
 }
 async function openConversation(request) {
-  const ticket=generation;
-  const messages=check(await api.from('service_messages').select('id,sender_id,body,created_at').eq('request_id',request.id).order('created_at',{ascending:true}).limit(200))||[];
-  if(ticket!==generation)return;
+  const ticket=generation, conversationTicket=++conversationGeneration;
+  if(selected?.id!==request.id)for(const id of ['message','quoteAmount','quoteDescription'])el(id).value='';
+  el('conversation').hidden=true;
+  const results=await Promise.all([
+    api.from('service_messages').select('id,sender_id,body,created_at').eq('request_id',request.id).order('created_at',{ascending:true}).limit(200),
+    api.from('service_quotes').select('id,request_id,provider_id,amount_cents,description,status,created_at').eq('request_id',request.id).order('created_at',{ascending:false}).limit(100),
+    api.from('service_quote_decisions').select('quote_id,decision,created_at').eq('request_id',request.id).order('created_at',{ascending:false}).limit(200)
+  ]);
+  if(ticket!==generation||conversationTicket!==conversationGeneration)return;
+  const [messages,quotes,decisions]=results.map(r=>check(r)||[]);
   selected=request;el('conversation').hidden=false;el('selectedRequest').textContent=request.profession+' · '+request.id;
   el('messages').replaceChildren();
   if(!messages.length)el('messages').append(text('p','Inicie a conversa sobre o serviço.'));
   for(const m of messages) { const item=text('article','','chat-message');item.append(text('small',m.sender_id===user.id?'Você':'Outra parte'),text('p',m.body));el('messages').append(item); }
+  renderQuotes(request,quotes,decisions);
+}
+function renderQuotes(request,quotes,decisions) {
+  const accepted=decisions.some(d=>d.decision==='aceita');
+  el('quoteForm').hidden=profile.role!=='prestador'||accepted;
+  el('quoteNotice').textContent=accepted?'Orçamento aceito. Contrato e pagamento ainda precisam ser concluídos nas próximas etapas.':'Registre escopo, prazo e valor antes do contrato. Nenhuma cobrança é realizada nesta etapa.';
+  el('quotes').replaceChildren();
+  if(!quotes.length)el('quotes').append(text('p','Nenhum orçamento enviado.'));
+  for(const quote of quotes) {
+    const decision=decisions.find(d=>d.quote_id===quote.id);
+    const item=text('article','','service');item.dataset.quote=quote.id;
+    item.append(text('h3',formatCents(quote.amount_cents)),text('p',quote.description));
+    item.append(text('small',decision?(decision.decision==='aceita'?'Aceito pelo cliente':'Recusado pelo cliente'):accepted?'Outra proposta já foi aceita':quote.status==='proposta'?'Aguardando decisão do cliente':quote.status));
+    if(profile.role==='cliente'&&!decision&&!accepted&&quote.status==='proposta') {
+      for(const [value,label] of [['aceita','Aceitar orçamento'],['recusada','Recusar orçamento']]) {
+        const button=text('button',label,value==='aceita'?'':'secondary');button.type='button';
+        button.onclick=async()=>{
+          item.querySelectorAll('button').forEach(b=>{b.disabled=true;});
+          try {
+            check(await api.from('service_quote_decisions').insert({quote_id:quote.id,request_id:request.id,decided_by:user.id,decision:value}));
+            if(selected?.id!==request.id)return;
+            await openConversation(request);message(value==='aceita'?'Orçamento aceito e registrado. Ainda não houve pagamento.':'Orçamento recusado. O prestador pode enviar uma nova proposta.');
+          }catch(error){message(error?.code==='23505'?'Já existe uma decisão para este orçamento ou outro já foi aceito. Atualize o serviço.':friendly(error));}
+          finally{item.querySelectorAll('button').forEach(b=>{b.disabled=false;});}
+        };
+        item.append(button);
+      }
+    }
+    el('quotes').append(item);
+  }
 }
 el('action').onchange=()=>{
   const action=el('action').value;
@@ -170,6 +208,17 @@ el('messageForm').onsubmit=event=>{event.preventDefault();busy('sendMessage',asy
   if(!selected||!user)throw new InputError('Selecione um serviço aceito.');
   const body=el('message').value.trim();if(!body)throw new InputError('Escreva uma mensagem.');
   const request=selected;check(await api.from('service_messages').insert({request_id:request.id,sender_id:user.id,body}));el('message').value='';await openConversation(request);
+});};
+el('quoteForm').onsubmit=event=>{event.preventDefault();busy('sendQuote',async()=>{
+  if(!selected||profile?.role!=='prestador')throw new InputError('Selecione um serviço aceito como prestador.');
+  const amount_cents=parseMoneyToCents(el('quoteAmount').value),description=el('quoteDescription').value.trim();
+  if(amount_cents===null)throw new InputError('Informe um valor positivo com até duas casas decimais.');
+  if(description.length<5)throw new InputError('Descreva o escopo e o prazo do orçamento.');
+  const request=selected;
+  check(await api.from('service_quotes').insert({request_id:request.id,provider_id:user.id,amount_cents,description}));
+  el('quoteAmount').value='';el('quoteDescription').value='';
+  if(selected?.id===request.id)await openConversation(request);
+  message('Orçamento enviado para decisão do cliente.');
 });};
 // Do not call Supabase asynchronously while holding its auth-state callback lock.
 api.auth.onAuthStateChange((event,session)=>{

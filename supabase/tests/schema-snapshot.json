@@ -44,6 +44,11 @@
       "relname": "service_requests",
       "relrowsecurity": true,
       "columns": "id uuid default gen_random_uuid() not null,\nclient_id uuid not null,\nprovider_id uuid,\nprofession text not null,\ndescription text not null,\nstatus text default 'aberto'::text not null,\ncreated_at timestamp with time zone default now() not null,\nis_urgent boolean default false not null,\ncity text default 'Manaus'::text not null,\nstate text default 'AM'::text not null,\nlatitude double precision,\nlongitude double precision,\nscheduled_for timestamp with time zone,\nsearch_radius_km integer default 5 not null"
+    },
+    {
+      "relname": "service_quote_decisions",
+      "relrowsecurity": true,
+      "columns": "id uuid default gen_random_uuid() not null,\nquote_id uuid not null,\nrequest_id uuid not null,\ndecided_by uuid not null,\ndecision text not null,\ncreated_at timestamp with time zone default now() not null"
     }
   ],
   "constraints": [
@@ -304,6 +309,42 @@
       "conname": "provider_applications_user_id_fkey",
       "contype": "f",
       "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "tbl": "service_quote_decisions",
+      "conname": "service_quote_decisions_decision_check",
+      "contype": "c",
+      "definition": "CHECK ((decision = ANY (ARRAY['aceita'::text, 'recusada'::text])))"
+    },
+    {
+      "tbl": "service_quote_decisions",
+      "conname": "service_quote_decisions_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tbl": "service_quote_decisions",
+      "conname": "service_quote_decisions_quote_id_key",
+      "contype": "u",
+      "definition": "UNIQUE (quote_id)"
+    },
+    {
+      "tbl": "service_quote_decisions",
+      "conname": "service_quote_decisions_decided_by_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (decided_by) REFERENCES profiles(id)"
+    },
+    {
+      "tbl": "service_quote_decisions",
+      "conname": "service_quote_decisions_quote_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (quote_id) REFERENCES service_quotes(id) ON DELETE CASCADE"
+    },
+    {
+      "tbl": "service_quote_decisions",
+      "conname": "service_quote_decisions_request_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (request_id) REFERENCES service_requests(id) ON DELETE CASCADE"
     }
   ],
   "functions": [
@@ -594,6 +635,30 @@
       ],
       "cmd": "SELECT",
       "qual": "((( SELECT auth.uid() AS uid) = client_id) OR (( SELECT auth.uid() AS uid) = provider_id))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_quote_decisions",
+      "policyname": "client_only_quote_decision",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((decided_by = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1\n   FROM (service_quotes q\n     JOIN service_requests r ON ((r.id = q.request_id)))\n  WHERE ((q.id = service_quote_decisions.quote_id) AND (q.request_id = q.request_id) AND (r.client_id = ( SELECT auth.uid() AS uid)) AND (r.provider_id = q.provider_id) AND (r.status = ANY (ARRAY['aceito'::text, 'em_andamento'::text])) AND (q.status = 'proposta'::text)))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_quote_decisions",
+      "policyname": "quote_decisions_participants_read",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM service_requests r\n  WHERE ((r.id = service_quote_decisions.request_id) AND ((r.client_id = ( SELECT auth.uid() AS uid)) OR (r.provider_id = ( SELECT auth.uid() AS uid))))))",
       "with_check": null
     }
   ],
@@ -1367,6 +1432,60 @@
       "table_name": "profession_compliance_rules",
       "column_name": "verified_by",
       "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "service_quote_decisions",
+      "column_name": "created_at",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_quote_decisions",
+      "column_name": "decided_by",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_quote_decisions",
+      "column_name": "decided_by",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_quote_decisions",
+      "column_name": "decision",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_quote_decisions",
+      "column_name": "decision",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_quote_decisions",
+      "column_name": "id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_quote_decisions",
+      "column_name": "quote_id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_quote_decisions",
+      "column_name": "quote_id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_quote_decisions",
+      "column_name": "request_id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_quote_decisions",
+      "column_name": "request_id",
+      "privilege_type": "SELECT"
     }
+  ],
+  "indexes": [
+    "CREATE UNIQUE INDEX quote_decisions_one_acceptance_per_request ON public.service_quote_decisions USING btree (request_id) WHERE (decision = 'aceita'::text)",
+    "CREATE INDEX quote_decisions_request_idx ON public.service_quote_decisions USING btree (request_id)"
   ]
 }
