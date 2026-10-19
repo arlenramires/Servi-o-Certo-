@@ -20,13 +20,23 @@ select set_config('test.execution_hash',(select content_hash from public.service
 select public.decide_service_contract(current_setting('test.execution_contract')::uuid,current_setting('test.execution_hash'),'aceito');
 do $$begin
  begin perform public.request_service_completion('41000000-0000-4000-8000-000000000001');raise exception 'Completion requested before start';exception when sqlstate 'SE003' then null;end;
+ begin perform public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','a_caminho');raise exception 'Arrival marked before bilateral acceptance';exception when sqlstate 'SE002' then null;end;
 end $$;
 select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001',true);
 do $$begin
  begin perform public.start_service('41000000-0000-4000-8000-000000000001');raise exception 'Client started service';exception when insufficient_privilege then null;end;
+ begin perform public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','a_caminho');raise exception 'Client marked provider arrival';exception when insufficient_privilege then null;end;
 end $$;
 select public.decide_service_contract(current_setting('test.execution_contract')::uuid,current_setting('test.execution_hash'),'aceito');
 select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000002',true);
+do $$begin
+ begin perform public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','localizacao_inventada');raise exception 'Invalid arrival event allowed';exception when sqlstate 'SE008' then null;end;
+ begin perform public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','chegou_local');raise exception 'Arrival skipped on-the-way event';exception when sqlstate 'SE009' then null;end;
+end $$;
+select public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','a_caminho');
+select public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','a_caminho');
+select public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','chegou_local');
+select public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','chegou_local');
 select public.start_service('41000000-0000-4000-8000-000000000001');
 select public.start_service('41000000-0000-4000-8000-000000000001');
 do $$begin
@@ -41,7 +51,7 @@ select public.confirm_service_completion('41000000-0000-4000-8000-000000000001')
 select public.confirm_service_completion('41000000-0000-4000-8000-000000000001');
 do $$begin
  if (select status from public.service_requests where id='41000000-0000-4000-8000-000000000001')<>'concluido' then raise exception 'Client confirmation did not conclude';end if;
- if (select count(*) from public.service_execution_events)<>3 then raise exception 'Execution history incomplete';end if;
+ if (select count(*) from public.service_execution_events)<>5 then raise exception 'Execution history incomplete';end if;
  begin update public.service_execution_events set event_type='iniciado';raise exception 'Event history editable';exception when insufficient_privilege then null;end;
 end $$;
 select set_config('test.client_rating',public.rate_completed_service('41000000-0000-4000-8000-000000000001',5,'TEST Excelente serviço')::text,true);

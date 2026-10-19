@@ -78,6 +78,9 @@ export function createClient(){return {
       if(!state.cancellations.some(c=>c.request_id===request.id))state.cancellations.push({request_id:request.id,actor_id:account.id,actor_role:state.role,reason:args.p_reason,outcome:replacement?'reencaminhado_prestador':'cancelado_cliente',replacement_request_id:replacement,fee_status:'nao_avaliada'});
       return {data:replacement,error:null};
     }
+    if(name==='mark_provider_arrival'){
+      if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type===args.p_event))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:args.p_event,created_at:new Date().toISOString()});return {data:true,error:null};
+    }
     if(name==='start_service'){request.status='em_andamento';if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='iniciado'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'iniciado',created_at:new Date().toISOString()});return {data:true,error:null};}
     if(name==='request_service_completion'){if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='conclusao_solicitada'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});return {data:true,error:null};}
     if(name==='confirm_service_completion'){request.status='concluido';if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='conclusao_confirmada'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'conclusao_confirmada',created_at:new Date().toISOString()});return {data:true,error:null};}
