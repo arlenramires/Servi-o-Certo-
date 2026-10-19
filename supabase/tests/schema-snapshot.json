@@ -1,0 +1,1372 @@
+{
+  "tables": [
+    {
+      "relname": "profession_compliance_rules",
+      "relrowsecurity": true,
+      "columns": "profession_id bigint not null,\nclassification text default 'unreviewed'::text not null,\nlegal_basis text,\nregulator text,\nrequires_degree boolean default false not null,\nrequires_training boolean default false not null,\nrequires_license boolean default false not null,\nrequires_portfolio boolean default true not null,\nreviewed_at timestamp with time zone,\nverified_by uuid,\nupdated_at timestamp with time zone default now() not null"
+    },
+    {
+      "relname": "professions",
+      "relrowsecurity": true,
+      "columns": "id bigint generated always as identity not null,\nname text not null,\nnormalized_name text generated always as (lower(btrim(name))) stored,\nregulated boolean default false not null,\ncreated_by uuid,\ncreated_at timestamp with time zone default now() not null"
+    },
+    {
+      "relname": "profiles",
+      "relrowsecurity": true,
+      "columns": "id uuid not null,\nfull_name text,\nphone text,\nrole text default 'cliente'::text not null,\ncreated_at timestamp with time zone default now() not null,\nis_available boolean default false not null"
+    },
+    {
+      "relname": "provider_applications",
+      "relrowsecurity": true,
+      "columns": "id uuid default gen_random_uuid() not null,\nuser_id uuid not null,\nprofession text not null,\nexperience_summary text,\nstatus text default 'pendente'::text not null,\ncreated_at timestamp with time zone default now() not null"
+    },
+    {
+      "relname": "provider_professions",
+      "relrowsecurity": true,
+      "columns": "provider_id uuid not null,\nprofession_id bigint not null,\nverification_status text default 'pendente'::text not null,\ncreated_at timestamp with time zone default now() not null"
+    },
+    {
+      "relname": "provider_service_areas",
+      "relrowsecurity": true,
+      "columns": "provider_id uuid not null,\ncity text default 'Manaus'::text not null,\nstate text default 'AM'::text not null,\nlatitude double precision,\nlongitude double precision,\nservice_radius_km integer default 10 not null,\nupdated_at timestamp with time zone default now() not null"
+    },
+    {
+      "relname": "service_messages",
+      "relrowsecurity": true,
+      "columns": "id uuid default gen_random_uuid() not null,\nrequest_id uuid not null,\nsender_id uuid not null,\nbody text not null,\ncreated_at timestamp with time zone default now() not null"
+    },
+    {
+      "relname": "service_quotes",
+      "relrowsecurity": true,
+      "columns": "id uuid default gen_random_uuid() not null,\nrequest_id uuid not null,\nprovider_id uuid not null,\namount_cents bigint not null,\ndescription text not null,\nstatus text default 'proposta'::text not null,\ncreated_at timestamp with time zone default now() not null"
+    },
+    {
+      "relname": "service_requests",
+      "relrowsecurity": true,
+      "columns": "id uuid default gen_random_uuid() not null,\nclient_id uuid not null,\nprovider_id uuid,\nprofession text not null,\ndescription text not null,\nstatus text default 'aberto'::text not null,\ncreated_at timestamp with time zone default now() not null,\nis_urgent boolean default false not null,\ncity text default 'Manaus'::text not null,\nstate text default 'AM'::text not null,\nlatitude double precision,\nlongitude double precision,\nscheduled_for timestamp with time zone,\nsearch_radius_km integer default 5 not null"
+    }
+  ],
+  "constraints": [
+    {
+      "tbl": "service_quotes",
+      "conname": "service_quotes_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tbl": "service_requests",
+      "conname": "service_requests_status_check",
+      "contype": "c",
+      "definition": "CHECK ((status = ANY (ARRAY['aberto'::text, 'aceito'::text, 'em_andamento'::text, 'concluido'::text, 'cancelado'::text])))"
+    },
+    {
+      "tbl": "profiles",
+      "conname": "profiles_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tbl": "service_quotes",
+      "conname": "service_quotes_status_check",
+      "contype": "c",
+      "definition": "CHECK ((status = ANY (ARRAY['proposta'::text, 'aceita'::text, 'recusada'::text, 'cancelada'::text])))"
+    },
+    {
+      "tbl": "service_messages",
+      "conname": "service_messages_body_check",
+      "contype": "c",
+      "definition": "CHECK (((char_length(btrim(body)) >= 1) AND (char_length(btrim(body)) <= 4000)))"
+    },
+    {
+      "tbl": "service_messages",
+      "conname": "service_messages_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tbl": "professions",
+      "conname": "professions_name_check",
+      "contype": "c",
+      "definition": "CHECK (((char_length(TRIM(BOTH FROM name)) >= 3) AND (char_length(TRIM(BOTH FROM name)) <= 100)))"
+    },
+    {
+      "tbl": "professions",
+      "conname": "professions_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tbl": "provider_applications",
+      "conname": "provider_applications_experience_summary_check",
+      "contype": "c",
+      "definition": "CHECK (((experience_summary IS NULL) OR (char_length(experience_summary) <= 1500)))"
+    },
+    {
+      "tbl": "provider_applications",
+      "conname": "provider_applications_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tbl": "provider_applications",
+      "conname": "provider_applications_profession_check",
+      "contype": "c",
+      "definition": "CHECK (((char_length(btrim(profession)) >= 2) AND (char_length(btrim(profession)) <= 100)))"
+    },
+    {
+      "tbl": "provider_applications",
+      "conname": "provider_applications_status_check",
+      "contype": "c",
+      "definition": "CHECK ((status = ANY (ARRAY['pendente'::text, 'em_analise'::text, 'aprovado'::text, 'rejeitado'::text])))"
+    },
+    {
+      "tbl": "professions",
+      "conname": "professions_unique_normalized",
+      "contype": "u",
+      "definition": "UNIQUE (normalized_name)"
+    },
+    {
+      "tbl": "provider_applications",
+      "conname": "provider_applications_user_id_profession_key",
+      "contype": "u",
+      "definition": "UNIQUE (user_id, profession)"
+    },
+    {
+      "tbl": "provider_professions",
+      "conname": "provider_professions_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (provider_id, profession_id)"
+    },
+    {
+      "tbl": "service_requests",
+      "conname": "service_requests_latitude_check",
+      "contype": "c",
+      "definition": "CHECK (((latitude >= ('-90'::integer)::double precision) AND (latitude <= (90)::double precision)))"
+    },
+    {
+      "tbl": "service_requests",
+      "conname": "service_requests_longitude_check",
+      "contype": "c",
+      "definition": "CHECK (((longitude >= ('-180'::integer)::double precision) AND (longitude <= (180)::double precision)))"
+    },
+    {
+      "tbl": "provider_professions",
+      "conname": "provider_professions_verification_status_check",
+      "contype": "c",
+      "definition": "CHECK ((verification_status = ANY (ARRAY['pendente'::text, 'verificado'::text, 'rejeitado'::text])))"
+    },
+    {
+      "tbl": "profession_compliance_rules",
+      "conname": "profession_compliance_rules_classification_check",
+      "contype": "c",
+      "definition": "CHECK ((classification = ANY (ARRAY['unreviewed'::text, 'portfolio'::text, 'training'::text, 'regulated'::text])))"
+    },
+    {
+      "tbl": "profession_compliance_rules",
+      "conname": "profession_compliance_rules_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (profession_id)"
+    },
+    {
+      "tbl": "service_requests",
+      "conname": "service_requests_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "tbl": "profiles",
+      "conname": "profiles_role_check",
+      "contype": "c",
+      "definition": "CHECK ((role = ANY (ARRAY['cliente'::text, 'prestador'::text, 'administrador'::text])))"
+    },
+    {
+      "tbl": "provider_service_areas",
+      "conname": "provider_service_areas_latitude_check",
+      "contype": "c",
+      "definition": "CHECK (((latitude >= ('-90'::integer)::double precision) AND (latitude <= (90)::double precision)))"
+    },
+    {
+      "tbl": "provider_service_areas",
+      "conname": "provider_service_areas_longitude_check",
+      "contype": "c",
+      "definition": "CHECK (((longitude >= ('-180'::integer)::double precision) AND (longitude <= (180)::double precision)))"
+    },
+    {
+      "tbl": "provider_service_areas",
+      "conname": "provider_service_areas_pkey",
+      "contype": "p",
+      "definition": "PRIMARY KEY (provider_id)"
+    },
+    {
+      "tbl": "service_requests",
+      "conname": "service_requests_search_radius_km_check",
+      "contype": "c",
+      "definition": "CHECK (((search_radius_km >= 1) AND (search_radius_km <= 100)))"
+    },
+    {
+      "tbl": "provider_service_areas",
+      "conname": "provider_service_areas_service_radius_km_check",
+      "contype": "c",
+      "definition": "CHECK (((service_radius_km >= 1) AND (service_radius_km <= 100)))"
+    },
+    {
+      "tbl": "service_quotes",
+      "conname": "service_quotes_amount_cents_check",
+      "contype": "c",
+      "definition": "CHECK ((amount_cents >= 0))"
+    },
+    {
+      "tbl": "service_quotes",
+      "conname": "service_quotes_description_check",
+      "contype": "c",
+      "definition": "CHECK (((char_length(btrim(description)) >= 5) AND (char_length(btrim(description)) <= 3000)))"
+    },
+    {
+      "tbl": "profession_compliance_rules",
+      "conname": "profession_compliance_rules_verified_by_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (verified_by) REFERENCES auth.users(id)"
+    },
+    {
+      "tbl": "service_requests",
+      "conname": "service_requests_client_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (client_id) REFERENCES auth.users(id)"
+    },
+    {
+      "tbl": "service_requests",
+      "conname": "service_requests_provider_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (provider_id) REFERENCES auth.users(id)"
+    },
+    {
+      "tbl": "professions",
+      "conname": "professions_created_by_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (created_by) REFERENCES auth.users(id)"
+    },
+    {
+      "tbl": "provider_professions",
+      "conname": "provider_professions_profession_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (profession_id) REFERENCES professions(id)"
+    },
+    {
+      "tbl": "provider_professions",
+      "conname": "provider_professions_provider_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (provider_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "tbl": "profession_compliance_rules",
+      "conname": "profession_compliance_rules_profession_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (profession_id) REFERENCES professions(id) ON DELETE CASCADE"
+    },
+    {
+      "tbl": "profiles",
+      "conname": "profiles_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "tbl": "provider_service_areas",
+      "conname": "provider_service_areas_provider_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (provider_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "tbl": "service_quotes",
+      "conname": "service_quotes_provider_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (provider_id) REFERENCES profiles(id)"
+    },
+    {
+      "tbl": "service_quotes",
+      "conname": "service_quotes_request_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (request_id) REFERENCES service_requests(id) ON DELETE CASCADE"
+    },
+    {
+      "tbl": "service_messages",
+      "conname": "service_messages_request_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (request_id) REFERENCES service_requests(id) ON DELETE CASCADE"
+    },
+    {
+      "tbl": "service_messages",
+      "conname": "service_messages_sender_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (sender_id) REFERENCES profiles(id)"
+    },
+    {
+      "tbl": "provider_applications",
+      "conname": "provider_applications_user_id_fkey",
+      "contype": "f",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    }
+  ],
+  "functions": [
+    "CREATE OR REPLACE FUNCTION public.accept_request(p_request_id uuid)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare claimed boolean;\nbegin\nif not exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='prestador' and p.is_available) then\nreturn false;\nend if;\nupdate public.service_requests r\nset provider_id=(select auth.uid()),status='aceito'\nwhere r.id=p_request_id and r.status='aberto' and r.provider_id is null\nand exists (\nselect 1 from public.professions prof\njoin public.provider_professions pp on pp.profession_id=prof.id and pp.provider_id=(select auth.uid()) and pp.verification_status='verificado'\njoin public.profession_compliance_rules cr on cr.profession_id=prof.id and cr.classification<>'unreviewed' and cr.reviewed_at is not null\nwhere prof.normalized_name=lower(btrim(r.profession))\n)\nreturning true into claimed;\nreturn coalesce(claimed,false);\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.available_requests()\n RETURNS TABLE(request_id uuid, requested_profession text, requested_at timestamp with time zone)\n LANGUAGE sql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nselect r.id,r.profession,r.created_at\nfrom public.service_requests r\njoin public.professions prof on prof.normalized_name=lower(btrim(r.profession))\njoin public.provider_professions pp on pp.profession_id=prof.id and pp.provider_id=(select auth.uid()) and pp.verification_status='verificado'\njoin public.profession_compliance_rules cr on cr.profession_id=prof.id and cr.classification<>'unreviewed' and cr.reviewed_at is not null\nwhere r.status='aberto' and r.provider_id is null\nand exists(select 1 from public.profiles p where p.id=(select auth.uid()) and p.role='prestador' and p.is_available)\norder by r.is_urgent desc,r.created_at asc limit 30\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.create_profession_compliance_default()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nbegin\n insert into public.profession_compliance_rules(profession_id,classification)\n values(new.id,'unreviewed')\n on conflict(profession_id) do nothing;\n return new;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.handle_new_service_certo_user()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nbegin\n  insert into public.profiles (id, full_name, role, is_available)\n  values (new.id, left(nullif(btrim(coalesce(new.raw_user_meta_data->>'full_name','')), ''), 150), 'cliente', false)\n  on conflict (id) do nothing;\n  return new;\nend;\n$function$\n",
+    "CREATE OR REPLACE FUNCTION public.handle_new_user()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\nbegin\n  insert into public.profiles (id, full_name, role)\n  values (\n    new.id,\n    left(coalesce(new.raw_user_meta_data ->> 'full_name',''),150),\n    case when new.raw_user_meta_data ->> 'account_type' = 'prestador' then 'prestador' else 'cliente' end\n  );\n  return new;\nend;\n$function$\n"
+  ],
+  "triggers": [
+    "CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user()",
+    "CREATE TRIGGER on_service_certo_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_service_certo_user()",
+    "CREATE TRIGGER trg_profession_compliance_default AFTER INSERT ON public.professions FOR EACH ROW EXECUTE FUNCTION create_profession_compliance_default()"
+  ],
+  "policies": [
+    {
+      "schemaname": "public",
+      "tablename": "profession_compliance_rules",
+      "policyname": "admin_updates_profession_compliance",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'administrador'::text))))",
+      "with_check": "((EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'administrador'::text)))) AND ((reviewed_at IS NULL) OR ((legal_basis IS NOT NULL) AND (length(btrim(legal_basis)) >= 10) AND (verified_by = ( SELECT auth.uid() AS uid)))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profession_compliance_rules",
+      "policyname": "read_compliance_rules",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "professions",
+      "policyname": "professions_add_by_provider",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((created_by = ( SELECT auth.uid() AS uid)) AND (regulated = false) AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'prestador'::text)))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "professions",
+      "policyname": "professions_read",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "anon",
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "profile_read_self",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(( SELECT auth.uid() AS uid) = id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "profile_update_self",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(( SELECT auth.uid() AS uid) = id)",
+      "with_check": "(( SELECT auth.uid() AS uid) = id)"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "service_certo_profile_read_self",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(( SELECT auth.uid() AS uid) = id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "provider_applications",
+      "policyname": "provider_applications_insert_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "(user_id = ( SELECT auth.uid() AS uid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "provider_applications",
+      "policyname": "provider_applications_select_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(user_id = ( SELECT auth.uid() AS uid))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "provider_professions",
+      "policyname": "admin_reads_provider_professions",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'administrador'::text))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "provider_professions",
+      "policyname": "admin_verifies_provider_professions",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'administrador'::text))))",
+      "with_check": "(EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'administrador'::text))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "provider_professions",
+      "policyname": "provider_professions_add_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((provider_id = ( SELECT auth.uid() AS uid)) AND (verification_status = 'pendente'::text) AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'prestador'::text)))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "provider_professions",
+      "policyname": "provider_professions_read_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(provider_id = ( SELECT auth.uid() AS uid))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "provider_professions",
+      "policyname": "provider_professions_remove_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "DELETE",
+      "qual": "(provider_id = ( SELECT auth.uid() AS uid))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "provider_service_areas",
+      "policyname": "provider_area_insert_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((provider_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1\n   FROM profiles p\n  WHERE ((p.id = ( SELECT auth.uid() AS uid)) AND (p.role = 'prestador'::text)))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "provider_service_areas",
+      "policyname": "provider_area_read_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(provider_id = ( SELECT auth.uid() AS uid))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "provider_service_areas",
+      "policyname": "provider_area_update_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "UPDATE",
+      "qual": "(provider_id = ( SELECT auth.uid() AS uid))",
+      "with_check": "(provider_id = ( SELECT auth.uid() AS uid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_messages",
+      "policyname": "messages_participants_read",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM service_requests r\n  WHERE ((r.id = service_messages.request_id) AND ((r.client_id = ( SELECT auth.uid() AS uid)) OR (r.provider_id = ( SELECT auth.uid() AS uid))))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_messages",
+      "policyname": "messages_participants_send",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((sender_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1\n   FROM service_requests r\n  WHERE ((r.id = service_messages.request_id) AND ((r.client_id = ( SELECT auth.uid() AS uid)) OR (r.provider_id = ( SELECT auth.uid() AS uid))) AND (r.status = ANY (ARRAY['aceito'::text, 'em_andamento'::text]))))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_quotes",
+      "policyname": "quotes_participants_read",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM service_requests r\n  WHERE ((r.id = service_quotes.request_id) AND ((r.client_id = ( SELECT auth.uid() AS uid)) OR (r.provider_id = ( SELECT auth.uid() AS uid))))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_quotes",
+      "policyname": "quotes_provider_submit",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((provider_id = ( SELECT auth.uid() AS uid)) AND (EXISTS ( SELECT 1\n   FROM service_requests r\n  WHERE ((r.id = service_quotes.request_id) AND (r.provider_id = ( SELECT auth.uid() AS uid)) AND (r.status = ANY (ARRAY['aceito'::text, 'em_andamento'::text]))))))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_requests",
+      "policyname": "request_insert_own",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((( SELECT auth.uid() AS uid) = client_id) AND (provider_id IS NULL) AND (status = 'aberto'::text))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "service_requests",
+      "policyname": "request_read_participants",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "((( SELECT auth.uid() AS uid) = client_id) OR (( SELECT auth.uid() AS uid) = provider_id))",
+      "with_check": null
+    }
+  ],
+  "grants": [
+    {
+      "table_name": "service_quotes",
+      "column_name": "amount_cents",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_quotes",
+      "column_name": "amount_cents",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_messages",
+      "column_name": "body",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_messages",
+      "column_name": "body",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "city",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "city",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "city",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "city",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "city",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "city",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "city",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "classification",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "classification",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "client_id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "client_id",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "client_id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "client_id",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "professions",
+      "column_name": "created_at",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "created_at",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "created_at",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_applications",
+      "column_name": "created_at",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_professions",
+      "column_name": "created_at",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_messages",
+      "column_name": "created_at",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_quotes",
+      "column_name": "created_at",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "created_at",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "created_at",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "created_at",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "created_at",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "professions",
+      "column_name": "created_by",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "professions",
+      "column_name": "created_by",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_quotes",
+      "column_name": "description",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_quotes",
+      "column_name": "description",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "description",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "description",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "description",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "description",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "provider_applications",
+      "column_name": "experience_summary",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "provider_applications",
+      "column_name": "experience_summary",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "full_name",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "full_name",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "full_name",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "professions",
+      "column_name": "id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "id",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_applications",
+      "column_name": "id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_messages",
+      "column_name": "id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_quotes",
+      "column_name": "id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "id",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "id",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "is_available",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "is_available",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "is_urgent",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "is_urgent",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "is_urgent",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "is_urgent",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "latitude",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "latitude",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "latitude",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "latitude",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "latitude",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "latitude",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "latitude",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "legal_basis",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "legal_basis",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "longitude",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "longitude",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "longitude",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "longitude",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "longitude",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "longitude",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "longitude",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "professions",
+      "column_name": "name",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "professions",
+      "column_name": "name",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "professions",
+      "column_name": "normalized_name",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "phone",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "phone",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "phone",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "provider_applications",
+      "column_name": "profession",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "provider_applications",
+      "column_name": "profession",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "profession",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "profession",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "profession",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "profession",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "profession_id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_professions",
+      "column_name": "profession_id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "provider_professions",
+      "column_name": "profession_id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_professions",
+      "column_name": "provider_id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "provider_professions",
+      "column_name": "provider_id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "provider_id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "provider_id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_quotes",
+      "column_name": "provider_id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_quotes",
+      "column_name": "provider_id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "provider_id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "provider_id",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "provider_id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "provider_id",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "professions",
+      "column_name": "regulated",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "regulator",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "regulator",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "service_messages",
+      "column_name": "request_id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_messages",
+      "column_name": "request_id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_quotes",
+      "column_name": "request_id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_quotes",
+      "column_name": "request_id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "requires_degree",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "requires_degree",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "requires_license",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "requires_license",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "requires_portfolio",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "requires_portfolio",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "requires_training",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "requires_training",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "reviewed_at",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "reviewed_at",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "role",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "profiles",
+      "column_name": "role",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "scheduled_for",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "scheduled_for",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "scheduled_for",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "scheduled_for",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "search_radius_km",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "search_radius_km",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "search_radius_km",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "search_radius_km",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "service_messages",
+      "column_name": "sender_id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_messages",
+      "column_name": "sender_id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "service_radius_km",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "service_radius_km",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "service_radius_km",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "state",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "state",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "state",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "state",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "state",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "state",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "state",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "provider_applications",
+      "column_name": "status",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_quotes",
+      "column_name": "status",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "status",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "status",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "status",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "service_requests",
+      "column_name": "status",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "updated_at",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "updated_at",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "updated_at",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "updated_at",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_service_areas",
+      "column_name": "updated_at",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "provider_applications",
+      "column_name": "user_id",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "provider_applications",
+      "column_name": "user_id",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_professions",
+      "column_name": "verification_status",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "provider_professions",
+      "column_name": "verification_status",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "verified_by",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profession_compliance_rules",
+      "column_name": "verified_by",
+      "privilege_type": "UPDATE"
+    }
+  ]
+}
