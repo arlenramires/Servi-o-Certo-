@@ -15,6 +15,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 9. [Mensagens não lidas por serviço](ENTREGA-2026-10-19-MENSAGENS-NAO-LIDAS.md). Cliente e prestador recebem contagem privada das mensagens da outra parte; abrir a conversa registra a leitura. Push e e-mail não fazem parte desta entrega.
 10. [Comprovante exportável do acordo](ENTREGA-2026-10-19-COMPROVANTE-ACORDO.md). Após o aceite bilateral, as partes podem baixar a versão, o hash e os dois registros de aceite em JSON. O arquivo não comprova pagamento nem substitui assinatura certificada.
 11. [Status de deslocamento do prestador](ENTREGA-2026-10-19-DESLOCAMENTO.md). Prestador registra “a caminho” e “cheguei ao local” em ordem protegida; cliente acompanha o estado dentro do serviço. GPS e ETA não fazem parte desta entrega.
+12. [Chegada obrigatória antes do início](ENTREGA-2026-10-19-INICIO-APOS-CHEGADA.md). O botão e a operação protegida de início só são liberados depois que o prestador registra a chegada ao local.
 
 ## Próximas entregas prioritárias
 

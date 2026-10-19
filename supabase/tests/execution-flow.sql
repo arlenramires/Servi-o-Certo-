@@ -30,6 +30,7 @@ end $$;
 select public.decide_service_contract(current_setting('test.execution_contract')::uuid,current_setting('test.execution_hash'),'aceito');
 select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000002',true);
 do $$begin
+ begin perform public.start_service('41000000-0000-4000-8000-000000000001');raise exception 'Service started before provider arrival';exception when sqlstate 'SE010' then null;end;
  begin perform public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','localizacao_inventada');raise exception 'Invalid arrival event allowed';exception when sqlstate 'SE008' then null;end;
  begin perform public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','chegou_local');raise exception 'Arrival skipped on-the-way event';exception when sqlstate 'SE009' then null;end;
 end $$;

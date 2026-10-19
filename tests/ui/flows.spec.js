@@ -141,9 +141,11 @@ test('a revised contract requires fresh acceptance and preserves refused version
 test('provider starts a bilaterally accepted service and requests completion',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
   await page.evaluate(()=>{const c=window.testState.contracts[0];window.testState.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await page.getByRole('button',{name:'Iniciar serviço'}).click();await expect(page.locator('#execution')).toContainText('Serviço em andamento');
+  await page.locator('#refresh').click();await expect(page.getByRole('button',{name:'Iniciar serviço'})).toHaveCount(0);
+  await page.getByRole('button',{name:'Estou a caminho'}).click();await expect(page.getByRole('button',{name:'Iniciar serviço'})).toHaveCount(0);
+  await page.getByRole('button',{name:'Cheguei ao local'}).click();await page.getByRole('button',{name:'Iniciar serviço'}).click();await expect(page.locator('#execution')).toContainText('Serviço em andamento');
   await page.getByRole('button',{name:'Solicitar confirmação de conclusão'}).click();await expect(page.locator('#execution')).toContainText('Aguardando confirmação do cliente');
-  expect(await page.evaluate(()=>window.testState.executionEvents.map(e=>e.event_type))).toEqual(['iniciado','conclusao_solicitada']);
+  expect(await page.evaluate(()=>window.testState.executionEvents.map(e=>e.event_type))).toEqual(['a_caminho','chegou_local','iniciado','conclusao_solicitada']);
 });
 test('provider reports ordered on-the-way and arrival statuses to the client',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
