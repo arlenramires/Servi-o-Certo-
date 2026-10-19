@@ -4,6 +4,7 @@ import { parseMoneyToCents, formatCents } from './money.js';
 import { createContractPanel } from './contracts.js';
 import { createExecutionPanel } from './execution.js';
 import { createCancellationPanel } from './cancellation.js';
+import { createExtrasPanel } from './extras.js';
 
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
@@ -28,12 +29,15 @@ function friendly(error) {
     SE005:'A avaliação só é liberada após a conclusão.',SE006:'Confira a nota e o comentário.',
     SE007:'Sua avaliação já foi registrada e não pode ser alterada.' })[error?.code]
     || ({CN001:'Explique o motivo com pelo menos 10 caracteres.',CN002:'Este serviço não pode ser cancelado por este fluxo.'})[error?.code]
+    || ({EX001:'Confira a descrição, o valor e a decisão do serviço extra.',EX002:'Este serviço não aceita extras nesta etapa.',
+      EX003:'O extra pendente precisa ser decidido e decisões anteriores não podem ser alteradas.',EX004:'Aguarde o cliente decidir o serviço extra antes de solicitar a conclusão.'})[error?.code]
     || (error instanceof InputError ? error.message : 'Não foi possível concluir. Verifique sua conexão e tente novamente.');
 }
 class InputError extends Error {}
 const contracts=createContractPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly});
 const execution=createExecutionPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 const cancellations=createCancellationPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
+const extras=createExtrasPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 function text(tag, value, className) { const node=document.createElement(tag); node.textContent=value; if(className)node.className=className; return node; }
 async function busy(id, task) {
   el(id).disabled=true;
@@ -44,6 +48,7 @@ function clearWorkspace() {
   contracts.reset();
   execution.reset();
   cancellations.reset();
+  extras.reset();
   for(const id of ['workspace','clientPanel','providerPanel','providerApply','adminPanel','conversation']) el(id).hidden=true;
   for(const id of ['requests','opportunities','messages','quotes','applications','identity','profile']) el(id).replaceChildren();
   for(const id of ['password','newPassword','message','description','experience','quoteAmount','quoteDescription']) el(id).value='';
@@ -144,6 +149,7 @@ async function openConversation(request) {
   const acceptedDecision=decisions.find(d=>d.decision==='aceita');
   await contracts.load(request,quotes.find(q=>q.id===acceptedDecision?.quote_id)||null);
   await execution.load(request);
+  await extras.load(request);
 }
 function renderQuotes(request,quotes,decisions) {
   const accepted=decisions.some(d=>d.decision==='aceita');

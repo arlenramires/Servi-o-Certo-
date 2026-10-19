@@ -9,13 +9,14 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 3. [Acordo versionado com aceite das partes](ENTREGA-2026-10-19-CONTRATOS.md). Código integrado à conversa do serviço; revisão jurídica, identidade e homologação comercial pendentes.
 4. [Execução, conclusão confirmada e avaliações](ENTREGA-2026-10-19-EXECUCAO.md). Migração preparada e validada somente no PostgreSQL isolado; verificar commit e CI antes da próxima alteração.
 5. [Cancelamento antes do início e reencaminhamento seguro](ENTREGA-2026-10-19-CANCELAMENTOS.md). Cliente pode cancelar pedido aberto/aceito; cancelamento do prestador antes do início cria novo chamado sem permitir que ele o aceite novamente. Migração preparada e validada somente no PostgreSQL isolado.
+6. [Serviços extras com decisão do cliente](ENTREGA-2026-10-19-EXTRAS.md). Prestador registra novo escopo e valor durante a execução; cliente aceita ou recusa de forma imutável antes da conclusão. Nenhuma cobrança é criada.
 
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico, homologar com contas confirmadas e avaliar comprovante exportável. Não tratar o hash ou aceite implementado como assinatura certificada ou validação jurídica.
 - Administração de análises com trilha de auditoria, documentos privados e provisionamento seguro do proprietário. Banco sem conta do proprietário confirmada; não escolher administrador por metadados de cadastro.
 - Homologar execução, conclusão e avaliações com contas confirmadas no ambiente conectado. O fluxo não movimenta nem comprova pagamento ou repasse.
-- Vistorias, extras e disputas com estados controlados e provas; homologar também o cancelamento/reencaminhamento com contas confirmadas no ambiente conectado.
+- Vistorias e disputas com estados controlados e provas; homologar também extras e cancelamento/reencaminhamento com contas confirmadas no ambiente conectado.
 - Gateway sandbox: definir provedor e obter credenciais de teste por meio seguro; checkout, webhooks idempotentes, split, garantias, estornos e reconciliação dependem dessa integração.
 - Homologação hospedada, e-mails reais, notificações, localização/ETA, LGPD, empacotamento Android e preparação de produção.
 

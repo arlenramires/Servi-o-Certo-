@@ -123,3 +123,18 @@ test('client confirms completion and submits one immutable rating without paymen
   await page.locator('#ratingScore').selectOption('5');await page.locator('#ratingComment').fill('Serviço bem executado');await page.locator('#saveRating').click();await expect(page.locator('#ratings')).toContainText('5/5');await expect(page.locator('#ratingForm')).toBeHidden();
   expect(await page.evaluate(()=>window.testState.ratings.map(r=>({score:r.score,comment:r.comment})))).toEqual([{score:5,comment:'Serviço bem executado'}]);
 });
+
+test('provider proposes an exact-cent service extra without creating a charge',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
+  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(r=>r.id==='contract-service');r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()});});
+  await page.locator('#refresh').click();await page.locator('#extraAmount').fill('25,50');await page.locator('#extraDescription').fill('Pintura adicional da parede externa');await page.locator('#proposeExtra').click();
+  await expect(page.locator('#status')).toContainText('Nenhuma cobrança foi criada');await expect(page.locator('#extras')).toContainText('R$ 25,50');await expect(page.locator('#extraForm')).toBeHidden();
+  expect(await page.evaluate(()=>window.testState.extras.map(x=>({amount_cents:x.amount_cents,description:x.description,status:x.status})))).toEqual([{amount_cents:2550,description:'Pintura adicional da parede externa',status:'proposto'}]);
+});
+
+test('client accepts a pending extra explicitly and keeps the decision visible',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});
+  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(r=>r.id==='contract-service');r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()});s.extras.push({id:'extra-pending',request_id:r.id,provider_id:r.provider_id,description:'Instalação adicional de acabamento',amount_cents:3000,status:'proposto',decided_by:null,created_at:new Date().toISOString(),decided_at:null});});
+  await page.locator('#refresh').click();await page.getByRole('button',{name:'Aceitar serviço extra'}).click();await expect(page.locator('#status')).toContainText('não realizou cobrança');await expect(page.locator('[data-extra="extra-pending"]')).toContainText('Aceito pelo cliente');await expect(page.getByRole('button',{name:'Recusar serviço extra'})).toHaveCount(0);
+  expect(await page.evaluate(()=>window.testState.extras[0].status)).toBe('aceito');
+});
