@@ -52,11 +52,38 @@ test('client rejects one proposal then accepts another and sees immutable histor
   await page.locator('#logout').click();await expect(page.locator('#quotes')).toBeEmpty();
 });
 
-test('accepted quote generates versioned contract and records client acceptance',async({page})=>{
-  await login(page);await seedAcceptedService(page);
-  await page.evaluate(()=>{window.testState.quotes.push({id:'accepted-quote',request_id:'accepted-service',provider_id:'provider-id',amount_cents:45000,description:'Pintura completa em três dias',status:'proposta',created_at:new Date().toISOString()});window.testState.decisions.push({quote_id:'accepted-quote',request_id:'accepted-service',decision:'aceita',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await page.getByRole('button',{name:'Gerar contrato do orçamento aceito'}).click();
-  await expect(page.locator('#contract')).toContainText('Contrato v1');await expect(page.locator('#contract')).toContainText('450,00');await expect(page.locator('#contract')).toContainText('Pintura completa em três dias');
-  await page.getByRole('button',{name:'Li e confirmo este contrato'}).click();await expect(page.locator('#contract')).toContainText('Cliente: confirmado');await expect(page.locator('#contract')).toContainText('Prestador: aguardando');
-  const stored=await page.evaluate(()=>({contracts:window.testState.contracts.length,acceptance:window.testState.acceptances[0]}));expect(stored.contracts).toBe(1);expect(stored.acceptance.party_role).toBe('cliente');expect(stored.acceptance.accepted_fingerprint).toBe('fingerprint-accepted-quote');
+async function seedContractContext(page,{provider=false,contract=false,refused=false}={}) {
+  await page.evaluate(({provider,contract,refused})=>{
+    const me='10000000-0000-4000-8000-000000000001',client_id=provider?'client-id':me,provider_id=provider?me:'provider-id';
+    const r={id:'contract-service',client_id,provider_id,profession:'Pintor',description:'Pintura da sala',status:'aceito',city:'Manaus',state:'AM'};
+    window.testState.requests.push(r);
+    window.testState.quotes.push({id:'contract-quote',request_id:r.id,provider_id,amount_cents:5000,description:'Pintura da sala em dois dias',status:'proposta'});
+    window.testState.decisions.push({quote_id:'contract-quote',request_id:r.id,decision:'aceita'});
+    if(contract) {
+      const doc={version:1,scope:'Pintura da sala em dois dias',amount_cents:5000,client:{id:client_id,name:'Cliente de teste'},provider:{id:provider_id,name:'Prestador de teste'},starts_at:new Date(Date.now()+86400000).toISOString(),ends_at:new Date(Date.now()+172800000).toISOString(),responsibilities:'Cliente fornece acesso; prestador fornece material e executa a pintura.',stages:[{title:'Entrega completa',amount_cents:5000,due_description:'Após conclusão'}]};
+      window.testState.contracts.push({id:'contract-1',request_id:r.id,quote_id:'contract-quote',client_id,provider_id,version:1,document:doc,content_hash:'a'.repeat(64)});
+      window.testState.contractDecisions.push({contract_id:'contract-1',actor_id:provider_id,decision:'aceito',created_at:new Date().toISOString()});
+      if(refused){
+        window.testState.contractDecisions.push({contract_id:'contract-1',actor_id:client_id,decision:'recusado',created_at:new Date().toISOString()});
+        window.testState.contracts.push({id:'contract-2',request_id:r.id,quote_id:'contract-quote',client_id,provider_id,version:2,document:{...doc,version:2,responsibilities:'Nova versão: cliente fornece acesso; prestador executa a pintura.'},content_hash:'b'.repeat(64)});
+      }
+    }
+  },{provider,contract,refused});
+  await page.locator('#refresh').click();await page.getByRole('button',{name:'Abrir conversa'}).click();await expect(page.locator('#contractSection')).toBeVisible();
+}
+test('provider proposes a contract with validated stage total and snapshot',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true});
+  await page.locator('#contractStarts').fill(new Date(Date.now()+86400000).toISOString().slice(0,16));await page.locator('#contractEnds').fill(new Date(Date.now()+172800000).toISOString().slice(0,16));await page.locator('#contractResponsibilities').fill('Cliente fornece acesso; prestador fornece material e executa a pintura.');
+  await page.locator('[data-stage="amount"]').fill('49,99');await page.locator('#proposeContract').click();await expect(page.locator('#status')).toContainText('soma das etapas');expect(await page.evaluate(()=>window.testState.contracts.length)).toBe(0);
+  await page.locator('[data-stage="amount"]').fill('50,00');await page.locator('#proposeContract').click();await expect(page.locator('#contracts')).toContainText('Acordo — versão 1');await expect(page.locator('#contracts')).toContainText('R$ 50,00');await expect(page.locator('#contractForm')).toBeHidden();
+  expect(await page.evaluate(()=>window.testState.contracts[0].document.stages[0].amount_cents)).toBe(5000);
+});
+test('client explicitly accepts exact contract version, separately from provider',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});const accept=page.getByRole('button',{name:'Aceitar esta versão'});await expect(accept).toBeDisabled();await page.getByRole('checkbox',{name:'Li esta versão e concordo'}).check();await accept.click();await expect(page.locator('#contracts')).toContainText('aceito por ambas as partes');await expect(page.getByRole('button',{name:'Aceitar esta versão'})).toHaveCount(0);
+  const call=await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='decide_service_contract'));expect(call.args).toEqual({p_contract_id:'contract-1',p_content_hash:'a'.repeat(64),p_decision:'aceito'});
+  await page.locator('#logout').click();await expect(page.locator('#contracts')).toBeEmpty();
+});
+test('a revised contract requires fresh acceptance and preserves refused version',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true,refused:true});await expect(page.locator('[data-contract="contract-1"]')).toContainText('Esta versão foi recusada');await expect(page.locator('[data-contract="contract-1"] button')).toHaveCount(0);
+  await expect(page.locator('[data-contract="contract-2"]')).toContainText('Cliente: aguardando decisão');await expect(page.getByRole('button',{name:'Aceitar esta versão'})).toBeDisabled();await page.getByRole('button',{name:'Recusar esta versão'}).click();await expect(page.locator('[data-contract="contract-2"]')).toContainText('Esta versão foi recusada');expect(await page.evaluate(()=>window.testState.contractDecisions.filter(d=>d.contract_id==='contract-1').length)).toBe(2);
 });

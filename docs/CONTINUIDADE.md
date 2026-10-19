@@ -6,11 +6,11 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 1. [Autenticação, pedidos, aceite e chat com testes](ENTREGA-2026-10-19.md). Código no commit `5c6bfa81f62335f1be25627e579adfe49a51c454`, CI aprovado: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/39206997735.
 2. [Orçamento estruturado e decisão protegida](ENTREGA-2026-10-19-ORCAMENTOS.md). Verificar o commit e o GitHub Actions associado a este arquivo antes da próxima alteração.
-3. [Contrato versionado e aceite bilateral](ENTREGA-2026-10-19-CONTRATOS.md). Migração preparada e validada somente no PostgreSQL isolado; não aplicada ao Supabase conectado. Verificar o commit e o GitHub Actions associado a este arquivo antes da próxima alteração.
+3. [Acordo versionado com aceite das partes](ENTREGA-2026-10-19-CONTRATOS.md). Código integrado à conversa do serviço; revisão jurídica, identidade e homologação comercial pendentes.
 
 ## Próximas entregas prioritárias
 
-- Revisão jurídica do texto-base do contrato e evolução dos contratos para adicionais, cancelamentos, garantias e disputas. Não tratar o texto técnico versionado como validação jurídica.
+- Acordos: revisar texto/processo com responsável jurídico, homologar com contas confirmadas e avaliar comprovante exportável. Não tratar o hash ou aceite implementado como assinatura certificada ou validação jurídica.
 - Administração de análises com trilha de auditoria, documentos privados e provisionamento seguro do proprietário. Banco sem conta do proprietário confirmada; não escolher administrador por metadados de cadastro.
 - Fluxo de execução e conclusão com confirmação do cliente e avaliação das partes. Não marcar pagamento ou repasse como realizado por simulação.
 - Vistorias, extras, cancelamento, reencaminhamento e disputas com estados controlados e provas.
@@ -33,4 +33,4 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 `npm ci --ignore-scripts` e `npm run test:all` (instalar Chromium com Playwright quando necessário). Fixture parcial de dez tabelas, sem segredos ou dados pessoais, usada somente nos testes. Não é backup nem migração inicial completa do projeto.
 
-As duas migrações de segurança desta execução foram aplicadas e testadas no projeto conectado sob autorização expressa do proprietário durante a sessão. Essa aplicação não concede autorização de implantação autônoma em produção às rodadas futuras.
+As migrações de segurança e de acordos desta execução foram aplicadas e testadas no projeto conectado sob autorização expressa do proprietário durante a sessão. Essa aplicação não concede autorização de implantação autônoma em produção às rodadas futuras.
