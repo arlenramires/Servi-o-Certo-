@@ -138,3 +138,19 @@ test('client accepts a pending extra explicitly and keeps the decision visible',
   await page.locator('#refresh').click();await page.getByRole('button',{name:'Aceitar serviço extra'}).click();await expect(page.locator('#status')).toContainText('não realizou cobrança');await expect(page.locator('[data-extra="extra-pending"]')).toContainText('Aceito pelo cliente');await expect(page.getByRole('button',{name:'Recusar serviço extra'})).toHaveCount(0);
   expect(await page.evaluate(()=>window.testState.extras[0].status)).toBe('aceito');
 });
+
+test('client opens a categorized dispute without implying a decision or charge',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});
+  await page.evaluate(()=>{const r=window.testState.requests.find(r=>r.id==='contract-service');r.status='em_andamento';});
+  await page.locator('#refresh').click();await page.locator('#disputeCategory').selectOption('qualidade');await page.locator('#disputeDescription').fill('O acabamento ficou diferente do escopo combinado.');await page.locator('#openDispute').click();
+  await expect(page.locator('#status')).toContainText('Nenhuma decisão ou cobrança');await expect(page.locator('#disputes')).toContainText('Qualidade');await expect(page.locator('#disputes')).toContainText('Aguardando manifestação');await expect(page.locator('#disputeForm')).toBeHidden();
+  expect(await page.evaluate(()=>window.testState.disputes.map(d=>({category:d.category,description:d.description,status:d.status})))).toEqual([{category:'qualidade',description:'O acabamento ficou diferente do escopo combinado.',status:'aberta'}]);
+});
+
+test('other participant answers a dispute once and sees pending administrative analysis',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});
+  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(r=>r.id==='contract-service');r.status='em_andamento';s.disputes.push({id:'dispute-open',request_id:r.id,opened_by:r.provider_id,category:'prazo',description:'O prazo precisa ser revisto pelas partes envolvidas.',status:'aberta',response_by:null,response_body:null,created_at:new Date().toISOString(),responded_at:null});});
+  await page.locator('#refresh').click();await page.locator('#disputeResponse').fill('O cliente informa que manteve o acesso na data combinada.');await page.locator('#respondDispute').click();
+  await expect(page.locator('#status')).toContainText('depende de análise administrativa');await expect(page.locator('[data-dispute="dispute-open"]')).toContainText('O cliente informa');await expect(page.locator('[data-dispute="dispute-open"]')).toContainText('ainda não há decisão administrativa');await expect(page.locator('#disputeResponseForm')).toBeHidden();
+  expect(await page.evaluate(()=>window.testState.disputes[0].status)).toBe('respondida');
+});

@@ -47,6 +47,9 @@ async function applyDeliveries(db) {
   const extrasFiles=(await readdir(dir)).filter(f=>f.endsWith('_service_extras_approval.sql'));
   assert.equal(extrasFiles.length,1);
   await db.exec(await readFile(new URL(extrasFiles[0],dir),'utf8'));
+  const disputeFiles=(await readdir(dir)).filter(f=>f.endsWith('_service_disputes_intake.sql'));
+  assert.equal(disputeFiles.length,1);
+  await db.exec(await readFile(new URL(disputeFiles[0],dir),'utf8'));
 }
 
 test('PostgreSQL: signup, RLS, locality, qualification, atomic claim and chat',async()=>{
@@ -102,5 +105,14 @@ test('PostgreSQL: provider extras require an immutable client decision before co
     await baseline(db);await applyDeliveries(db);
     const result=await db.exec(await readFile(new URL('../supabase/tests/extras-flow.sql',import.meta.url),'utf8'));
     assert.ok(result.some(x=>x.rows?.some(r=>r.result==='extras-flow: passed')));
+  }finally{await db.close();}
+});
+
+test('PostgreSQL: participants open and answer one immutable private dispute',async()=>{
+  const db=new PGlite();
+  try {
+    await baseline(db);await applyDeliveries(db);
+    const result=await db.exec(await readFile(new URL('../supabase/tests/dispute-flow.sql',import.meta.url),'utf8'));
+    assert.ok(result.some(x=>x.rows?.some(r=>r.result==='dispute-flow: passed')));
   }finally{await db.close();}
 });
