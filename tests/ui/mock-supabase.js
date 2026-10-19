@@ -1,5 +1,5 @@
 // UI contract double only. PostgreSQL/RLS are verified separately in database.test.mjs.
-const state=window.testState={user:null,role:window.testRole||'cliente',requests:[],messages:[],quotes:[],decisions:[],contracts:[],contractDecisions:[],executionEvents:[],ratings:[],cancellations:[],extras:[],disputes:[],calls:[],applications:[]};
+const state=window.testState={user:null,role:window.testRole||'cliente',requests:[],messages:[],quotes:[],decisions:[],contracts:[],contractDecisions:[],executionEvents:[],ratings:[],cancellations:[],extras:[],disputes:[],inspections:[],calls:[],applications:[]};
 let listener=()=>{};
 const response=data=>Promise.resolve({data,error:null});
 const account={id:'10000000-0000-4000-8000-000000000001',email:'teste@example.invalid'};
@@ -22,7 +22,7 @@ class Query {
       if(this.table==='provider_applications')state.applications.push({...item,status:'pendente'});
       return {data:null,error:null};
     }
-    let data=({profiles:[{id:account.id,role:state.role,full_name:'Pessoa de teste',is_available:true}],professions:[{id:1,name:'Eletricista'},{id:2,name:'Pintor'}],provider_applications:state.applications,service_requests:state.requests,provider_service_areas:[],service_messages:state.messages,service_quotes:state.quotes,service_quote_decisions:state.decisions,service_contracts:state.contracts,service_contract_decisions:state.contractDecisions,service_execution_events:state.executionEvents,service_ratings:state.ratings,service_cancellations:state.cancellations,service_extras:state.extras,service_disputes:state.disputes})[this.table]||[];
+    let data=({profiles:[{id:account.id,role:state.role,full_name:'Pessoa de teste',is_available:true}],professions:[{id:1,name:'Eletricista'},{id:2,name:'Pintor'}],provider_applications:state.applications,service_requests:state.requests,provider_service_areas:[],service_messages:state.messages,service_quotes:state.quotes,service_quote_decisions:state.decisions,service_contracts:state.contracts,service_contract_decisions:state.contractDecisions,service_execution_events:state.executionEvents,service_ratings:state.ratings,service_cancellations:state.cancellations,service_extras:state.extras,service_disputes:state.disputes,service_inspections:state.inspections})[this.table]||[];
     if(this.table==='profiles'&&window.missingProfile)data=[];
     for(const [key,value] of this.filters)data=data.filter(r=>Array.isArray(value)?value.includes(r[key]):r[key]===value);
     return {data:this.single?(data[0]||null):data,error:null};
@@ -54,6 +54,12 @@ export function createClient(){return {
     }
     if(name==='respond_service_dispute'){
       const dispute=state.disputes.find(x=>x.id===args.p_dispute_id);dispute.status='respondida';dispute.response_by=account.id;dispute.response_body=args.p_response;dispute.responded_at=new Date().toISOString();return {data:true,error:null};
+    }
+    if(name==='propose_service_inspection'){
+      const id='inspection-'+Date.now();state.inspections.push({id,request_id:request.id,provider_id:account.id,purpose:args.p_purpose,scheduled_for:args.p_scheduled_for,fee_cents:args.p_fee_cents,status:'proposta',decided_by:null,created_at:new Date().toISOString(),decided_at:null});return {data:id,error:null};
+    }
+    if(name==='decide_service_inspection'){
+      const inspection=state.inspections.find(x=>x.id===args.p_inspection_id);inspection.status=args.p_decision;inspection.decided_by=account.id;inspection.decided_at=new Date().toISOString();return {data:true,error:null};
     }
     if(name==='cancel_service_before_start'){
       request.status='cancelado';let replacement=null;

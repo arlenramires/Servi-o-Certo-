@@ -154,3 +154,18 @@ test('other participant answers a dispute once and sees pending administrative a
   await expect(page.locator('#status')).toContainText('depende de análise administrativa');await expect(page.locator('[data-dispute="dispute-open"]')).toContainText('O cliente informa');await expect(page.locator('[data-dispute="dispute-open"]')).toContainText('ainda não há decisão administrativa');await expect(page.locator('#disputeResponseForm')).toBeHidden();
   expect(await page.evaluate(()=>window.testState.disputes[0].status)).toBe('respondida');
 });
+
+test('provider proposes a pre-quote inspection without creating a charge',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedAcceptedService(page);
+  const future=new Date(Date.now()+172800000).toISOString().slice(0,16);
+  await page.locator('#inspectionPurpose').fill('Avaliar a estrutura antes de elaborar o orçamento completo.');await page.locator('#inspectionScheduled').fill(future);await page.locator('#inspectionFee').fill('75,00');await page.locator('#proposeInspection').click();
+  await expect(page.locator('#status')).toContainText('Nenhuma cobrança ou confirmação');await expect(page.locator('#inspections')).toContainText('R$ 75,00');await expect(page.locator('#inspections')).toContainText('Aguardando decisão');await expect(page.locator('#inspectionForm')).toBeHidden();
+  expect(await page.evaluate(()=>window.testState.inspections.map(i=>({fee_cents:i.fee_cents,purpose:i.purpose,status:i.status})))).toEqual([{fee_cents:7500,purpose:'Avaliar a estrutura antes de elaborar o orçamento completo.',status:'proposta'}]);
+});
+
+test('client accepts inspection proposal as pending payment, not confirmed appointment',async({page})=>{
+  await login(page);await seedAcceptedService(page);
+  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(r=>r.id==='accepted-service');s.inspections.push({id:'inspection-pending',request_id:r.id,provider_id:r.provider_id,purpose:'Avaliar o local antes de elaborar o orçamento completo.',scheduled_for:new Date(Date.now()+172800000).toISOString(),fee_cents:7500,status:'proposta',decided_by:null,created_at:new Date().toISOString(),decided_at:null});});
+  await page.locator('#refresh').click();await page.getByRole('button',{name:'Aceitar proposta de vistoria'}).click();await expect(page.locator('#status')).toContainText('só será confirmada após integração de pagamento em sandbox');await expect(page.locator('[data-inspection="inspection-pending"]')).toContainText('pagamento e confirmação ainda pendentes');await expect(page.getByRole('button',{name:'Recusar proposta de vistoria'})).toHaveCount(0);
+  expect(await page.evaluate(()=>window.testState.inspections[0].status)).toBe('aceita_pendente_pagamento');
+});

@@ -11,13 +11,14 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 5. [Cancelamento antes do início e reencaminhamento seguro](ENTREGA-2026-10-19-CANCELAMENTOS.md). Cliente pode cancelar pedido aberto/aceito; cancelamento do prestador antes do início cria novo chamado sem permitir que ele o aceite novamente. Migração preparada e validada somente no PostgreSQL isolado.
 6. [Serviços extras com decisão do cliente](ENTREGA-2026-10-19-EXTRAS.md). Prestador registra novo escopo e valor durante a execução; cliente aceita ou recusa de forma imutável antes da conclusão. Nenhuma cobrança é criada.
 7. [Abertura e manifestação de contestação](ENTREGA-2026-10-19-CONTESTACOES.md). As partes registram relato e manifestação imutáveis com acesso protegido; análise administrativa, provas e efeitos financeiros não foram automatizados.
+8. [Proposta de vistoria antes do orçamento](ENTREGA-2026-10-19-VISTORIAS.md). Prestador registra finalidade, data e valor previsto; cliente aceita ou recusa. Aceite permanece pendente de pagamento e não confirma agenda.
 
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico, homologar com contas confirmadas e avaliar comprovante exportável. Não tratar o hash ou aceite implementado como assinatura certificada ou validação jurídica.
 - Administração de análises com trilha de auditoria, documentos privados e provisionamento seguro do proprietário. Banco sem conta do proprietário confirmada; não escolher administrador por metadados de cadastro.
 - Homologar execução, conclusão e avaliações com contas confirmadas no ambiente conectado. O fluxo não movimenta nem comprova pagamento ou repasse.
-- Vistorias e provas privadas; completar a análise administrativa das contestações somente após provisionar e verificar o proprietário. Homologar também contestação, extras e cancelamento/reencaminhamento com contas confirmadas no ambiente conectado.
+- Vistorias: após autorização do gateway sandbox, confirmar pagamento/agendamento e implementar a regra comercial de repasse ou abatimento. Provas privadas e análise administrativa das contestações dependem de armazenamento e proprietário verificado. Homologar esses fluxos com contas confirmadas no ambiente conectado.
 - Gateway sandbox: definir provedor e obter credenciais de teste por meio seguro; checkout, webhooks idempotentes, split, garantias, estornos e reconciliação dependem dessa integração.
 - Homologação hospedada, e-mails reais, notificações, localização/ETA, LGPD, empacotamento Android e preparação de produção.
 

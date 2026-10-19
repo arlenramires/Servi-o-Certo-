@@ -6,6 +6,7 @@ import { createExecutionPanel } from './execution.js';
 import { createCancellationPanel } from './cancellation.js';
 import { createExtrasPanel } from './extras.js';
 import { createDisputesPanel } from './disputes.js';
+import { createInspectionsPanel } from './inspections.js';
 
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
@@ -34,6 +35,8 @@ function friendly(error) {
       EX003:'O extra pendente precisa ser decidido e decisões anteriores não podem ser alteradas.',EX004:'Aguarde o cliente decidir o serviço extra antes de solicitar a conclusão.'})[error?.code]
     || ({DP001:'Confira a categoria e escreva ao menos 20 caracteres.',DP002:'A contestação só pode ser aberta durante ou depois da execução.',
       DP003:'Esta contestação já foi registrada e não pode ser alterada.'})[error?.code]
+    || ({VI001:'Confira finalidade, data e valor da vistoria.',VI002:'A vistoria precisa ser proposta antes do orçamento, enquanto o serviço está aceito.',
+      VI003:'Esta proposta de vistoria já foi decidida e não pode ser alterada.'})[error?.code]
     || (error instanceof InputError ? error.message : 'Não foi possível concluir. Verifique sua conexão e tente novamente.');
 }
 class InputError extends Error {}
@@ -42,6 +45,7 @@ const execution=createExecutionPanel({api,getContext:()=>({user,profile,selected
 const cancellations=createCancellationPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 const extras=createExtrasPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 const disputes=createDisputesPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
+const inspections=createInspectionsPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 function text(tag, value, className) { const node=document.createElement(tag); node.textContent=value; if(className)node.className=className; return node; }
 async function busy(id, task) {
   el(id).disabled=true;
@@ -54,6 +58,7 @@ function clearWorkspace() {
   cancellations.reset();
   extras.reset();
   disputes.reset();
+  inspections.reset();
   for(const id of ['workspace','clientPanel','providerPanel','providerApply','adminPanel','conversation']) el(id).hidden=true;
   for(const id of ['requests','opportunities','messages','quotes','applications','identity','profile']) el(id).replaceChildren();
   for(const id of ['password','newPassword','message','description','experience','quoteAmount','quoteDescription']) el(id).value='';
@@ -139,6 +144,7 @@ async function openConversation(request) {
   const ticket=generation, conversationTicket=++conversationGeneration;
   if(selected?.id!==request.id)for(const id of ['message','quoteAmount','quoteDescription'])el(id).value='';
   el('conversation').hidden=true;
+  el('inspectionSection').hidden=true;
   const results=await Promise.all([
     api.from('service_messages').select('id,sender_id,body,created_at').eq('request_id',request.id).order('created_at',{ascending:true}).limit(200),
     api.from('service_quotes').select('id,request_id,provider_id,amount_cents,description,status,created_at').eq('request_id',request.id).order('created_at',{ascending:false}).limit(100),
@@ -151,6 +157,7 @@ async function openConversation(request) {
   if(!messages.length)el('messages').append(text('p','Inicie a conversa sobre o serviço.'));
   for(const m of messages) { const item=text('article','','chat-message');item.append(text('small',m.sender_id===user.id?'Você':'Outra parte'),text('p',m.body));el('messages').append(item); }
   renderQuotes(request,quotes,decisions);
+  await inspections.load(request,quotes.length>0);
   const acceptedDecision=decisions.find(d=>d.decision==='aceita');
   await contracts.load(request,quotes.find(q=>q.id===acceptedDecision?.quote_id)||null);
   await execution.load(request);
