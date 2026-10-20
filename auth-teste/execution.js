@@ -8,13 +8,14 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
   }
   async function load(request){
     const ticket=++serial,context=getContext();el('executionSection').hidden=false;
-    const [eventsResult,ratingsResult,contractsResult]=await Promise.all([
+    const [eventsResult,ratingsResult,contractsResult,etaResult]=await Promise.all([
       api.from('service_execution_events').select('actor_id,event_type,created_at').eq('request_id',request.id).order('created_at',{ascending:true}),
       api.from('service_ratings').select('reviewer_id,reviewee_id,score,comment,created_at').eq('request_id',request.id).order('created_at',{ascending:true}),
-      api.from('service_contracts').select('id,version').eq('request_id',request.id).order('version',{ascending:false}).limit(1)
+      api.from('service_contracts').select('id,version').eq('request_id',request.id).order('version',{ascending:false}).limit(1),
+      api.from('provider_arrival_estimates').select('estimated_arrival_at,updated_at').eq('request_id',request.id).maybeSingle()
     ]);
     if(ticket!==serial||context.generation!==getContext().generation||getContext().selected?.id!==request.id)return;
-    const events=check(eventsResult)||[],ratings=check(ratingsResult)||[],contracts=check(contractsResult)||[],latest=contracts[0];
+    const events=check(eventsResult)||[],ratings=check(ratingsResult)||[],contracts=check(contractsResult)||[],eta=check(etaResult),latest=contracts[0];
     const decisions=latest?(check(await api.from('service_contract_decisions').select('actor_id,decision').eq('contract_id',latest.id))||[]):[];
     if(ticket!==serial)return;
     const bilateral=decisions.filter(d=>d.decision==='aceito').length===2&&!decisions.some(d=>d.decision==='recusado');
@@ -22,6 +23,15 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
     const preStart=!bilateral?'Aguardando aceite das duas partes no acordo.':arrived?'Prestador informou que chegou ao local.':onWay?'Prestador está a caminho.':'Acordo aceito pelas duas partes. O prestador pode informar o deslocamento.';
     el('execution').replaceChildren(node('p',request.status==='aceito'?preStart:request.status==='em_andamento'?(requested?'Prestador informou a conclusão. Aguardando confirmação do cliente.':'Serviço em andamento.'):request.status==='concluido'?'Conclusão confirmada pelo cliente. Nenhum pagamento ou repasse foi marcado por esta ação.':'Execução indisponível.','notice'));
     if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&!onWay){const b=node('button','Estou a caminho','secondary');b.onclick=()=>action('mark_provider_arrival',request,'Deslocamento informado ao cliente.',{p_event:'a_caminho'});el('execution').append(b);}
+    if(request.status==='aceito'&&onWay&&!arrived){
+      if(eta)el('execution').append(node('p','Previsão informada: '+new Date(eta.estimated_arrival_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'.','notice'));
+      if(context.profile.role==='prestador'){
+        const label=node('label','Previsão de chegada'),select=document.createElement('select'),button=node('button',eta?'Atualizar previsão':'Informar previsão','secondary');
+        select.setAttribute('aria-label','Previsão de chegada');for(const minutes of [10,20,30,45,60,90])select.add(new Option(minutes+' minutos',String(minutes)));
+        button.type='button';button.onclick=()=>action('set_provider_eta',request,'Previsão de chegada atualizada para o cliente.',{p_minutes:Number(select.value)});
+        label.append(select);el('execution').append(label,button);
+      }
+    }
     if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&onWay&&!arrived){const b=node('button','Cheguei ao local','secondary');b.onclick=()=>action('mark_provider_arrival',request,'Chegada registrada para o cliente.',{p_event:'chegou_local'});el('execution').append(b);}
     if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&arrived){const b=node('button','Iniciar serviço');b.onclick=()=>action('start_service',request,'Início registrado. Nenhum pagamento foi movimentado.');el('execution').append(b);}
     if(context.profile.role==='prestador'&&request.status==='em_andamento'&&started&&!requested){const b=node('button','Solicitar confirmação de conclusão');b.onclick=()=>action('request_service_completion',request,'Conclusão solicitada ao cliente.');el('execution').append(b);}

@@ -26,18 +26,33 @@ select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001'
 do $$begin
  begin perform public.start_service('41000000-0000-4000-8000-000000000001');raise exception 'Client started service';exception when insufficient_privilege then null;end;
  begin perform public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','a_caminho');raise exception 'Client marked provider arrival';exception when insufficient_privilege then null;end;
+ begin perform public.set_provider_eta('41000000-0000-4000-8000-000000000001',30);raise exception 'Client set provider ETA';exception when insufficient_privilege then null;end;
 end $$;
 select public.decide_service_contract(current_setting('test.execution_contract')::uuid,current_setting('test.execution_hash'),'aceito');
 select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000002',true);
 do $$begin
  begin perform public.start_service('41000000-0000-4000-8000-000000000001');raise exception 'Service started before provider arrival';exception when sqlstate 'SE010' then null;end;
+ begin perform public.set_provider_eta('41000000-0000-4000-8000-000000000001',30);raise exception 'ETA set before journey';exception when sqlstate 'SE012' then null;end;
  begin perform public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','localizacao_inventada');raise exception 'Invalid arrival event allowed';exception when sqlstate 'SE008' then null;end;
  begin perform public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','chegou_local');raise exception 'Arrival skipped on-the-way event';exception when sqlstate 'SE009' then null;end;
 end $$;
 select public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','a_caminho');
 select public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','a_caminho');
+do $$begin
+ begin perform public.set_provider_eta('41000000-0000-4000-8000-000000000001',17);raise exception 'Invalid ETA accepted';exception when sqlstate 'SE011' then null;end;
+end $$;
+select public.set_provider_eta('41000000-0000-4000-8000-000000000001',30);
+select public.set_provider_eta('41000000-0000-4000-8000-000000000001',45);
+do $$begin
+ if (select count(*) from public.provider_arrival_estimates)<>1 then raise exception 'ETA update duplicated row';end if;
+ if (select estimated_arrival_at<now()+interval '44 minutes' from public.provider_arrival_estimates) then raise exception 'ETA update was not persisted';end if;
+ begin insert into public.provider_arrival_estimates(request_id,provider_id,estimated_arrival_at) values('41000000-0000-4000-8000-000000000001',auth.uid(),now());raise exception 'Direct ETA insert allowed';exception when insufficient_privilege then null;end;
+end $$;
 select public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','chegou_local');
 select public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','chegou_local');
+do $$begin
+ begin perform public.set_provider_eta('41000000-0000-4000-8000-000000000001',30);raise exception 'ETA changed after arrival';exception when sqlstate 'SE012' then null;end;
+end $$;
 select public.start_service('41000000-0000-4000-8000-000000000001');
 select public.start_service('41000000-0000-4000-8000-000000000001');
 do $$begin
@@ -67,7 +82,7 @@ do $$begin
 end $$;
 select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000003',true);
 do $$begin
- if exists(select 1 from public.service_execution_events) or exists(select 1 from public.service_ratings) then raise exception 'Outsider read execution';end if;
+ if exists(select 1 from public.service_execution_events) or exists(select 1 from public.service_ratings) or exists(select 1 from public.provider_arrival_estimates) then raise exception 'Outsider read execution';end if;
  begin perform public.rate_completed_service('41000000-0000-4000-8000-000000000001',5,null);raise exception 'Outsider rated';exception when insufficient_privilege then null;end;
 end $$;
 reset role;

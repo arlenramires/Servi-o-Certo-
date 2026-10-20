@@ -156,11 +156,25 @@ test('provider reports ordered on-the-way and arrival statuses to the client',as
   const calls=await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='mark_provider_arrival').map(c=>c.args));
   expect(calls).toEqual([{p_request_id:'contract-service',p_event:'a_caminho'},{p_request_id:'contract-service',p_event:'chegou_local'}]);
 });
+test('provider updates a manual arrival estimate only while on the way',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
+  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});
+  await page.locator('#refresh').click();await expect(page.getByLabel('Previsão de chegada')).toHaveCount(0);await page.getByRole('button',{name:'Estou a caminho'}).click();
+  await page.getByLabel('Previsão de chegada').selectOption('30');await page.getByRole('button',{name:'Informar previsão'}).click();await expect(page.locator('#execution')).toContainText('Previsão informada:');
+  await page.getByLabel('Previsão de chegada').selectOption('45');await page.getByRole('button',{name:'Atualizar previsão'}).click();
+  expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_provider_eta').map(c=>c.args))).toEqual([{p_request_id:'contract-service',p_minutes:30},{p_request_id:'contract-service',p_minutes:45}]);
+  expect(await page.evaluate(()=>window.testState.arrivalEstimates)).toHaveLength(1);
+});
 test('client sees provider arrival without receiving provider controls',async({page})=>{
   await login(page);await seedContractContext(page,{contract:true});
   await page.evaluate(()=>{const s=window.testState,c=s.contracts[0],r=s.requests[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'a_caminho',created_at:new Date().toISOString()},{request_id:r.id,actor_id:r.provider_id,event_type:'chegou_local',created_at:new Date().toISOString()});});
   await page.locator('#refresh').click();await expect(page.locator('#execution')).toContainText('Prestador informou que chegou ao local');
   await expect(page.getByRole('button',{name:'Estou a caminho'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Cheguei ao local'})).toHaveCount(0);
+});
+test('client sees the manual ETA without provider controls',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});
+  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0],r=s.requests[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'a_caminho',created_at:new Date().toISOString()});s.arrivalEstimates.push({request_id:r.id,provider_id:r.provider_id,estimated_arrival_at:new Date(Date.now()+1800000).toISOString(),updated_at:new Date().toISOString()});});
+  await page.locator('#refresh').click();await expect(page.locator('#execution')).toContainText('Previsão informada:');await expect(page.getByLabel('Previsão de chegada')).toHaveCount(0);await expect(page.getByRole('button',{name:/previsão/i})).toHaveCount(0);
 });
 
 test('client confirms completion and submits one immutable rating without payment claim',async({page})=>{

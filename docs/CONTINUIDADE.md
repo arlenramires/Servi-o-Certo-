@@ -16,6 +16,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 10. [Comprovante exportável do acordo](ENTREGA-2026-10-19-COMPROVANTE-ACORDO.md). Após o aceite bilateral, as partes podem baixar a versão, o hash e os dois registros de aceite em JSON. O arquivo não comprova pagamento nem substitui assinatura certificada.
 11. [Status de deslocamento do prestador](ENTREGA-2026-10-19-DESLOCAMENTO.md). Prestador registra “a caminho” e “cheguei ao local” em ordem protegida; cliente acompanha o estado dentro do serviço. GPS e ETA não fazem parte desta entrega.
 12. [Chegada obrigatória antes do início](ENTREGA-2026-10-19-INICIO-APOS-CHEGADA.md). O botão e a operação protegida de início só são liberados depois que o prestador registra a chegada ao local.
+13. [Previsão manual de chegada](ENTREGA-2026-10-19-ETA-MANUAL.md). Durante o deslocamento, o prestador informa ou atualiza uma previsão de 10 a 90 minutos que fica visível ao cliente, sem coleta de GPS.
 
 ## Próximas entregas prioritárias
 
@@ -24,7 +25,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 - Homologar execução, conclusão e avaliações com contas confirmadas no ambiente conectado. O fluxo não movimenta nem comprova pagamento ou repasse.
 - Vistorias: após autorização do gateway sandbox, confirmar pagamento/agendamento e implementar a regra comercial de repasse ou abatimento. Provas privadas e análise administrativa das contestações dependem de armazenamento e proprietário verificado. Homologar esses fluxos com contas confirmadas no ambiente conectado.
 - Gateway sandbox: definir provedor e obter credenciais de teste por meio seguro; checkout, webhooks idempotentes, split, garantias, estornos e reconciliação dependem dessa integração.
-- Homologação hospedada, e-mails reais, notificações push (o indicador interno de não lidas já foi implementado), localização/ETA (os estados manuais de deslocamento já foram implementados), LGPD, empacotamento Android e preparação de produção.
+- Homologação hospedada, e-mails reais, notificações push (o indicador interno de não lidas já foi implementado), localização por GPS/ETA automático (os estados e a previsão manual já foram implementados), LGPD, empacotamento Android e preparação de produção.
 
 ## Regras para rodadas automáticas
 
