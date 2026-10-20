@@ -77,7 +77,8 @@ function clearWorkspace() {
   inspections.reset();
   for(const id of ['workspace','clientPanel','providerPanel','providerApply','adminPanel','conversation']) el(id).hidden=true;
   for(const id of ['requests','opportunities','messages','quotes','applications','identity','profile']) el(id).replaceChildren();
-  for(const id of ['password','newPassword','message','description','experience','quoteAmount','quoteDescription']) el(id).value='';
+  for(const id of ['password','newPassword','message','description','experience','quoteAmount','quoteDescription','scheduled']) el(id).value='';
+  el('urgent').checked=false;
 }
 function authView() {
   el('authPanel').hidden=!!user||recovery;
@@ -125,7 +126,7 @@ async function loadAccount(nextUser) {
 async function refresh(ticket=generation) {
   if(!profile||!user||recovery)return;
   const [requestResult,unreadResult]=await Promise.all([
-    api.from('service_requests').select('id,profession,description,status,created_at,city,state,scheduled_for').order('created_at',{ascending:false}).limit(100),
+    api.from('service_requests').select('id,profession,description,status,created_at,city,state,scheduled_for,is_urgent').order('created_at',{ascending:false}).limit(100),
     api.rpc('unread_service_message_counts')
   ]);
   const requests=check(requestResult)||[],unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)]));
@@ -136,6 +137,7 @@ async function refresh(ticket=generation) {
     const card=text('article','','service');
     card.dataset.request=r.id;
     card.append(text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state),text('p',r.description));
+    if(r.is_urgent)card.append(text('strong','Atendimento urgente'));
     const count=unread.get(r.id)||0;if(count)card.append(text('strong',count+' nova'+(count===1?' mensagem':'s mensagens'),'unread-count'));
     if(r.scheduled_for)card.append(text('small','Agendado: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));
     const cancelButton=cancellations.buttonFor(r);if(cancelButton)card.append(cancelButton);
@@ -275,8 +277,9 @@ el('requestForm').onsubmit=event=>{event.preventDefault();busy('createRequest',a
   if(!profession||description.length<10||city.length<2||!/^[A-Z]{2}$/.test(state))throw new InputError('Confira a profissão, descrição e cidade.');
   const scheduled_for=el('scheduled').value?new Date(el('scheduled').value).toISOString():null;
   if(scheduled_for&&new Date(scheduled_for)<=new Date())throw new InputError('Escolha um horário futuro.');
-  check(await api.from('service_requests').insert({client_id:user.id,profession,description,city,state,scheduled_for}));
-  el('description').value='';await refresh();message('Pedido registrado. Aguardando um profissional elegível da sua região.');
+  const is_urgent=el('urgent').checked;
+  check(await api.from('service_requests').insert({client_id:user.id,profession,description,city,state,scheduled_for,is_urgent}));
+  el('description').value='';el('scheduled').value='';el('urgent').checked=false;await refresh();message(is_urgent?'Pedido urgente registrado. Prestadores elegíveis verão a prioridade.':'Pedido registrado. Aguardando um profissional elegível da sua região.');
 });};
 el('areaForm').onsubmit=event=>{event.preventDefault();busy('saveArea',async()=>{
   if(profile?.role!=='prestador')throw new InputError('Acesso restrito ao prestador aprovado.');

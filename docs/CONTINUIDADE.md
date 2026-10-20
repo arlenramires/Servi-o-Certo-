@@ -26,6 +26,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 20. [Recusa privada de oportunidade](ENTREGA-2026-10-20-RECUSA-OPORTUNIDADE.md). Prestador elegível pode remover um chamado da própria fila sem cancelar o pedido nem escondê-lo de outros profissionais.
 21. [Restauração de oportunidade ocultada](ENTREGA-2026-10-20-RESTAURACAO-OPORTUNIDADE.md). Prestador pode revisar os próprios chamados ocultados ainda elegíveis e devolvê-los à própria fila sem afetar outros profissionais.
 22. [Contexto seguro da oportunidade](ENTREGA-2026-10-20-CONTEXTO-OPORTUNIDADE.md). Antes do aceite, o prestador vê cidade/UF, urgência e horário preferido sem receber descrição, identidade, endereço ou coordenadas do cliente.
+23. [Pedido urgente pelo cliente](ENTREGA-2026-10-20-PEDIDO-URGENTE.md). O cliente pode marcar a solicitação como urgente; a prioridade é persistida, confirmada na própria lista e exibida aos prestadores elegíveis sem ampliar os dados expostos.
 
 ## Próximas entregas prioritárias
 
