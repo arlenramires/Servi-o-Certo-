@@ -32,6 +32,15 @@ test('client changes urgency while an unassigned request remains open',async({pa
   await card.getByRole('button',{name:'Remover urgência'}).click();await expect(card).not.toContainText('Atendimento urgente');await expect(page.locator('#status')).toContainText('Urgência removida');
   expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_request_urgency').map(c=>c.args))).toEqual([{p_request_id:expect.any(String),p_urgent:true},{p_request_id:expect.any(String),p_urgent:false}]);
 });
+test('client updates and removes the schedule while a request remains open',async({page})=>{
+  await login(page);await page.locator('#serviceProfession').selectOption('Pintor');await page.locator('#description').fill('Pintura da sala com preferência de horário para atendimento.');await page.locator('#createRequest').click();
+  const card=page.locator('#requests .service').first(),schedule=card.getByLabel('Horário preferido');
+  await schedule.fill('2027-01-15T14:30');await card.getByRole('button',{name:'Atualizar horário'}).click();
+  await expect(page.locator('#status')).toContainText('Horário preferido atualizado');await expect(card).toContainText('Agendado:');
+  await card.getByLabel('Horário preferido').fill('');await card.getByRole('button',{name:'Atualizar horário'}).click();
+  await expect(page.locator('#status')).toContainText('Horário preferido removido');await expect(card).not.toContainText('Agendado:');
+  expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_open_request_schedule').map(c=>c.args))).toEqual([{p_request_id:expect.any(String),p_scheduled_for:expect.any(String)},{p_request_id:expect.any(String),p_scheduled_for:null}]);
+});
 test('incoming messages show an unread count that clears when conversation opens',async({page})=>{
   await login(page);
   await page.evaluate(()=>{

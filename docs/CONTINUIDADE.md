@@ -28,6 +28,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 22. [Contexto seguro da oportunidade](ENTREGA-2026-10-20-CONTEXTO-OPORTUNIDADE.md). Antes do aceite, o prestador vê cidade/UF, urgência e horário preferido sem receber descrição, identidade, endereço ou coordenadas do cliente.
 23. [Pedido urgente pelo cliente](ENTREGA-2026-10-20-PEDIDO-URGENTE.md). O cliente pode marcar a solicitação como urgente; a prioridade é persistida, confirmada na própria lista e exibida aos prestadores elegíveis sem ampliar os dados expostos.
 24. [Ajuste de urgência do pedido aberto](ENTREGA-2026-10-20-AJUSTE-URGENCIA.md). O cliente pode marcar ou remover a urgência enquanto o pedido próprio continua aberto e sem prestador; terceiros, anônimos e alterações após o aceite são bloqueados.
+25. [Ajuste do horário preferido no pedido aberto](ENTREGA-2026-10-20-AJUSTE-AGENDAMENTO-ABERTO.md). O cliente pode alterar ou remover o horário preferido enquanto o pedido próprio permanece aberto e sem prestador; datas passadas, terceiros, anônimos e alterações após o aceite são bloqueados.
 
 ## Próximas entregas prioritárias
 

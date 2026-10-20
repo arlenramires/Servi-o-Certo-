@@ -46,7 +46,8 @@ function friendly(error) {
     RA002:'O reagendamento só pode ser decidido antes do deslocamento.',
     RA003:'A proposta ou decisão já registrada não pode ser alterada.',
     RA004:'Aguarde a decisão do reagendamento antes de iniciar o deslocamento.',
-    RU001:'A urgência só pode ser alterada enquanto o pedido está aberto.' })[error?.code]
+    RU001:'A urgência só pode ser alterada enquanto o pedido está aberto.',
+    RS001:'Escolha um horário futuro.',RS002:'O horário só pode ser alterado enquanto o pedido está aberto.' })[error?.code]
     || ({CN001:'Explique o motivo com pelo menos 10 caracteres.',CN002:'Este serviço não pode ser cancelado por este fluxo.'})[error?.code]
     || ({EX001:'Confira a descrição, o valor e a decisão do serviço extra.',EX002:'Este serviço não aceita extras nesta etapa.',
       EX003:'O extra pendente precisa ser decidido e decisões anteriores não podem ser alteradas.',EX004:'Aguarde o cliente decidir o serviço extra antes de solicitar a conclusão.'})[error?.code]
@@ -145,7 +146,17 @@ async function refresh(ticket=generation) {
         const next=!r.is_urgent;check(await api.rpc('set_request_urgency',{p_request_id:r.id,p_urgent:next}));
         message(next?'Pedido marcado como urgente. Prestadores elegíveis verão a prioridade.':'Urgência removida. O pedido continua disponível normalmente.');await refresh();
       }catch(error){message(friendly(error));}finally{urgency.disabled=false;}};
-      card.append(urgency);
+      const scheduleLabel=text('label','Horário preferido');scheduleLabel.htmlFor='request-schedule-'+r.id;
+      const schedule=document.createElement('input');schedule.type='datetime-local';schedule.id=scheduleLabel.htmlFor;
+      if(r.scheduled_for){const date=new Date(r.scheduled_for);schedule.value=new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);}
+      const saveSchedule=text('button','Atualizar horário','secondary');saveSchedule.type='button';
+      saveSchedule.onclick=async()=>{saveSchedule.disabled=true;try{
+        const next=schedule.value?new Date(schedule.value).toISOString():null;
+        if(next&&new Date(next)<=new Date())throw new InputError('Escolha um horário futuro.');
+        check(await api.rpc('set_open_request_schedule',{p_request_id:r.id,p_scheduled_for:next}));
+        message(next?'Horário preferido atualizado. Prestadores elegíveis verão a nova preferência.':'Horário preferido removido. O pedido continua aberto.');await refresh();
+      }catch(error){message(friendly(error));}finally{saveSchedule.disabled=false;}};
+      card.append(urgency,scheduleLabel,schedule,saveSchedule);
     }
     const count=unread.get(r.id)||0;if(count)card.append(text('strong',count+' nova'+(count===1?' mensagem':'s mensagens'),'unread-count'));
     if(r.scheduled_for)card.append(text('small','Agendado: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));

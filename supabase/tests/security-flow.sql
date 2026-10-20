@@ -26,6 +26,12 @@ do $$begin
  if (select is_urgent from public.service_requests where id=current_setting('test.request_id')::uuid) then raise exception 'Urgency was not removed';end if;
  if not public.set_request_urgency(current_setting('test.request_id')::uuid,true) then raise exception 'Client could not restore urgency';end if;
  if not (select is_urgent from public.service_requests where id=current_setting('test.request_id')::uuid) then raise exception 'Urgency was not restored';end if;
+ if not public.set_open_request_schedule(current_setting('test.request_id')::uuid,now()+interval '2 days') then raise exception 'Client could not change schedule';end if;
+ if (select scheduled_for<now()+interval '47 hours' from public.service_requests where id=current_setting('test.request_id')::uuid) then raise exception 'Schedule was not changed';end if;
+ if not public.set_open_request_schedule(current_setting('test.request_id')::uuid,null) then raise exception 'Client could not clear schedule';end if;
+ if (select scheduled_for is not null from public.service_requests where id=current_setting('test.request_id')::uuid) then raise exception 'Schedule was not cleared';end if;
+ begin perform public.set_open_request_schedule(current_setting('test.request_id')::uuid,now()-interval '1 hour');raise exception 'Past schedule allowed';exception when sqlstate 'RS001' then null;end;
+ perform public.set_open_request_schedule(current_setting('test.request_id')::uuid,now()+interval '2 days');
  if exists(select 1 from public.profiles where id<>auth.uid()) then raise exception 'Profile privacy failure'; end if;
  begin update public.profiles set role='administrador' where id=auth.uid(); raise exception 'Role escalation allowed'; exception when insufficient_privilege then null; end;
  begin insert into public.provider_applications(user_id,profession,status) values(auth.uid(),'TEST Profissão','aprovado'); raise exception 'Self approval allowed'; exception when insufficient_privilege then null; end;
@@ -49,6 +55,7 @@ do $$declare rid uuid;begin
  if exists(select 1 from public.service_requests) then raise exception 'Unassigned provider read private request'; end if;
  select request_id into rid from public.available_requests();
  begin perform public.set_request_urgency(rid,false);raise exception 'Provider changed client urgency';exception when insufficient_privilege then null;end;
+ begin perform public.set_open_request_schedule(rid,now()+interval '2 days');raise exception 'Provider changed client schedule';exception when insufficient_privilege then null;end;
  if not public.accept_request(rid) then raise exception 'Eligible provider could not claim'; end if;
  if public.accept_request(rid) then raise exception 'Duplicate claim succeeded'; end if;
  if (select count(*) from public.service_requests)<>1 then raise exception 'Assigned provider cannot read request'; end if;
@@ -81,6 +88,7 @@ select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001'
 do $$begin
  if (select count(*) from public.service_messages)<>1 then raise exception 'Client cannot read own conversation'; end if;
  begin perform public.set_request_urgency(current_setting('test.request_id')::uuid,false);raise exception 'Client changed urgency after acceptance';exception when sqlstate 'RU001' then null;end;
+ begin perform public.set_open_request_schedule(current_setting('test.request_id')::uuid,now()+interval '2 days');raise exception 'Client changed schedule after acceptance';exception when sqlstate 'RS002' then null;end;
 end $$;
 reset role;
 update public.profession_compliance_rules set reviewed_at=now() where profession_id=-991;
@@ -116,6 +124,7 @@ do $$begin
  begin perform public.declined_requests(); raise exception 'Anon decline list allowed'; exception when insufficient_privilege then null; end;
  begin perform public.restore_request_interest(current_setting('test.declined_request')::uuid); raise exception 'Anon restore allowed'; exception when insufficient_privilege then null; end;
  begin perform public.set_request_urgency(current_setting('test.request_id')::uuid,false); raise exception 'Anon urgency update allowed'; exception when insufficient_privilege then null; end;
+ begin perform public.set_open_request_schedule(current_setting('test.request_id')::uuid,now()+interval '2 days'); raise exception 'Anon schedule update allowed'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 rollback;
