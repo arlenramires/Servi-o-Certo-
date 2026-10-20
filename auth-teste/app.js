@@ -47,7 +47,8 @@ function friendly(error) {
     RA003:'A proposta ou decisão já registrada não pode ser alterada.',
     RA004:'Aguarde a decisão do reagendamento antes de iniciar o deslocamento.',
     RU001:'A urgência só pode ser alterada enquanto o pedido está aberto.',
-    RS001:'Escolha um horário futuro.',RS002:'O horário só pode ser alterado enquanto o pedido está aberto.' })[error?.code]
+    RS001:'Escolha um horário futuro.',RS002:'O horário só pode ser alterado enquanto o pedido está aberto.',
+    RE001:'Descreva o serviço com 10 a 3000 caracteres.',RE002:'A descrição só pode ser alterada enquanto o pedido está aberto.' })[error?.code]
     || ({CN001:'Explique o motivo com pelo menos 10 caracteres.',CN002:'Este serviço não pode ser cancelado por este fluxo.'})[error?.code]
     || ({EX001:'Confira a descrição, o valor e a decisão do serviço extra.',EX002:'Este serviço não aceita extras nesta etapa.',
       EX003:'O extra pendente precisa ser decidido e decisões anteriores não podem ser alteradas.',EX004:'Aguarde o cliente decidir o serviço extra antes de solicitar a conclusão.'})[error?.code]
@@ -156,7 +157,15 @@ async function refresh(ticket=generation) {
         check(await api.rpc('set_open_request_schedule',{p_request_id:r.id,p_scheduled_for:next}));
         message(next?'Horário preferido atualizado. Prestadores elegíveis verão a nova preferência.':'Horário preferido removido. O pedido continua aberto.');await refresh();
       }catch(error){message(friendly(error));}finally{saveSchedule.disabled=false;}};
-      card.append(urgency,scheduleLabel,schedule,saveSchedule);
+      const descriptionLabel=text('label','Descrição do pedido');descriptionLabel.htmlFor='request-description-'+r.id;
+      const description=document.createElement('textarea');description.id=descriptionLabel.htmlFor;description.minLength=10;description.maxLength=3000;description.rows=3;description.value=r.description;
+      const saveDescription=text('button','Atualizar descrição','secondary');saveDescription.type='button';
+      saveDescription.onclick=async()=>{saveDescription.disabled=true;try{
+        const next=description.value.trim();if(next.length<10||next.length>3000)throw new InputError('Descreva o serviço com 10 a 3000 caracteres.');
+        check(await api.rpc('set_open_request_description',{p_request_id:r.id,p_description:next}));
+        message('Descrição do pedido atualizada. O chamado continua disponível.');await refresh();
+      }catch(error){message(friendly(error));}finally{saveDescription.disabled=false;}};
+      card.append(urgency,scheduleLabel,schedule,saveSchedule,descriptionLabel,description,saveDescription);
     }
     const count=unread.get(r.id)||0;if(count)card.append(text('strong',count+' nova'+(count===1?' mensagem':'s mensagens'),'unread-count'));
     if(r.scheduled_for)card.append(text('small','Agendado: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));

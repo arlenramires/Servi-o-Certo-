@@ -41,6 +41,13 @@ test('client updates and removes the schedule while a request remains open',asyn
   await expect(page.locator('#status')).toContainText('Horário preferido removido');await expect(card).not.toContainText('Agendado:');
   expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_open_request_schedule').map(c=>c.args))).toEqual([{p_request_id:expect.any(String),p_scheduled_for:expect.any(String)},{p_request_id:expect.any(String),p_scheduled_for:null}]);
 });
+test('client corrects the description while a request remains open',async({page})=>{
+  await login(page);await page.locator('#serviceProfession').selectOption('Eletricista');await page.locator('#description').fill('Trocar tomada antiga da sala.');await page.locator('#createRequest').click();
+  const card=page.locator('#requests .service').first(),description=card.getByLabel('Descrição do pedido');
+  await description.fill('Trocar duas tomadas antigas da sala e revisar a fiação próxima.');await card.getByRole('button',{name:'Atualizar descrição'}).click();
+  await expect(page.locator('#status')).toContainText('Descrição do pedido atualizada');await expect(card).toContainText('Trocar duas tomadas antigas');
+  expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='set_open_request_description').args)).toEqual({p_request_id:expect.any(String),p_description:'Trocar duas tomadas antigas da sala e revisar a fiação próxima.'});
+});
 test('incoming messages show an unread count that clears when conversation opens',async({page})=>{
   await login(page);
   await page.evaluate(()=>{

@@ -98,6 +98,9 @@ async function applyDeliveries(db) {
   const openScheduleFiles=(await readdir(dir)).filter(f=>f.endsWith('_client_open_request_schedule.sql'));
   assert.equal(openScheduleFiles.length,1);
   await db.exec(await readFile(new URL(openScheduleFiles[0],dir),'utf8'));
+  const openDescriptionFiles=(await readdir(dir)).filter(f=>f.endsWith('_client_open_request_description.sql'));
+  assert.equal(openDescriptionFiles.length,1);
+  await db.exec(await readFile(new URL(openDescriptionFiles[0],dir),'utf8'));
 }
 
 test('PostgreSQL: signup, RLS, locality, qualification, atomic claim and chat',async()=>{
