@@ -150,13 +150,18 @@ async function refresh(ticket=generation) {
     el('opportunities').replaceChildren();
     if(!opportunities.length)el('opportunities').append(text('p','Nenhum chamado compatível no momento.'));
     for(const r of opportunities) {
-      const card=text('article','','service'),button=text('button','Aceitar chamado');
-      card.append(text('h3',r.requested_profession),text('small','Solicitado em '+new Date(r.requested_at).toLocaleString('pt-BR')),button);
-      button.onclick=async()=>{button.disabled=true;try{
+      const card=text('article','','service'),button=text('button','Aceitar chamado'),decline=text('button','Não tenho interesse','secondary');
+      card.append(text('h3',r.requested_profession),text('small','Solicitado em '+new Date(r.requested_at).toLocaleString('pt-BR')),button,decline);
+      button.onclick=async()=>{button.disabled=true;decline.disabled=true;try{
         const accepted=check(await api.rpc('accept_request',{p_request_id:r.request_id}));
         message(accepted?'Chamado aceito. Combine o orçamento na conversa.':'O chamado não está mais disponível ou você não atende aos requisitos.');
         await refresh();
-      }catch(error){message(friendly(error));}finally{button.disabled=false;}};
+      }catch(error){message(friendly(error));}finally{button.disabled=false;decline.disabled=false;}};
+      decline.onclick=async()=>{button.disabled=true;decline.disabled=true;try{
+        const declined=check(await api.rpc('decline_request',{p_request_id:r.request_id}));
+        message(declined?'Chamado removido da sua lista. Outros profissionais ainda podem aceitá-lo.':'O chamado não está mais disponível ou você não atende aos requisitos.');
+        await refresh();
+      }catch(error){message(friendly(error));}finally{button.disabled=false;decline.disabled=false;}};
       el('opportunities').append(card);
     }
   }

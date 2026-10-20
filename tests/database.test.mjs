@@ -83,6 +83,9 @@ async function applyDeliveries(db) {
   const rescheduleWithdrawalFiles=(await readdir(dir)).filter(f=>f.endsWith('_pending_reschedule_withdrawal.sql'));
   assert.equal(rescheduleWithdrawalFiles.length,1);
   await db.exec(await readFile(new URL(rescheduleWithdrawalFiles[0],dir),'utf8'));
+  const requestDeclineFiles=(await readdir(dir)).filter(f=>f.endsWith('_provider_request_declines.sql'));
+  assert.equal(requestDeclineFiles.length,1);
+  await db.exec(await readFile(new URL(requestDeclineFiles[0],dir),'utf8'));
 }
 
 test('PostgreSQL: signup, RLS, locality, qualification, atomic claim and chat',async()=>{

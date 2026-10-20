@@ -73,9 +73,24 @@ do $$begin if exists(select 1 from public.available_requests()) then raise excep
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
 do $$begin if (select count(*) from public.service_messages)<>1 then raise exception 'Client cannot read own conversation'; end if; end $$;
 reset role;
+update public.profession_compliance_rules set reviewed_at=now() where profession_id=-991;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
+select set_config('test.declined_request',(select request_id::text from public.available_requests() limit 1),true);
+do $$begin
+ if not public.decline_request(current_setting('test.declined_request')::uuid) then raise exception 'Eligible provider could not decline request';end if;
+ if not public.decline_request(current_setting('test.declined_request')::uuid) then raise exception 'Decline was not idempotent';end if;
+ if exists(select 1 from public.available_requests()) then raise exception 'Declined request remained visible';end if;
+ if public.accept_request(current_setting('test.declined_request')::uuid) then raise exception 'Declining provider accepted hidden request';end if;
+ begin perform * from private.provider_request_declines;raise exception 'Private declines exposed';exception when insufficient_privilege then null;end;
+end $$;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
+do $$begin if not exists(select 1 from public.available_requests() where request_id=current_setting('test.declined_request')::uuid) then raise exception 'Decline hid request from other provider';end if;end $$;
+reset role;
 set local role anon;
 do $$begin
  begin perform public.available_requests(); raise exception 'Anon RPC allowed'; exception when insufficient_privilege then null; end;
+ begin perform public.decline_request(current_setting('test.declined_request')::uuid); raise exception 'Anon decline allowed'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 rollback;

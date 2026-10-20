@@ -1,5 +1,5 @@
 // UI contract double only. PostgreSQL/RLS are verified separately in database.test.mjs.
-const state=window.testState={user:null,role:window.testRole||'cliente',requests:[],messages:[],messageReads:[],quotes:[],decisions:[],contracts:[],contractDecisions:[],executionEvents:[],arrivalEstimates:[],completionAdjustments:[],progressUpdates:[],scheduleChanges:[],ratings:[],cancellations:[],extras:[],disputes:[],inspections:[],calls:[],applications:[]};
+const state=window.testState={user:null,role:window.testRole||'cliente',requests:[],messages:[],messageReads:[],quotes:[],decisions:[],contracts:[],contractDecisions:[],executionEvents:[],arrivalEstimates:[],completionAdjustments:[],progressUpdates:[],scheduleChanges:[],ratings:[],cancellations:[],extras:[],disputes:[],inspections:[],declinedRequests:[],calls:[],applications:[]};
 let listener=()=>{};
 const response=data=>Promise.resolve({data,error:null});
 const account={id:'10000000-0000-4000-8000-000000000001',email:'teste@example.invalid'};
@@ -111,7 +111,8 @@ export function createClient(){return {
     if(name==='request_service_completion'){if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='conclusao_solicitada'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});return {data:true,error:null};}
     if(name==='confirm_service_completion'){request.status='concluido';if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='conclusao_confirmada'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'conclusao_confirmada',created_at:new Date().toISOString()});return {data:true,error:null};}
     if(name==='rate_completed_service'){const id='rating-'+Date.now();state.ratings.push({id,request_id:request.id,reviewer_id:account.id,reviewee_id:request.provider_id===account.id?request.client_id:request.provider_id,score:args.p_score,comment:args.p_comment,created_at:new Date().toISOString()});return {data:id,error:null};}
-    return {data:name==='available_requests'?[{request_id:'open-request',requested_profession:'Eletricista',requested_at:new Date().toISOString()}]:name==='accept_request'?false:true,error:null};
+    if(name==='decline_request'){if(!state.declinedRequests.includes(args.p_request_id))state.declinedRequests.push(args.p_request_id);return {data:true,error:null};}
+    return {data:name==='available_requests'?(state.declinedRequests.includes('open-request')?[]:[{request_id:'open-request',requested_profession:'Eletricista',requested_at:new Date().toISOString()}]):name==='accept_request'?false:true,error:null};
   },
   auth:{
     onAuthStateChange:fn=>{listener=fn;return {data:{subscription:{unsubscribe(){}}}};},

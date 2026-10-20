@@ -42,6 +42,11 @@ test('incoming messages show an unread count that clears when conversation opens
 test('provider handles an already claimed opportunity without false success',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await expect(page.locator('#clientPanel')).toBeHidden();await expect(page.locator('#providerApply')).toBeHidden();await page.getByRole('button',{name:'Aceitar chamado'}).click();await expect(page.locator('#status')).toContainText('não está mais disponível');
 });
+test('provider declines an opportunity without removing it for others',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await page.getByRole('button',{name:'Não tenho interesse'}).click();
+  await expect(page.locator('#status')).toContainText('Outros profissionais ainda podem aceitá-lo');await expect(page.locator('#opportunities')).toContainText('Nenhum chamado compatível');
+  expect(await page.evaluate(()=>({declined:window.testState.declinedRequests,call:window.testState.calls.find(c=>c.rpc==='decline_request').args}))).toEqual({declined:['open-request'],call:{p_request_id:'open-request'}});
+});
 test('missing server profile keeps workspace closed',async({page})=>{
   await page.addInitScript(()=>window.missingProfile=true);await page.goto('/auth-teste/');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('validpass123');await page.locator('#submit').click();await expect(page.locator('#status')).toContainText('permanece bloqueado');await expect(page.locator('#workspace')).toBeHidden();
 });

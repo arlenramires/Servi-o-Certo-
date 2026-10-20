@@ -23,6 +23,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 17. [Reagendamento antes do deslocamento](ENTREGA-2026-10-20-REAGENDAMENTO.md). Prestador propõe nova data com motivo; cliente aceita ou recusa, e somente o aceite atualiza a agenda antes de “Estou a caminho”.
 18. [Reagendamento bilateral com bloqueio de deslocamento](ENTREGA-2026-10-20-REAGENDAMENTO-BILATERAL.md). Cliente ou prestador propõe nova data; somente a outra parte decide, e uma proposta pendente impede o início do deslocamento.
 19. [Retirada de proposta de reagendamento](ENTREGA-2026-10-20-RETIRADA-REAGENDAMENTO.md). O autor pode retirar sua própria proposta pendente sem apagar o histórico nem alterar a agenda; a retirada libera novamente o fluxo de deslocamento.
+20. [Recusa privada de oportunidade](ENTREGA-2026-10-20-RECUSA-OPORTUNIDADE.md). Prestador elegível pode remover um chamado da própria fila sem cancelar o pedido nem escondê-lo de outros profissionais.
 
 ## Próximas entregas prioritárias
 
