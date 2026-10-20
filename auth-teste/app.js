@@ -32,7 +32,9 @@ function friendly(error) {
     SE007:'Sua avaliação já foi registrada e não pode ser alterada.',
     SE008:'O deslocamento só pode ser informado antes do início do serviço.',SE009:'Informe primeiro que está a caminho.',
     SE010:'Registre a chegada ao local antes de iniciar o serviço.',SE011:'Escolha uma previsão de chegada válida.',
-    SE012:'A previsão só pode ser informada enquanto você está a caminho.' })[error?.code]
+    SE012:'A previsão só pode ser informada enquanto você está a caminho.',
+    SE013:'A chegada só pode ser confirmada depois que o prestador informar que está no local.',
+    SE014:'Aguarde o cliente confirmar a chegada antes de iniciar o serviço.' })[error?.code]
     || ({CN001:'Explique o motivo com pelo menos 10 caracteres.',CN002:'Este serviço não pode ser cancelado por este fluxo.'})[error?.code]
     || ({EX001:'Confira a descrição, o valor e a decisão do serviço extra.',EX002:'Este serviço não aceita extras nesta etapa.',
       EX003:'O extra pendente precisa ser decidido e decisões anteriores não podem ser alteradas.',EX004:'Aguarde o cliente decidir o serviço extra antes de solicitar a conclusão.'})[error?.code]

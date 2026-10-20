@@ -29,6 +29,9 @@ do $$begin
  begin perform public.set_provider_eta('41000000-0000-4000-8000-000000000001',30);raise exception 'Client set provider ETA';exception when insufficient_privilege then null;end;
 end $$;
 select public.decide_service_contract(current_setting('test.execution_contract')::uuid,current_setting('test.execution_hash'),'aceito');
+do $$begin
+ begin perform public.confirm_provider_arrival('41000000-0000-4000-8000-000000000001');raise exception 'Client confirmed arrival before provider arrived';exception when sqlstate 'SE013' then null;end;
+end $$;
 select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000002',true);
 do $$begin
  begin perform public.start_service('41000000-0000-4000-8000-000000000001');raise exception 'Service started before provider arrival';exception when sqlstate 'SE010' then null;end;
@@ -52,7 +55,13 @@ select public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','cheg
 select public.mark_provider_arrival('41000000-0000-4000-8000-000000000001','chegou_local');
 do $$begin
  begin perform public.set_provider_eta('41000000-0000-4000-8000-000000000001',30);raise exception 'ETA changed after arrival';exception when sqlstate 'SE012' then null;end;
+ begin perform public.confirm_provider_arrival('41000000-0000-4000-8000-000000000001');raise exception 'Provider confirmed own arrival';exception when insufficient_privilege then null;end;
+ begin perform public.start_service('41000000-0000-4000-8000-000000000001');raise exception 'Service started before client confirmed arrival';exception when sqlstate 'SE014' then null;end;
 end $$;
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001',true);
+select public.confirm_provider_arrival('41000000-0000-4000-8000-000000000001');
+select public.confirm_provider_arrival('41000000-0000-4000-8000-000000000001');
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000002',true);
 select public.start_service('41000000-0000-4000-8000-000000000001');
 select public.start_service('41000000-0000-4000-8000-000000000001');
 do $$begin
@@ -67,7 +76,7 @@ select public.confirm_service_completion('41000000-0000-4000-8000-000000000001')
 select public.confirm_service_completion('41000000-0000-4000-8000-000000000001');
 do $$begin
  if (select status from public.service_requests where id='41000000-0000-4000-8000-000000000001')<>'concluido' then raise exception 'Client confirmation did not conclude';end if;
- if (select count(*) from public.service_execution_events)<>5 then raise exception 'Execution history incomplete';end if;
+ if (select count(*) from public.service_execution_events)<>6 then raise exception 'Execution history incomplete';end if;
  begin update public.service_execution_events set event_type='iniciado';raise exception 'Event history editable';exception when insufficient_privilege then null;end;
 end $$;
 select set_config('test.client_rating',public.rate_completed_service('41000000-0000-4000-8000-000000000001',5,'TEST Excelente serviço')::text,true);

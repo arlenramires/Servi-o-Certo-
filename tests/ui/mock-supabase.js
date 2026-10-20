@@ -86,6 +86,9 @@ export function createClient(){return {
       if(item){item.estimated_arrival_at=estimated_arrival_at;item.updated_at=new Date().toISOString();}else state.arrivalEstimates.push({request_id:request.id,provider_id:account.id,estimated_arrival_at,updated_at:new Date().toISOString()});
       return {data:estimated_arrival_at,error:null};
     }
+    if(name==='confirm_provider_arrival'){
+      if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='chegada_confirmada_cliente'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'chegada_confirmada_cliente',created_at:new Date().toISOString()});return {data:true,error:null};
+    }
     if(name==='start_service'){request.status='em_andamento';if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='iniciado'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'iniciado',created_at:new Date().toISOString()});return {data:true,error:null};}
     if(name==='request_service_completion'){if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='conclusao_solicitada'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});return {data:true,error:null};}
     if(name==='confirm_service_completion'){request.status='concluido';if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='conclusao_confirmada'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'conclusao_confirmada',created_at:new Date().toISOString()});return {data:true,error:null};}

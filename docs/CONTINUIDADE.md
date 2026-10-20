@@ -17,6 +17,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 11. [Status de deslocamento do prestador](ENTREGA-2026-10-19-DESLOCAMENTO.md). Prestador registra “a caminho” e “cheguei ao local” em ordem protegida; cliente acompanha o estado dentro do serviço. GPS e ETA não fazem parte desta entrega.
 12. [Chegada obrigatória antes do início](ENTREGA-2026-10-19-INICIO-APOS-CHEGADA.md). O botão e a operação protegida de início só são liberados depois que o prestador registra a chegada ao local.
 13. [Previsão manual de chegada](ENTREGA-2026-10-19-ETA-MANUAL.md). Durante o deslocamento, o prestador informa ou atualiza uma previsão de 10 a 90 minutos que fica visível ao cliente, sem coleta de GPS.
+14. [Confirmação da chegada pelo cliente](ENTREGA-2026-10-20-CONFIRMACAO-CHEGADA.md). Depois da chegada informada pelo prestador, somente o cliente confirma a presença; o início fica bloqueado até essa confirmação.
 
 ## Próximas entregas prioritárias
 

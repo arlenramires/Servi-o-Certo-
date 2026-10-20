@@ -143,15 +143,17 @@ test('provider starts a bilaterally accepted service and requests completion',as
   await page.evaluate(()=>{const c=window.testState.contracts[0];window.testState.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});
   await page.locator('#refresh').click();await expect(page.getByRole('button',{name:'Iniciar serviço'})).toHaveCount(0);
   await page.getByRole('button',{name:'Estou a caminho'}).click();await expect(page.getByRole('button',{name:'Iniciar serviço'})).toHaveCount(0);
-  await page.getByRole('button',{name:'Cheguei ao local'}).click();await page.getByRole('button',{name:'Iniciar serviço'}).click();await expect(page.locator('#execution')).toContainText('Serviço em andamento');
+  await page.getByRole('button',{name:'Cheguei ao local'}).click();await expect(page.locator('#execution')).toContainText('Aguardando confirmação do cliente');await expect(page.getByRole('button',{name:'Iniciar serviço'})).toHaveCount(0);
+  await page.evaluate(()=>{const s=window.testState,r=s.requests[0];s.executionEvents.push({request_id:r.id,actor_id:r.client_id,event_type:'chegada_confirmada_cliente',created_at:new Date().toISOString()});});
+  await page.locator('#refresh').click();await page.getByRole('button',{name:'Iniciar serviço'}).click();await expect(page.locator('#execution')).toContainText('Serviço em andamento');
   await page.getByRole('button',{name:'Solicitar confirmação de conclusão'}).click();await expect(page.locator('#execution')).toContainText('Aguardando confirmação do cliente');
-  expect(await page.evaluate(()=>window.testState.executionEvents.map(e=>e.event_type))).toEqual(['a_caminho','chegou_local','iniciado','conclusao_solicitada']);
+  expect(await page.evaluate(()=>window.testState.executionEvents.map(e=>e.event_type))).toEqual(['a_caminho','chegou_local','chegada_confirmada_cliente','iniciado','conclusao_solicitada']);
 });
 test('provider reports ordered on-the-way and arrival statuses to the client',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
   await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});
   await page.locator('#refresh').click();await page.getByRole('button',{name:'Estou a caminho'}).click();await expect(page.locator('#execution')).toContainText('Prestador está a caminho');
-  await page.getByRole('button',{name:'Cheguei ao local'}).click();await expect(page.locator('#execution')).toContainText('Prestador informou que chegou ao local');
+  await page.getByRole('button',{name:'Cheguei ao local'}).click();await expect(page.locator('#execution')).toContainText('Aguardando confirmação do cliente');
   expect(await page.evaluate(()=>window.testState.executionEvents.map(e=>e.event_type))).toEqual(['a_caminho','chegou_local']);
   const calls=await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='mark_provider_arrival').map(c=>c.args));
   expect(calls).toEqual([{p_request_id:'contract-service',p_event:'a_caminho'},{p_request_id:'contract-service',p_event:'chegou_local'}]);
@@ -165,11 +167,14 @@ test('provider updates a manual arrival estimate only while on the way',async({p
   expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_provider_eta').map(c=>c.args))).toEqual([{p_request_id:'contract-service',p_minutes:30},{p_request_id:'contract-service',p_minutes:45}]);
   expect(await page.evaluate(()=>window.testState.arrivalEstimates)).toHaveLength(1);
 });
-test('client sees provider arrival without receiving provider controls',async({page})=>{
+test('client confirms provider arrival without receiving provider controls',async({page})=>{
   await login(page);await seedContractContext(page,{contract:true});
   await page.evaluate(()=>{const s=window.testState,c=s.contracts[0],r=s.requests[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'a_caminho',created_at:new Date().toISOString()},{request_id:r.id,actor_id:r.provider_id,event_type:'chegou_local',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await expect(page.locator('#execution')).toContainText('Prestador informou que chegou ao local');
+  await page.locator('#refresh').click();await expect(page.locator('#execution')).toContainText('Confirme somente se ele estiver no local');
   await expect(page.getByRole('button',{name:'Estou a caminho'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Cheguei ao local'})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Iniciar serviço'})).toHaveCount(0);await page.getByRole('button',{name:'Confirmar chegada do prestador'}).click();
+  await expect(page.locator('#execution')).toContainText('Cliente confirmou a chegada');
+  expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='confirm_provider_arrival').args)).toEqual({p_request_id:'contract-service'});
 });
 test('client sees the manual ETA without provider controls',async({page})=>{
   await login(page);await seedContractContext(page,{contract:true});
