@@ -81,16 +81,29 @@ do $$begin
  if not public.decline_request(current_setting('test.declined_request')::uuid) then raise exception 'Eligible provider could not decline request';end if;
  if not public.decline_request(current_setting('test.declined_request')::uuid) then raise exception 'Decline was not idempotent';end if;
  if exists(select 1 from public.available_requests()) then raise exception 'Declined request remained visible';end if;
+ if (select count(*) from public.declined_requests() where request_id=current_setting('test.declined_request')::uuid)<>1 then raise exception 'Provider cannot review own decline';end if;
  if public.accept_request(current_setting('test.declined_request')::uuid) then raise exception 'Declining provider accepted hidden request';end if;
  begin perform * from private.provider_request_declines;raise exception 'Private declines exposed';exception when insufficient_privilege then null;end;
 end $$;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
-do $$begin if not exists(select 1 from public.available_requests() where request_id=current_setting('test.declined_request')::uuid) then raise exception 'Decline hid request from other provider';end if;end $$;
+do $$begin
+ if not exists(select 1 from public.available_requests() where request_id=current_setting('test.declined_request')::uuid) then raise exception 'Decline hid request from other provider';end if;
+ if exists(select 1 from public.declined_requests()) then raise exception 'Provider saw another provider decline';end if;
+ if public.restore_request_interest(current_setting('test.declined_request')::uuid) then raise exception 'Provider restored another provider decline';end if;
+end $$;
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
+do $$begin
+ if not public.restore_request_interest(current_setting('test.declined_request')::uuid) then raise exception 'Provider could not restore own decline';end if;
+ if not exists(select 1 from public.available_requests() where request_id=current_setting('test.declined_request')::uuid) then raise exception 'Restored request did not return';end if;
+ if exists(select 1 from public.declined_requests()) then raise exception 'Restored request remained hidden';end if;
+end $$;
 reset role;
 set local role anon;
 do $$begin
  begin perform public.available_requests(); raise exception 'Anon RPC allowed'; exception when insufficient_privilege then null; end;
  begin perform public.decline_request(current_setting('test.declined_request')::uuid); raise exception 'Anon decline allowed'; exception when insufficient_privilege then null; end;
+ begin perform public.declined_requests(); raise exception 'Anon decline list allowed'; exception when insufficient_privilege then null; end;
+ begin perform public.restore_request_interest(current_setting('test.declined_request')::uuid); raise exception 'Anon restore allowed'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 rollback;

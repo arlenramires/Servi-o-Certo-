@@ -86,6 +86,9 @@ async function applyDeliveries(db) {
   const requestDeclineFiles=(await readdir(dir)).filter(f=>f.endsWith('_provider_request_declines.sql'));
   assert.equal(requestDeclineFiles.length,1);
   await db.exec(await readFile(new URL(requestDeclineFiles[0],dir),'utf8'));
+  const requestRestoreFiles=(await readdir(dir)).filter(f=>f.endsWith('_restore_declined_requests.sql'));
+  assert.equal(requestRestoreFiles.length,1);
+  await db.exec(await readFile(new URL(requestRestoreFiles[0],dir),'utf8'));
 }
 
 test('PostgreSQL: signup, RLS, locality, qualification, atomic claim and chat',async()=>{

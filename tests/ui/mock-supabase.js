@@ -112,7 +112,9 @@ export function createClient(){return {
     if(name==='confirm_service_completion'){request.status='concluido';if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='conclusao_confirmada'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'conclusao_confirmada',created_at:new Date().toISOString()});return {data:true,error:null};}
     if(name==='rate_completed_service'){const id='rating-'+Date.now();state.ratings.push({id,request_id:request.id,reviewer_id:account.id,reviewee_id:request.provider_id===account.id?request.client_id:request.provider_id,score:args.p_score,comment:args.p_comment,created_at:new Date().toISOString()});return {data:id,error:null};}
     if(name==='decline_request'){if(!state.declinedRequests.includes(args.p_request_id))state.declinedRequests.push(args.p_request_id);return {data:true,error:null};}
-    return {data:name==='available_requests'?(state.declinedRequests.includes('open-request')?[]:[{request_id:'open-request',requested_profession:'Eletricista',requested_at:new Date().toISOString()}]):name==='accept_request'?false:true,error:null};
+    if(name==='restore_request_interest'){const index=state.declinedRequests.indexOf(args.p_request_id);if(index<0)return {data:false,error:null};state.declinedRequests.splice(index,1);return {data:true,error:null};}
+    const opportunity={request_id:'open-request',requested_profession:'Eletricista',requested_at:new Date().toISOString()};
+    return {data:name==='available_requests'?(state.declinedRequests.includes('open-request')?[]:[opportunity]):name==='declined_requests'?(state.declinedRequests.includes('open-request')?[{...opportunity,declined_at:new Date().toISOString()}]:[]):name==='accept_request'?false:true,error:null};
   },
   auth:{
     onAuthStateChange:fn=>{listener=fn;return {data:{subscription:{unsubscribe(){}}}};},

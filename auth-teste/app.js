@@ -145,7 +145,8 @@ async function refresh(ticket=generation) {
     el('requests').append(card);
   }
   if(profile.role==='prestador') {
-    const opportunities=check(await api.rpc('available_requests'))||[];
+    const [availableResult,declinedResult]=await Promise.all([api.rpc('available_requests'),api.rpc('declined_requests')]);
+    const opportunities=check(availableResult)||[],declinedRequests=check(declinedResult)||[];
     if(ticket!==generation)return;
     el('opportunities').replaceChildren();
     if(!opportunities.length)el('opportunities').append(text('p','Nenhum chamado compatível no momento.'));
@@ -162,6 +163,17 @@ async function refresh(ticket=generation) {
         message(declined?'Chamado removido da sua lista. Outros profissionais ainda podem aceitá-lo.':'O chamado não está mais disponível ou você não atende aos requisitos.');
         await refresh();
       }catch(error){message(friendly(error));}finally{button.disabled=false;decline.disabled=false;}};
+      el('opportunities').append(card);
+    }
+    if(declinedRequests.length)el('opportunities').append(text('h4','Ocultados por você'));
+    for(const r of declinedRequests) {
+      const card=text('article','','service'),restore=text('button','Mostrar novamente','secondary');
+      card.append(text('h3',r.requested_profession),text('small','Ocultado em '+new Date(r.declined_at).toLocaleString('pt-BR')),restore);
+      restore.onclick=async()=>{restore.disabled=true;try{
+        const restored=check(await api.rpc('restore_request_interest',{p_request_id:r.request_id}));
+        message(restored?'Chamado devolvido à sua lista de oportunidades.':'O chamado já não estava oculto para você.');
+        await refresh();
+      }catch(error){message(friendly(error));}finally{restore.disabled=false;}};
       el('opportunities').append(card);
     }
   }

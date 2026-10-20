@@ -47,6 +47,12 @@ test('provider declines an opportunity without removing it for others',async({pa
   await expect(page.locator('#status')).toContainText('Outros profissionais ainda podem aceitá-lo');await expect(page.locator('#opportunities')).toContainText('Nenhum chamado compatível');
   expect(await page.evaluate(()=>({declined:window.testState.declinedRequests,call:window.testState.calls.find(c=>c.rpc==='decline_request').args}))).toEqual({declined:['open-request'],call:{p_request_id:'open-request'}});
 });
+test('provider restores a personally hidden opportunity',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await page.getByRole('button',{name:'Não tenho interesse'}).click();
+  await expect(page.getByRole('heading',{name:'Ocultados por você'})).toBeVisible();await page.getByRole('button',{name:'Mostrar novamente'}).click();
+  await expect(page.locator('#status')).toContainText('devolvido à sua lista');await expect(page.getByRole('button',{name:'Aceitar chamado'})).toBeVisible();
+  expect(await page.evaluate(()=>({declined:window.testState.declinedRequests,call:window.testState.calls.find(c=>c.rpc==='restore_request_interest').args}))).toEqual({declined:[],call:{p_request_id:'open-request'}});
+});
 test('missing server profile keeps workspace closed',async({page})=>{
   await page.addInitScript(()=>window.missingProfile=true);await page.goto('/auth-teste/');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('validpass123');await page.locator('#submit').click();await expect(page.locator('#status')).toContainText('permanece bloqueado');await expect(page.locator('#workspace')).toBeHidden();
 });
