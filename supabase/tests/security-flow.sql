@@ -17,8 +17,8 @@ insert into public.provider_service_areas(provider_id,city,state,latitude,longit
 select id,'Manaus','AM',-3.1,-60.0,10 from public.profiles where id in ('10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000004');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
-insert into public.service_requests(client_id,profession,description,city,state)
-values(auth.uid(),'TEST Profissão','TEST Pedido de serviço para validar segurança','Manaus','AM');
+insert into public.service_requests(client_id,profession,description,city,state,is_urgent,scheduled_for)
+values(auth.uid(),'TEST Profissão','TEST Pedido de serviço para validar segurança','Manaus','AM',true,now()+interval '1 day');
 select set_config('test.request_id',(select id::text from public.service_requests where description='TEST Pedido de serviço para validar segurança'),true);
 do $$begin
  if public.set_provider_availability(true) then raise exception 'Client became available'; end if;
@@ -40,6 +40,8 @@ do $$begin if exists(select 1 from public.available_requests()) then raise excep
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000002',true);
 do $$declare rid uuid;begin
  if (select count(*) from public.available_requests())<>1 then raise exception 'Locality or radius filter failed'; end if;
+ if (select count(*) from public.available_request_context())<>1 then raise exception 'Safe opportunity context changed eligibility'; end if;
+ if not exists(select 1 from public.available_request_context() where city='Manaus' and state='AM' and is_urgent and scheduled_for is not null) then raise exception 'Safe opportunity context missing';end if;
  if exists(select 1 from public.service_requests) then raise exception 'Unassigned provider read private request'; end if;
  select request_id into rid from public.available_requests();
  if not public.accept_request(rid) then raise exception 'Eligible provider could not claim'; end if;
@@ -101,6 +103,7 @@ reset role;
 set local role anon;
 do $$begin
  begin perform public.available_requests(); raise exception 'Anon RPC allowed'; exception when insufficient_privilege then null; end;
+ begin perform public.available_request_context(); raise exception 'Anon context RPC allowed'; exception when insufficient_privilege then null; end;
  begin perform public.decline_request(current_setting('test.declined_request')::uuid); raise exception 'Anon decline allowed'; exception when insufficient_privilege then null; end;
  begin perform public.declined_requests(); raise exception 'Anon decline list allowed'; exception when insufficient_privilege then null; end;
  begin perform public.restore_request_interest(current_setting('test.declined_request')::uuid); raise exception 'Anon restore allowed'; exception when insufficient_privilege then null; end;

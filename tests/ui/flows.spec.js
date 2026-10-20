@@ -42,6 +42,12 @@ test('incoming messages show an unread count that clears when conversation opens
 test('provider handles an already claimed opportunity without false success',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await expect(page.locator('#clientPanel')).toBeHidden();await expect(page.locator('#providerApply')).toBeHidden();await page.getByRole('button',{name:'Aceitar chamado'}).click();await expect(page.locator('#status')).toContainText('não está mais disponível');
 });
+test('provider sees safe location, urgency and schedule context before accepting',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);const opportunities=page.locator('#opportunities');
+  await expect(opportunities).toContainText('Urgente · Manaus / AM');await expect(opportunities).toContainText('Preferência:');
+  await expect(opportunities).not.toContainText('cliente');await expect(opportunities).not.toContainText('coordenada');
+  expect(await page.evaluate(()=>window.testState.calls.some(c=>c.rpc==='available_request_context'))).toBe(true);
+});
 test('provider declines an opportunity without removing it for others',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await page.getByRole('button',{name:'Não tenho interesse'}).click();
   await expect(page.locator('#status')).toContainText('Outros profissionais ainda podem aceitá-lo');await expect(page.locator('#opportunities')).toContainText('Nenhum chamado compatível');

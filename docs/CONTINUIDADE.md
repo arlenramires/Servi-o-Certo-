@@ -25,6 +25,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 19. [Retirada de proposta de reagendamento](ENTREGA-2026-10-20-RETIRADA-REAGENDAMENTO.md). O autor pode retirar sua própria proposta pendente sem apagar o histórico nem alterar a agenda; a retirada libera novamente o fluxo de deslocamento.
 20. [Recusa privada de oportunidade](ENTREGA-2026-10-20-RECUSA-OPORTUNIDADE.md). Prestador elegível pode remover um chamado da própria fila sem cancelar o pedido nem escondê-lo de outros profissionais.
 21. [Restauração de oportunidade ocultada](ENTREGA-2026-10-20-RESTAURACAO-OPORTUNIDADE.md). Prestador pode revisar os próprios chamados ocultados ainda elegíveis e devolvê-los à própria fila sem afetar outros profissionais.
+22. [Contexto seguro da oportunidade](ENTREGA-2026-10-20-CONTEXTO-OPORTUNIDADE.md). Antes do aceite, o prestador vê cidade/UF, urgência e horário preferido sem receber descrição, identidade, endereço ou coordenadas do cliente.
 
 ## Próximas entregas prioritárias
 

@@ -145,14 +145,16 @@ async function refresh(ticket=generation) {
     el('requests').append(card);
   }
   if(profile.role==='prestador') {
-    const [availableResult,declinedResult]=await Promise.all([api.rpc('available_requests'),api.rpc('declined_requests')]);
+    const [availableResult,declinedResult]=await Promise.all([api.rpc('available_request_context'),api.rpc('declined_requests')]);
     const opportunities=check(availableResult)||[],declinedRequests=check(declinedResult)||[];
     if(ticket!==generation)return;
     el('opportunities').replaceChildren();
     if(!opportunities.length)el('opportunities').append(text('p','Nenhum chamado compatível no momento.'));
     for(const r of opportunities) {
       const card=text('article','','service'),button=text('button','Aceitar chamado'),decline=text('button','Não tenho interesse','secondary');
-      card.append(text('h3',r.requested_profession),text('small','Solicitado em '+new Date(r.requested_at).toLocaleString('pt-BR')),button,decline);
+      card.append(text('h3',r.requested_profession),text('small',(r.is_urgent?'Urgente · ':'')+r.city+' / '+r.state),text('small','Solicitado em '+new Date(r.requested_at).toLocaleString('pt-BR')));
+      if(r.scheduled_for)card.append(text('small','Preferência: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));
+      card.append(button,decline);
       button.onclick=async()=>{button.disabled=true;decline.disabled=true;try{
         const accepted=check(await api.rpc('accept_request',{p_request_id:r.request_id}));
         message(accepted?'Chamado aceito. Combine o orçamento na conversa.':'O chamado não está mais disponível ou você não atende aos requisitos.');
