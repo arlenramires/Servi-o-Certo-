@@ -74,6 +74,9 @@ async function applyDeliveries(db) {
   const progressFiles=(await readdir(dir)).filter(f=>f.endsWith('_service_progress_updates.sql'));
   assert.equal(progressFiles.length,1);
   await db.exec(await readFile(new URL(progressFiles[0],dir),'utf8'));
+  const rescheduleFiles=(await readdir(dir)).filter(f=>f.endsWith('_service_rescheduling.sql'));
+  assert.equal(rescheduleFiles.length,1);
+  await db.exec(await readFile(new URL(rescheduleFiles[0],dir),'utf8'));
 }
 
 test('PostgreSQL: signup, RLS, locality, qualification, atomic claim and chat',async()=>{
@@ -156,5 +159,14 @@ test('PostgreSQL: participants count incoming unread messages and mark conversat
     await baseline(db);await applyDeliveries(db);
     const result=await db.exec(await readFile(new URL('../supabase/tests/message-read-flow.sql',import.meta.url),'utf8'));
     assert.ok(result.some(x=>x.rows?.some(r=>r.result==='message-read-flow: passed')));
+  }finally{await db.close();}
+});
+
+test('PostgreSQL: provider proposes and client decides an immutable pre-journey reschedule',async()=>{
+  const db=new PGlite();
+  try {
+    await baseline(db);await applyDeliveries(db);
+    const result=await db.exec(await readFile(new URL('../supabase/tests/rescheduling-flow.sql',import.meta.url),'utf8'));
+    assert.ok(result.some(x=>x.rows?.some(r=>r.result==='rescheduling-flow: passed')));
   }finally{await db.close();}
 });

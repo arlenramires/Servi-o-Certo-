@@ -165,6 +165,18 @@ test('client sees provider progress without receiving progress controls',async({
   await page.evaluate(()=>{const s=window.testState,r=s.requests[0];r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()});s.progressUpdates.push({request_id:r.id,provider_id:r.provider_id,progress_percent:50,note:'Primeira etapa da pintura concluída.',created_at:new Date().toISOString()});});
   await page.locator('#refresh').click();await expect(page.locator('#execution')).toContainText('50% — Primeira etapa da pintura concluída.');await expect(page.getByLabel('Andamento do serviço')).toHaveCount(0);await expect(page.getByRole('button',{name:'Registrar andamento'})).toHaveCount(0);
 });
+test('provider proposes a reschedule before starting the journey',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
+  const proposed=new Date(Date.now()+172800000);await page.getByLabel('Nova data proposta').fill(proposed.toISOString().slice(0,16));await page.getByLabel('Motivo do reagendamento').fill('Indisponibilidade no horário inicialmente combinado.');await page.getByRole('button',{name:'Propor reagendamento'}).click();
+  await expect(page.locator('#execution')).toContainText('aguardando decisão do cliente');await expect(page.getByLabel('Nova data proposta')).toHaveCount(0);
+  expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='propose_service_reschedule').args)).toMatchObject({p_request_id:'contract-service',p_reason:'Indisponibilidade no horário inicialmente combinado.'});
+});
+test('client accepts a proposed date and does not receive provider controls',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});const proposed=new Date(Date.now()+172800000).toISOString();
+  await page.evaluate(proposed=>{const s=window.testState,r=s.requests[0];s.scheduleChanges.push({id:'schedule-1',request_id:r.id,provider_id:r.provider_id,proposed_for:proposed,reason:'Indisponibilidade no horário inicialmente combinado.',status:'pendente',created_at:new Date().toISOString(),decided_at:null});},proposed);
+  await page.locator('#refresh').click();await expect(page.getByLabel('Nova data proposta')).toHaveCount(0);await page.getByRole('button',{name:'Aceitar nova data'}).click();await expect(page.locator('#execution')).toContainText('aceito pelo cliente');
+  expect(await page.evaluate(()=>({date:window.testState.requests[0].scheduled_for,call:window.testState.calls.find(c=>c.rpc==='decide_service_reschedule').args}))).toEqual({date:proposed,call:{p_change_id:'schedule-1',p_decision:'aceito'}});
+});
 test('provider reports ordered on-the-way and arrival statuses to the client',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
   await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});

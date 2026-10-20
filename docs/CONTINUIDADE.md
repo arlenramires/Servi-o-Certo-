@@ -20,6 +20,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 14. [Confirmação da chegada pelo cliente](ENTREGA-2026-10-20-CONFIRMACAO-CHEGADA.md). Depois da chegada informada pelo prestador, somente o cliente confirma a presença; o início fica bloqueado até essa confirmação.
 15. [Ajuste antes da confirmação de conclusão](ENTREGA-2026-10-20-AJUSTE-CONCLUSAO.md). Após o prestador declarar a conclusão, o cliente pode pedir um ajuste; a confirmação fica bloqueada até a resposta imutável do prestador.
 16. [Atualizações de andamento do serviço](ENTREGA-2026-10-20-ANDAMENTO-SERVICO.md). Durante a execução, o prestador registra marcos crescentes com resumo; o cliente acompanha o histórico privado antes da conclusão.
+17. [Reagendamento antes do deslocamento](ENTREGA-2026-10-20-REAGENDAMENTO.md). Prestador propõe nova data com motivo; cliente aceita ou recusa, e somente o aceite atualiza a agenda antes de “Estou a caminho”.
 
 ## Próximas entregas prioritárias
 
