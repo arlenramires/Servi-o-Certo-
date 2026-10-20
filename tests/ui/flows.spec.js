@@ -26,6 +26,12 @@ test('client marks a request urgent and sees the persisted priority',async({page
   await expect(page.locator('#status')).toContainText('Pedido urgente registrado');await expect(page.locator('#requests')).toContainText('Atendimento urgente');await expect(page.locator('#urgent')).not.toBeChecked();
   expect(await page.evaluate(()=>window.testState.calls.find(c=>c.table==='service_requests'&&c.operation==='insert').payload)).toMatchObject({profession:'Eletricista',is_urgent:true,city:'Manaus',state:'AM'});
 });
+test('client changes urgency while an unassigned request remains open',async({page})=>{
+  await login(page);await page.locator('#serviceProfession').selectOption('Pintor');await page.locator('#description').fill('Pintura completa da sala e acabamento das paredes.');await page.locator('#createRequest').click();
+  const card=page.locator('#requests .service').first();await card.getByRole('button',{name:'Marcar como urgente'}).click();await expect(card).toContainText('Atendimento urgente');await expect(page.locator('#status')).toContainText('marcado como urgente');
+  await card.getByRole('button',{name:'Remover urgência'}).click();await expect(card).not.toContainText('Atendimento urgente');await expect(page.locator('#status')).toContainText('Urgência removida');
+  expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_request_urgency').map(c=>c.args))).toEqual([{p_request_id:expect.any(String),p_urgent:true},{p_request_id:expect.any(String),p_urgent:false}]);
+});
 test('incoming messages show an unread count that clears when conversation opens',async({page})=>{
   await login(page);
   await page.evaluate(()=>{

@@ -45,7 +45,8 @@ function friendly(error) {
     RA001:'Escolha uma data futura e informe um motivo com 10 a 500 caracteres.',
     RA002:'O reagendamento só pode ser decidido antes do deslocamento.',
     RA003:'A proposta ou decisão já registrada não pode ser alterada.',
-    RA004:'Aguarde a decisão do reagendamento antes de iniciar o deslocamento.' })[error?.code]
+    RA004:'Aguarde a decisão do reagendamento antes de iniciar o deslocamento.',
+    RU001:'A urgência só pode ser alterada enquanto o pedido está aberto.' })[error?.code]
     || ({CN001:'Explique o motivo com pelo menos 10 caracteres.',CN002:'Este serviço não pode ser cancelado por este fluxo.'})[error?.code]
     || ({EX001:'Confira a descrição, o valor e a decisão do serviço extra.',EX002:'Este serviço não aceita extras nesta etapa.',
       EX003:'O extra pendente precisa ser decidido e decisões anteriores não podem ser alteradas.',EX004:'Aguarde o cliente decidir o serviço extra antes de solicitar a conclusão.'})[error?.code]
@@ -126,7 +127,7 @@ async function loadAccount(nextUser) {
 async function refresh(ticket=generation) {
   if(!profile||!user||recovery)return;
   const [requestResult,unreadResult]=await Promise.all([
-    api.from('service_requests').select('id,profession,description,status,created_at,city,state,scheduled_for,is_urgent').order('created_at',{ascending:false}).limit(100),
+    api.from('service_requests').select('id,profession,description,status,created_at,city,state,scheduled_for,is_urgent,provider_id').order('created_at',{ascending:false}).limit(100),
     api.rpc('unread_service_message_counts')
   ]);
   const requests=check(requestResult)||[],unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)]));
@@ -138,6 +139,14 @@ async function refresh(ticket=generation) {
     card.dataset.request=r.id;
     card.append(text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state),text('p',r.description));
     if(r.is_urgent)card.append(text('strong','Atendimento urgente'));
+    if(profile.role==='cliente'&&r.status==='aberto'&&!r.provider_id) {
+      const urgency=text('button',r.is_urgent?'Remover urgência':'Marcar como urgente','secondary');urgency.type='button';
+      urgency.onclick=async()=>{urgency.disabled=true;try{
+        const next=!r.is_urgent;check(await api.rpc('set_request_urgency',{p_request_id:r.id,p_urgent:next}));
+        message(next?'Pedido marcado como urgente. Prestadores elegíveis verão a prioridade.':'Urgência removida. O pedido continua disponível normalmente.');await refresh();
+      }catch(error){message(friendly(error));}finally{urgency.disabled=false;}};
+      card.append(urgency);
+    }
     const count=unread.get(r.id)||0;if(count)card.append(text('strong',count+' nova'+(count===1?' mensagem':'s mensagens'),'unread-count'));
     if(r.scheduled_for)card.append(text('small','Agendado: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));
     const cancelButton=cancellations.buttonFor(r);if(cancelButton)card.append(cancelButton);

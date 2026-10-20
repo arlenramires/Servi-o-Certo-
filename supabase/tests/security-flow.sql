@@ -22,6 +22,10 @@ values(auth.uid(),'TEST Profissão','TEST Pedido de serviço para validar segura
 select set_config('test.request_id',(select id::text from public.service_requests where description='TEST Pedido de serviço para validar segurança'),true);
 do $$begin
  if public.set_provider_availability(true) then raise exception 'Client became available'; end if;
+ if not public.set_request_urgency(current_setting('test.request_id')::uuid,false) then raise exception 'Client could not remove urgency';end if;
+ if (select is_urgent from public.service_requests where id=current_setting('test.request_id')::uuid) then raise exception 'Urgency was not removed';end if;
+ if not public.set_request_urgency(current_setting('test.request_id')::uuid,true) then raise exception 'Client could not restore urgency';end if;
+ if not (select is_urgent from public.service_requests where id=current_setting('test.request_id')::uuid) then raise exception 'Urgency was not restored';end if;
  if exists(select 1 from public.profiles where id<>auth.uid()) then raise exception 'Profile privacy failure'; end if;
  begin update public.profiles set role='administrador' where id=auth.uid(); raise exception 'Role escalation allowed'; exception when insufficient_privilege then null; end;
  begin insert into public.provider_applications(user_id,profession,status) values(auth.uid(),'TEST Profissão','aprovado'); raise exception 'Self approval allowed'; exception when insufficient_privilege then null; end;
@@ -44,6 +48,7 @@ do $$declare rid uuid;begin
  if not exists(select 1 from public.available_request_context() where city='Manaus' and state='AM' and is_urgent and scheduled_for is not null) then raise exception 'Safe opportunity context missing';end if;
  if exists(select 1 from public.service_requests) then raise exception 'Unassigned provider read private request'; end if;
  select request_id into rid from public.available_requests();
+ begin perform public.set_request_urgency(rid,false);raise exception 'Provider changed client urgency';exception when insufficient_privilege then null;end;
  if not public.accept_request(rid) then raise exception 'Eligible provider could not claim'; end if;
  if public.accept_request(rid) then raise exception 'Duplicate claim succeeded'; end if;
  if (select count(*) from public.service_requests)<>1 then raise exception 'Assigned provider cannot read request'; end if;
@@ -73,7 +78,10 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000003',true);
 do $$begin if exists(select 1 from public.available_requests()) then raise exception 'Unreviewed profession found work'; end if; end $$;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
-do $$begin if (select count(*) from public.service_messages)<>1 then raise exception 'Client cannot read own conversation'; end if; end $$;
+do $$begin
+ if (select count(*) from public.service_messages)<>1 then raise exception 'Client cannot read own conversation'; end if;
+ begin perform public.set_request_urgency(current_setting('test.request_id')::uuid,false);raise exception 'Client changed urgency after acceptance';exception when sqlstate 'RU001' then null;end;
+end $$;
 reset role;
 update public.profession_compliance_rules set reviewed_at=now() where profession_id=-991;
 set local role authenticated;
@@ -107,6 +115,7 @@ do $$begin
  begin perform public.decline_request(current_setting('test.declined_request')::uuid); raise exception 'Anon decline allowed'; exception when insufficient_privilege then null; end;
  begin perform public.declined_requests(); raise exception 'Anon decline list allowed'; exception when insufficient_privilege then null; end;
  begin perform public.restore_request_interest(current_setting('test.declined_request')::uuid); raise exception 'Anon restore allowed'; exception when insufficient_privilege then null; end;
+ begin perform public.set_request_urgency(current_setting('test.request_id')::uuid,false); raise exception 'Anon urgency update allowed'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 rollback;
