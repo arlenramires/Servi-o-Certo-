@@ -116,6 +116,7 @@ export function createClient(){return {
     if(name==='set_request_urgency'){request.is_urgent=args.p_urgent;return {data:true,error:null};}
     if(name==='set_open_request_schedule'){request.scheduled_for=args.p_scheduled_for;return {data:true,error:null};}
     if(name==='set_open_request_description'){request.description=args.p_description;return {data:true,error:null};}
+    if(name==='set_open_request_location'){request.city=args.p_city;request.state=args.p_state;request.latitude=null;request.longitude=null;return {data:true,error:null};}
     const opportunity={request_id:'open-request',requested_profession:'Eletricista',requested_at:new Date().toISOString(),city:'Manaus',state:'AM',is_urgent:true,scheduled_for:'2026-10-21T14:00:00.000Z'};
     return {data:['available_requests','available_request_context'].includes(name)?(state.declinedRequests.includes('open-request')?[]:[opportunity]):name==='declined_requests'?(state.declinedRequests.includes('open-request')?[{...opportunity,declined_at:new Date().toISOString()}]:[]):name==='accept_request'?false:true,error:null};
   },

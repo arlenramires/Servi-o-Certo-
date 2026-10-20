@@ -48,7 +48,8 @@ function friendly(error) {
     RA004:'Aguarde a decisão do reagendamento antes de iniciar o deslocamento.',
     RU001:'A urgência só pode ser alterada enquanto o pedido está aberto.',
     RS001:'Escolha um horário futuro.',RS002:'O horário só pode ser alterado enquanto o pedido está aberto.',
-    RE001:'Descreva o serviço com 10 a 3000 caracteres.',RE002:'A descrição só pode ser alterada enquanto o pedido está aberto.' })[error?.code]
+    RE001:'Descreva o serviço com 10 a 3000 caracteres.',RE002:'A descrição só pode ser alterada enquanto o pedido está aberto.',
+    RL001:'Confira a cidade e a UF.',RL002:'A região só pode ser alterada enquanto o pedido está aberto.' })[error?.code]
     || ({CN001:'Explique o motivo com pelo menos 10 caracteres.',CN002:'Este serviço não pode ser cancelado por este fluxo.'})[error?.code]
     || ({EX001:'Confira a descrição, o valor e a decisão do serviço extra.',EX002:'Este serviço não aceita extras nesta etapa.',
       EX003:'O extra pendente precisa ser decidido e decisões anteriores não podem ser alteradas.',EX004:'Aguarde o cliente decidir o serviço extra antes de solicitar a conclusão.'})[error?.code]
@@ -165,7 +166,18 @@ async function refresh(ticket=generation) {
         check(await api.rpc('set_open_request_description',{p_request_id:r.id,p_description:next}));
         message('Descrição do pedido atualizada. O chamado continua disponível.');await refresh();
       }catch(error){message(friendly(error));}finally{saveDescription.disabled=false;}};
-      card.append(urgency,scheduleLabel,schedule,saveSchedule,descriptionLabel,description,saveDescription);
+      const cityLabel=text('label','Cidade do pedido');cityLabel.htmlFor='request-city-'+r.id;
+      const requestCity=document.createElement('input');requestCity.id=cityLabel.htmlFor;requestCity.minLength=2;requestCity.maxLength=100;requestCity.value=r.city;
+      const stateLabel=text('label','UF do pedido');stateLabel.htmlFor='request-state-'+r.id;
+      const requestState=document.createElement('input');requestState.id=stateLabel.htmlFor;requestState.maxLength=2;requestState.value=r.state;
+      const saveLocation=text('button','Atualizar região','secondary');saveLocation.type='button';
+      saveLocation.onclick=async()=>{saveLocation.disabled=true;try{
+        const city=requestCity.value.trim(),state=requestState.value.trim().toUpperCase();
+        if(city.length<2||city.length>100||!/^[A-Z]{2}$/.test(state))throw new InputError('Confira a cidade e a UF.');
+        check(await api.rpc('set_open_request_location',{p_request_id:r.id,p_city:city,p_state:state}));
+        message('Região do pedido atualizada. A busca considera agora a nova cidade e UF.');await refresh();
+      }catch(error){message(friendly(error));}finally{saveLocation.disabled=false;}};
+      card.append(urgency,scheduleLabel,schedule,saveSchedule,descriptionLabel,description,saveDescription,cityLabel,requestCity,stateLabel,requestState,saveLocation);
     }
     const count=unread.get(r.id)||0;if(count)card.append(text('strong',count+' nova'+(count===1?' mensagem':'s mensagens'),'unread-count'));
     if(r.scheduled_for)card.append(text('small','Agendado: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));

@@ -17,8 +17,8 @@ insert into public.provider_service_areas(provider_id,city,state,latitude,longit
 select id,'Manaus','AM',-3.1,-60.0,10 from public.profiles where id in ('10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000004');
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);
-insert into public.service_requests(client_id,profession,description,city,state,is_urgent,scheduled_for)
-values(auth.uid(),'TEST Profissão','TEST Pedido de serviço para validar segurança','Manaus','AM',true,now()+interval '1 day');
+insert into public.service_requests(client_id,profession,description,city,state,latitude,longitude,is_urgent,scheduled_for)
+values(auth.uid(),'TEST Profissão','TEST Pedido de serviço para validar segurança','Manaus','AM',-3.1,-60.0,true,now()+interval '1 day');
 select set_config('test.request_id',(select id::text from public.service_requests where description='TEST Pedido de serviço para validar segurança'),true);
 do $$begin
  if public.set_provider_availability(true) then raise exception 'Client became available'; end if;
@@ -35,6 +35,10 @@ do $$begin
  if not public.set_open_request_description(current_setting('test.request_id')::uuid,'  TEST Descrição corrigida pelo cliente antes do aceite  ') then raise exception 'Client could not change description';end if;
  if (select description<>'TEST Descrição corrigida pelo cliente antes do aceite' from public.service_requests where id=current_setting('test.request_id')::uuid) then raise exception 'Description was not trimmed and changed';end if;
  begin perform public.set_open_request_description(current_setting('test.request_id')::uuid,'curta');raise exception 'Short description allowed';exception when sqlstate 'RE001' then null;end;
+ if not public.set_open_request_location(current_setting('test.request_id')::uuid,'  Parintins  ','am') then raise exception 'Client could not change location';end if;
+ if not exists(select 1 from public.service_requests where id=current_setting('test.request_id')::uuid and city='Parintins' and state='AM' and latitude is null and longitude is null) then raise exception 'Location did not change or stale coordinates remained';end if;
+ begin perform public.set_open_request_location(current_setting('test.request_id')::uuid,'X','AM');raise exception 'Invalid city allowed';exception when sqlstate 'RL001' then null;end;
+ perform public.set_open_request_location(current_setting('test.request_id')::uuid,'Manaus','AM');
  if exists(select 1 from public.profiles where id<>auth.uid()) then raise exception 'Profile privacy failure'; end if;
  begin update public.profiles set role='administrador' where id=auth.uid(); raise exception 'Role escalation allowed'; exception when insufficient_privilege then null; end;
  begin insert into public.provider_applications(user_id,profession,status) values(auth.uid(),'TEST Profissão','aprovado'); raise exception 'Self approval allowed'; exception when insufficient_privilege then null; end;
@@ -60,6 +64,7 @@ do $$declare rid uuid;begin
  begin perform public.set_request_urgency(rid,false);raise exception 'Provider changed client urgency';exception when insufficient_privilege then null;end;
  begin perform public.set_open_request_schedule(rid,now()+interval '2 days');raise exception 'Provider changed client schedule';exception when insufficient_privilege then null;end;
  begin perform public.set_open_request_description(rid,'Provider tried to change client request description');raise exception 'Provider changed client description';exception when insufficient_privilege then null;end;
+ begin perform public.set_open_request_location(rid,'Belém','PA');raise exception 'Provider changed client location';exception when insufficient_privilege then null;end;
  if not public.accept_request(rid) then raise exception 'Eligible provider could not claim'; end if;
  if public.accept_request(rid) then raise exception 'Duplicate claim succeeded'; end if;
  if (select count(*) from public.service_requests)<>1 then raise exception 'Assigned provider cannot read request'; end if;
@@ -94,6 +99,7 @@ do $$begin
  begin perform public.set_request_urgency(current_setting('test.request_id')::uuid,false);raise exception 'Client changed urgency after acceptance';exception when sqlstate 'RU001' then null;end;
  begin perform public.set_open_request_schedule(current_setting('test.request_id')::uuid,now()+interval '2 days');raise exception 'Client changed schedule after acceptance';exception when sqlstate 'RS002' then null;end;
  begin perform public.set_open_request_description(current_setting('test.request_id')::uuid,'Client tried to change an accepted request description');raise exception 'Client changed description after acceptance';exception when sqlstate 'RE002' then null;end;
+ begin perform public.set_open_request_location(current_setting('test.request_id')::uuid,'Belém','PA');raise exception 'Client changed location after acceptance';exception when sqlstate 'RL002' then null;end;
 end $$;
 reset role;
 update public.profession_compliance_rules set reviewed_at=now() where profession_id=-991;
@@ -131,6 +137,7 @@ do $$begin
  begin perform public.set_request_urgency(current_setting('test.request_id')::uuid,false); raise exception 'Anon urgency update allowed'; exception when insufficient_privilege then null; end;
  begin perform public.set_open_request_schedule(current_setting('test.request_id')::uuid,now()+interval '2 days'); raise exception 'Anon schedule update allowed'; exception when insufficient_privilege then null; end;
  begin perform public.set_open_request_description(current_setting('test.request_id')::uuid,'Anonymous change to request description'); raise exception 'Anon description update allowed'; exception when insufficient_privilege then null; end;
+ begin perform public.set_open_request_location(current_setting('test.request_id')::uuid,'Belém','PA'); raise exception 'Anon location update allowed'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 rollback;

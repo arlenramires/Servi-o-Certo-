@@ -30,6 +30,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 24. [Ajuste de urgência do pedido aberto](ENTREGA-2026-10-20-AJUSTE-URGENCIA.md). O cliente pode marcar ou remover a urgência enquanto o pedido próprio continua aberto e sem prestador; terceiros, anônimos e alterações após o aceite são bloqueados.
 25. [Ajuste do horário preferido no pedido aberto](ENTREGA-2026-10-20-AJUSTE-AGENDAMENTO-ABERTO.md). O cliente pode alterar ou remover o horário preferido enquanto o pedido próprio permanece aberto e sem prestador; datas passadas, terceiros, anônimos e alterações após o aceite são bloqueados.
 26. [Correção da descrição no pedido aberto](ENTREGA-2026-10-20-AJUSTE-DESCRICAO-ABERTO.md). O cliente pode corrigir o texto enquanto o pedido próprio permanece aberto e sem prestador; limites de tamanho, propriedade e congelamento após o aceite são protegidos no banco.
+27. [Ajuste da região no pedido aberto](ENTREGA-2026-10-20-AJUSTE-REGIAO-ABERTO.md). O cliente pode corrigir cidade/UF antes do aceite; a busca regional é atualizada, coordenadas antigas são descartadas e terceiros permanecem bloqueados.
 
 ## Próximas entregas prioritárias
 
