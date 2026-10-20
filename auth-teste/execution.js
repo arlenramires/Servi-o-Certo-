@@ -8,20 +8,22 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
   }
   async function load(request){
     const ticket=++serial,context=getContext();el('executionSection').hidden=false;
-    const [eventsResult,ratingsResult,contractsResult,etaResult]=await Promise.all([
+    const [eventsResult,ratingsResult,contractsResult,etaResult,adjustmentResult]=await Promise.all([
       api.from('service_execution_events').select('actor_id,event_type,created_at').eq('request_id',request.id).order('created_at',{ascending:true}),
       api.from('service_ratings').select('reviewer_id,reviewee_id,score,comment,created_at').eq('request_id',request.id).order('created_at',{ascending:true}),
       api.from('service_contracts').select('id,version').eq('request_id',request.id).order('version',{ascending:false}).limit(1),
-      api.from('provider_arrival_estimates').select('estimated_arrival_at,updated_at').eq('request_id',request.id).maybeSingle()
+      api.from('provider_arrival_estimates').select('estimated_arrival_at,updated_at').eq('request_id',request.id).maybeSingle(),
+      api.from('service_completion_adjustments').select('description,status,provider_response,created_at,responded_at').eq('request_id',request.id).maybeSingle()
     ]);
     if(ticket!==serial||context.generation!==getContext().generation||getContext().selected?.id!==request.id)return;
-    const events=check(eventsResult)||[],ratings=check(ratingsResult)||[],contracts=check(contractsResult)||[],eta=check(etaResult),latest=contracts[0];
+    const events=check(eventsResult)||[],ratings=check(ratingsResult)||[],contracts=check(contractsResult)||[],eta=check(etaResult),adjustment=check(adjustmentResult),latest=contracts[0];
     const decisions=latest?(check(await api.from('service_contract_decisions').select('actor_id,decision').eq('contract_id',latest.id))||[]):[];
     if(ticket!==serial)return;
     const bilateral=decisions.filter(d=>d.decision==='aceito').length===2&&!decisions.some(d=>d.decision==='recusado');
     const onWay=events.some(e=>e.event_type==='a_caminho'),arrived=events.some(e=>e.event_type==='chegou_local'),arrivalConfirmed=events.some(e=>e.event_type==='chegada_confirmada_cliente'),started=events.some(e=>e.event_type==='iniciado'),requested=events.some(e=>e.event_type==='conclusao_solicitada'),confirmed=events.some(e=>e.event_type==='conclusao_confirmada');
     const preStart=!bilateral?'Aguardando aceite das duas partes no acordo.':arrivalConfirmed?'Cliente confirmou a chegada. O prestador pode iniciar o serviço.':arrived?(context.profile.role==='cliente'?'Prestador informou que chegou. Confirme somente se ele estiver no local.':'Chegada informada. Aguardando confirmação do cliente.'):onWay?'Prestador está a caminho.':'Acordo aceito pelas duas partes. O prestador pode informar o deslocamento.';
-    el('execution').replaceChildren(node('p',request.status==='aceito'?preStart:request.status==='em_andamento'?(requested?'Prestador informou a conclusão. Aguardando confirmação do cliente.':'Serviço em andamento.'):request.status==='concluido'?'Conclusão confirmada pelo cliente. Nenhum pagamento ou repasse foi marcado por esta ação.':'Execução indisponível.','notice'));
+    const progress=requested?(adjustment?.status==='pendente'?'Cliente solicitou um ajuste antes da confirmação.':adjustment?.status==='respondido'?'Prestador respondeu ao ajuste. Aguardando confirmação do cliente.':'Prestador informou a conclusão. Aguardando confirmação do cliente.'):'Serviço em andamento.';
+    el('execution').replaceChildren(node('p',request.status==='aceito'?preStart:request.status==='em_andamento'?progress:request.status==='concluido'?'Conclusão confirmada pelo cliente. Nenhum pagamento ou repasse foi marcado por esta ação.':'Execução indisponível.','notice'));
     if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&!onWay){const b=node('button','Estou a caminho','secondary');b.onclick=()=>action('mark_provider_arrival',request,'Deslocamento informado ao cliente.',{p_event:'a_caminho'});el('execution').append(b);}
     if(request.status==='aceito'&&onWay&&!arrived){
       if(eta)el('execution').append(node('p','Previsão informada: '+new Date(eta.estimated_arrival_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'.','notice'));
@@ -36,7 +38,25 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
     if(context.profile.role==='cliente'&&request.status==='aceito'&&bilateral&&arrived&&!arrivalConfirmed){const b=node('button','Confirmar chegada do prestador');b.onclick=()=>action('confirm_provider_arrival',request,'Chegada confirmada. O prestador já pode iniciar o serviço.');el('execution').append(b);}
     if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&arrivalConfirmed){const b=node('button','Iniciar serviço');b.onclick=()=>action('start_service',request,'Início registrado. Nenhum pagamento foi movimentado.');el('execution').append(b);}
     if(context.profile.role==='prestador'&&request.status==='em_andamento'&&started&&!requested){const b=node('button','Solicitar confirmação de conclusão');b.onclick=()=>action('request_service_completion',request,'Conclusão solicitada ao cliente.');el('execution').append(b);}
-    if(context.profile.role==='cliente'&&request.status==='em_andamento'&&requested&&!confirmed){const b=node('button','Confirmar serviço concluído');b.onclick=()=>action('confirm_service_completion',request,'Conclusão confirmada. Pagamento e repasse continuam separados.');el('execution').append(b);}
+    if(adjustment){
+      el('execution').append(node('p','Ajuste solicitado: '+adjustment.description,'notice'));
+      if(adjustment.status==='respondido')el('execution').append(node('p','Resposta do prestador: '+adjustment.provider_response,'notice'));
+      if(context.profile.role==='prestador'&&request.status==='em_andamento'&&adjustment.status==='pendente'){
+        const label=node('label','Como o ajuste foi atendido'),input=document.createElement('textarea'),button=node('button','Registrar ajuste realizado','secondary');
+        input.setAttribute('aria-label','Como o ajuste foi atendido');input.maxLength=500;input.rows=2;button.type='button';
+        button.onclick=()=>action('respond_completion_adjustment',request,'Resposta registrada. O cliente já pode revisar novamente.',{p_response:input.value.trim()});
+        label.append(input);el('execution').append(label,button);
+      }
+    }
+    if(context.profile.role==='cliente'&&request.status==='em_andamento'&&requested&&!confirmed){
+      if(!adjustment){
+        const label=node('label','Ajuste necessário antes da conclusão'),input=document.createElement('textarea'),button=node('button','Solicitar ajuste','secondary');
+        input.setAttribute('aria-label','Ajuste necessário antes da conclusão');input.maxLength=500;input.rows=2;button.type='button';
+        button.onclick=()=>action('request_completion_adjustment',request,'Ajuste solicitado ao prestador antes da conclusão.',{p_description:input.value.trim()});
+        label.append(input);el('execution').append(label,button);
+      }
+      if(!adjustment||adjustment.status==='respondido'){const b=node('button','Confirmar serviço concluído');b.onclick=()=>action('confirm_service_completion',request,'Conclusão confirmada. Pagamento e repasse continuam separados.');el('execution').append(b);}
+    }
     el('ratings').replaceChildren();for(const r of ratings)el('ratings').append(node('p',(r.reviewer_id===context.user.id?'Sua avaliação':'Avaliação da outra parte')+': '+r.score+'/5'+(r.comment?' — '+r.comment:'')));
     const mine=ratings.some(r=>r.reviewer_id===context.user.id);el('ratingForm').hidden=request.status!=='concluido'||mine;
   }

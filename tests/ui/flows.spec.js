@@ -182,6 +182,22 @@ test('client sees the manual ETA without provider controls',async({page})=>{
   await page.locator('#refresh').click();await expect(page.locator('#execution')).toContainText('Previsão informada:');await expect(page.getByLabel('Previsão de chegada')).toHaveCount(0);await expect(page.getByRole('button',{name:/previsão/i})).toHaveCount(0);
 });
 
+test('client requests one adjustment before confirming completion',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});
+  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(x=>x.id==='contract-service');r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()},{request_id:r.id,actor_id:r.provider_id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});});
+  await page.locator('#refresh').click();await page.getByLabel('Ajuste necessário antes da conclusão').fill('Corrigir o acabamento próximo à janela antes da confirmação.');await page.getByRole('button',{name:'Solicitar ajuste'}).click();
+  await expect(page.locator('#execution')).toContainText('Cliente solicitou um ajuste');await expect(page.getByRole('button',{name:'Confirmar serviço concluído'})).toHaveCount(0);
+  expect(await page.evaluate(()=>window.testState.completionAdjustments[0])).toMatchObject({request_id:'contract-service',description:'Corrigir o acabamento próximo à janela antes da confirmação.',status:'pendente'});
+});
+
+test('provider records the requested adjustment for client review',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
+  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(x=>x.id==='contract-service');r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()},{request_id:r.id,actor_id:r.provider_id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});s.completionAdjustments.push({id:'adjustment-1',request_id:r.id,client_id:r.client_id,provider_id:r.provider_id,description:'Corrigir o acabamento próximo à janela antes da confirmação.',status:'pendente',provider_response:null,created_at:new Date().toISOString(),responded_at:null});});
+  await page.locator('#refresh').click();await page.getByLabel('Como o ajuste foi atendido').fill('Acabamento corrigido e revisado com o cliente no local.');await page.getByRole('button',{name:'Registrar ajuste realizado'}).click();
+  await expect(page.locator('#execution')).toContainText('Prestador respondeu ao ajuste');await expect(page.locator('#execution')).toContainText('Acabamento corrigido');
+  expect(await page.evaluate(()=>window.testState.completionAdjustments[0])).toMatchObject({status:'respondido',provider_response:'Acabamento corrigido e revisado com o cliente no local.'});
+});
+
 test('client confirms completion and submits one immutable rating without payment claim',async({page})=>{
   await login(page);await seedContractContext(page,{contract:true});
   await page.evaluate(()=>{const s=window.testState,c=s.contracts[0],r=s.requests.find(r=>r.id==='contract-service');s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()},{request_id:r.id,actor_id:r.provider_id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});});

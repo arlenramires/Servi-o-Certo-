@@ -72,6 +72,28 @@ end $$;
 select public.request_service_completion('41000000-0000-4000-8000-000000000001');
 select public.request_service_completion('41000000-0000-4000-8000-000000000001');
 select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001',true);
+do $$begin
+ begin perform public.request_completion_adjustment('41000000-0000-4000-8000-000000000001','curto');raise exception 'Invalid adjustment accepted';exception when sqlstate 'SE015' then null;end;
+end $$;
+select set_config('test.execution_adjustment',public.request_completion_adjustment('41000000-0000-4000-8000-000000000001','TEST Corrigir o acabamento próximo à janela antes da confirmação.')::text,true);
+select public.request_completion_adjustment('41000000-0000-4000-8000-000000000001','TEST Corrigir o acabamento próximo à janela antes da confirmação.');
+do $$begin
+ begin perform public.request_completion_adjustment('41000000-0000-4000-8000-000000000001','TEST Tentativa de alterar o pedido já registrado.');raise exception 'Adjustment rewritten';exception when sqlstate 'SE018' then null;end;
+ begin perform public.confirm_service_completion('41000000-0000-4000-8000-000000000001');raise exception 'Completion confirmed with pending adjustment';exception when sqlstate 'SE016' then null;end;
+ begin insert into public.service_completion_adjustments(request_id,client_id,provider_id,description) values('41000000-0000-4000-8000-000000000001',auth.uid(),'40000000-0000-4000-8000-000000000002','TEST Escrita direta indevida');raise exception 'Direct adjustment insert allowed';exception when insufficient_privilege then null;end;
+end $$;
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000002',true);
+do $$begin
+ begin perform public.request_completion_adjustment('41000000-0000-4000-8000-000000000001','TEST Prestador não pode pedir ajuste em nome do cliente.');raise exception 'Provider requested adjustment';exception when insufficient_privilege then null;end;
+ begin perform public.respond_completion_adjustment('41000000-0000-4000-8000-000000000001','curto');raise exception 'Invalid response accepted';exception when sqlstate 'SE017' then null;end;
+end $$;
+select public.respond_completion_adjustment('41000000-0000-4000-8000-000000000001','TEST Acabamento corrigido e revisado com o cliente no local.');
+select public.respond_completion_adjustment('41000000-0000-4000-8000-000000000001','TEST Acabamento corrigido e revisado com o cliente no local.');
+do $$begin
+ begin perform public.respond_completion_adjustment('41000000-0000-4000-8000-000000000001','TEST Tentativa de reescrever a resposta registrada.');raise exception 'Adjustment response rewritten';exception when sqlstate 'SE018' then null;end;
+ begin update public.service_completion_adjustments set status='pendente';raise exception 'Direct adjustment update allowed';exception when insufficient_privilege then null;end;
+end $$;
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001',true);
 select public.confirm_service_completion('41000000-0000-4000-8000-000000000001');
 select public.confirm_service_completion('41000000-0000-4000-8000-000000000001');
 do $$begin
@@ -91,7 +113,7 @@ do $$begin
 end $$;
 select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000003',true);
 do $$begin
- if exists(select 1 from public.service_execution_events) or exists(select 1 from public.service_ratings) or exists(select 1 from public.provider_arrival_estimates) then raise exception 'Outsider read execution';end if;
+ if exists(select 1 from public.service_execution_events) or exists(select 1 from public.service_ratings) or exists(select 1 from public.provider_arrival_estimates) or exists(select 1 from public.service_completion_adjustments) then raise exception 'Outsider read execution';end if;
  begin perform public.rate_completed_service('41000000-0000-4000-8000-000000000001',5,null);raise exception 'Outsider rated';exception when insufficient_privilege then null;end;
 end $$;
 reset role;
