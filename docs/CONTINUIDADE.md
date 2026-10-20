@@ -22,6 +22,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 16. [Atualizações de andamento do serviço](ENTREGA-2026-10-20-ANDAMENTO-SERVICO.md). Durante a execução, o prestador registra marcos crescentes com resumo; o cliente acompanha o histórico privado antes da conclusão.
 17. [Reagendamento antes do deslocamento](ENTREGA-2026-10-20-REAGENDAMENTO.md). Prestador propõe nova data com motivo; cliente aceita ou recusa, e somente o aceite atualiza a agenda antes de “Estou a caminho”.
 18. [Reagendamento bilateral com bloqueio de deslocamento](ENTREGA-2026-10-20-REAGENDAMENTO-BILATERAL.md). Cliente ou prestador propõe nova data; somente a outra parte decide, e uma proposta pendente impede o início do deslocamento.
+19. [Retirada de proposta de reagendamento](ENTREGA-2026-10-20-RETIRADA-REAGENDAMENTO.md). O autor pode retirar sua própria proposta pendente sem apagar o histórico nem alterar a agenda; a retirada libera novamente o fluxo de deslocamento.
 
 ## Próximas entregas prioritárias
 

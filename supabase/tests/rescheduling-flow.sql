@@ -48,10 +48,30 @@ do $$begin
  begin perform public.propose_service_reschedule('a1000000-0000-4000-8000-000000000002',now()+interval '3 days','TEST Proposta depois do início do deslocamento.');raise exception 'Reschedule after journey allowed';exception when sqlstate 'RA002' then null;end;
 end $$;
 
+select set_config('request.jwt.claim.sub','a0000000-0000-4000-8000-000000000001',true);
+select set_config('test.withdraw_reschedule',public.propose_service_reschedule('a1000000-0000-4000-8000-000000000001',now()+interval '5 days','TEST Proposta que o próprio cliente precisa retirar.')::text,true);
+select set_config('request.jwt.claim.sub','a0000000-0000-4000-8000-000000000002',true);
+do $$begin
+ begin perform public.cancel_service_reschedule(current_setting('test.withdraw_reschedule')::uuid);raise exception 'Other participant cancelled proposal';exception when insufficient_privilege then null;end;
+end $$;
+select set_config('request.jwt.claim.sub','a0000000-0000-4000-8000-000000000001',true);
+select public.cancel_service_reschedule(current_setting('test.withdraw_reschedule')::uuid);
+select public.cancel_service_reschedule(current_setting('test.withdraw_reschedule')::uuid);
+do $$begin
+ if not exists(select 1 from public.service_schedule_changes where id=current_setting('test.withdraw_reschedule')::uuid and status='cancelado' and decided_by=auth.uid() and decided_at is not null) then raise exception 'Withdrawal audit missing';end if;
+ if exists(select 1 from public.service_schedule_changes where request_id='a1000000-0000-4000-8000-000000000001' and status='pendente') then raise exception 'Withdrawal kept request blocked';end if;
+ if (select scheduled_for from public.service_requests where id='a1000000-0000-4000-8000-000000000001')<>current_setting('test.client_reschedule_time')::timestamptz then raise exception 'Withdrawal changed accepted schedule';end if;
+end $$;
+select set_config('request.jwt.claim.sub','a0000000-0000-4000-8000-000000000002',true);
+do $$begin
+ begin perform public.decide_service_reschedule(current_setting('test.withdraw_reschedule')::uuid,'aceito');raise exception 'Cancelled proposal decided';exception when sqlstate 'RA003' then null;end;
+end $$;
+
 select set_config('request.jwt.claim.sub','a0000000-0000-4000-8000-000000000003',true);
 do $$begin
  if exists(select 1 from public.service_schedule_changes) then raise exception 'Outsider read reschedules';end if;
  begin perform public.decide_service_reschedule(current_setting('test.reschedule')::uuid,'recusado');raise exception 'Outsider decided reschedule';exception when insufficient_privilege then null;end;
+ begin perform public.cancel_service_reschedule(current_setting('test.withdraw_reschedule')::uuid);raise exception 'Outsider cancelled reschedule';exception when insufficient_privilege then null;end;
 end $$;
 reset role;
 rollback;

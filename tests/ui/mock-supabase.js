@@ -58,6 +58,9 @@ export function createClient(){return {
     if(name==='decide_service_reschedule'){
       const change=state.scheduleChanges.find(x=>x.id===args.p_change_id),target=state.requests.find(x=>x.id===change.request_id);change.status=args.p_decision;change.decided_by=account.id;change.decided_at=new Date().toISOString();if(args.p_decision==='aceito')target.scheduled_for=change.proposed_for;return {data:true,error:null};
     }
+    if(name==='cancel_service_reschedule'){
+      const change=state.scheduleChanges.find(x=>x.id===args.p_change_id);change.status='cancelado';change.decided_by=account.id;change.decided_at=new Date().toISOString();return {data:true,error:null};
+    }
     if(name==='propose_service_extra'){
       const id='extra-'+Date.now();state.extras.push({id,request_id:request.id,provider_id:account.id,description:args.p_description,amount_cents:args.p_amount_cents,status:'proposto',decided_by:null,created_at:new Date().toISOString(),decided_at:null});return {data:id,error:null};
     }

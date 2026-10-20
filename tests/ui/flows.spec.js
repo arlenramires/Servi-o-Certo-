@@ -183,6 +183,16 @@ test('client proposes a reschedule and waits for the provider decision',async({p
   await expect(page.locator('#execution')).toContainText('proposto por você');await expect(page.locator('#execution')).toContainText('aguardando decisão da outra parte');await expect(page.getByRole('button',{name:'Aceitar nova data'})).toHaveCount(0);
   expect(await page.evaluate(()=>window.testState.scheduleChanges[0])).toMatchObject({proposed_by:'10000000-0000-4000-8000-000000000001',reason:'Preciso ajustar a data para receber o prestador no local.',status:'pendente'});
 });
+test('proposer withdraws a pending reschedule and releases the journey',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
+  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});
+  await page.locator('#refresh').click();await expect(page.getByRole('button',{name:'Estou a caminho'})).toBeVisible();
+  const proposed=new Date(Date.now()+259200000);await page.getByLabel('Nova data proposta').fill(proposed.toISOString().slice(0,16));await page.getByLabel('Motivo do reagendamento').fill('Preciso retirar esta proposta se a disponibilidade mudar.');await page.getByRole('button',{name:'Propor reagendamento'}).click();
+  await expect(page.getByRole('button',{name:'Estou a caminho'})).toHaveCount(0);await page.getByRole('button',{name:'Retirar proposta'}).click();
+  await expect(page.locator('#execution')).toContainText('retirado por você');await expect(page.getByRole('button',{name:'Estou a caminho'})).toBeVisible();
+  const result=await page.evaluate(()=>({change:window.testState.scheduleChanges[0],call:window.testState.calls.find(c=>c.rpc==='cancel_service_reschedule').args}));
+  expect(result.change).toMatchObject({status:'cancelado',decided_by:'10000000-0000-4000-8000-000000000001'});expect(result.call).toEqual({p_change_id:result.change.id});
+});
 test('provider decides a client proposal before starting the journey',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});const proposed=new Date(Date.now()+259200000).toISOString();
   await page.evaluate(proposed=>{const s=window.testState,c=s.contracts[0],r=s.requests[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});s.scheduleChanges.push({id:'schedule-client',request_id:r.id,provider_id:r.provider_id,proposed_by:r.client_id,proposed_for:proposed,reason:'Cliente precisa ajustar a data para receber o prestador.',status:'pendente',created_at:new Date().toISOString(),decided_at:null});},proposed);

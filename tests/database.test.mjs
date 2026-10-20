@@ -80,6 +80,9 @@ async function applyDeliveries(db) {
   const bilateralRescheduleFiles=(await readdir(dir)).filter(f=>f.endsWith('_bilateral_service_rescheduling.sql'));
   assert.equal(bilateralRescheduleFiles.length,1);
   await db.exec(await readFile(new URL(bilateralRescheduleFiles[0],dir),'utf8'));
+  const rescheduleWithdrawalFiles=(await readdir(dir)).filter(f=>f.endsWith('_pending_reschedule_withdrawal.sql'));
+  assert.equal(rescheduleWithdrawalFiles.length,1);
+  await db.exec(await readFile(new URL(rescheduleWithdrawalFiles[0],dir),'utf8'));
 }
 
 test('PostgreSQL: signup, RLS, locality, qualification, atomic claim and chat',async()=>{
@@ -165,7 +168,7 @@ test('PostgreSQL: participants count incoming unread messages and mark conversat
   }finally{await db.close();}
 });
 
-test('PostgreSQL: provider proposes and client decides an immutable pre-journey reschedule',async()=>{
+test('PostgreSQL: participants decide or withdraw an immutable pre-journey reschedule',async()=>{
   const db=new PGlite();
   try {
     await baseline(db);await applyDeliveries(db);
