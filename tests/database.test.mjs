@@ -71,6 +71,9 @@ async function applyDeliveries(db) {
   const completionAdjustmentFiles=(await readdir(dir)).filter(f=>f.endsWith('_completion_adjustment_review.sql'));
   assert.equal(completionAdjustmentFiles.length,1);
   await db.exec(await readFile(new URL(completionAdjustmentFiles[0],dir),'utf8'));
+  const progressFiles=(await readdir(dir)).filter(f=>f.endsWith('_service_progress_updates.sql'));
+  assert.equal(progressFiles.length,1);
+  await db.exec(await readFile(new URL(progressFiles[0],dir),'utf8'));
 }
 
 test('PostgreSQL: signup, RLS, locality, qualification, atomic claim and chat',async()=>{

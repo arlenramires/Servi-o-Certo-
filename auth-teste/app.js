@@ -38,7 +38,10 @@ function friendly(error) {
     SE015:'Descreva o ajuste necessário com 10 a 500 caracteres.',
     SE016:'Aguarde o prestador responder ao ajuste solicitado.',
     SE017:'Registre a resposta ao ajuste com 10 a 500 caracteres.',
-    SE018:'Este registro já foi feito e não pode ser alterado.' })[error?.code]
+    SE018:'Este registro já foi feito e não pode ser alterado.',
+    SP001:'Escolha um percentual e descreva o andamento com 10 a 500 caracteres.',
+    SP002:'O andamento deve avançar e registros anteriores não podem ser alterados.',
+    SP003:'O andamento só pode ser registrado durante a execução, antes da conclusão.' })[error?.code]
     || ({CN001:'Explique o motivo com pelo menos 10 caracteres.',CN002:'Este serviço não pode ser cancelado por este fluxo.'})[error?.code]
     || ({EX001:'Confira a descrição, o valor e a decisão do serviço extra.',EX002:'Este serviço não aceita extras nesta etapa.',
       EX003:'O extra pendente precisa ser decidido e decisões anteriores não podem ser alteradas.',EX004:'Aguarde o cliente decidir o serviço extra antes de solicitar a conclusão.'})[error?.code]

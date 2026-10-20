@@ -19,6 +19,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 13. [Previsão manual de chegada](ENTREGA-2026-10-19-ETA-MANUAL.md). Durante o deslocamento, o prestador informa ou atualiza uma previsão de 10 a 90 minutos que fica visível ao cliente, sem coleta de GPS.
 14. [Confirmação da chegada pelo cliente](ENTREGA-2026-10-20-CONFIRMACAO-CHEGADA.md). Depois da chegada informada pelo prestador, somente o cliente confirma a presença; o início fica bloqueado até essa confirmação.
 15. [Ajuste antes da confirmação de conclusão](ENTREGA-2026-10-20-AJUSTE-CONCLUSAO.md). Após o prestador declarar a conclusão, o cliente pode pedir um ajuste; a confirmação fica bloqueada até a resposta imutável do prestador.
+16. [Atualizações de andamento do serviço](ENTREGA-2026-10-20-ANDAMENTO-SERVICO.md). Durante a execução, o prestador registra marcos crescentes com resumo; o cliente acompanha o histórico privado antes da conclusão.
 
 ## Próximas entregas prioritárias
 

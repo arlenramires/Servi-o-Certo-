@@ -69,8 +69,28 @@ do $$begin
  if (select count(*) from public.service_execution_events where event_type='iniciado')<>1 then raise exception 'Start duplicated';end if;
  begin insert into public.service_execution_events(request_id,actor_id,event_type) values('41000000-0000-4000-8000-000000000001',auth.uid(),'conclusao_confirmada');raise exception 'Direct event insert allowed';exception when insufficient_privilege then null;end;
 end $$;
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001',true);
+do $$begin
+ begin perform public.add_service_progress_update('41000000-0000-4000-8000-000000000001',25,'TEST Cliente não pode registrar andamento.');raise exception 'Client added progress';exception when insufficient_privilege then null;end;
+end $$;
+select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000002',true);
+do $$begin
+ begin perform public.add_service_progress_update('41000000-0000-4000-8000-000000000001',100,'TEST Percentual inválido para andamento.');raise exception 'Invalid progress accepted';exception when sqlstate 'SP001' then null;end;
+end $$;
+select set_config('test.execution_progress',public.add_service_progress_update('41000000-0000-4000-8000-000000000001',25,'TEST Preparação e proteção do ambiente concluídas.')::text,true);
+select public.add_service_progress_update('41000000-0000-4000-8000-000000000001',25,'TEST Preparação e proteção do ambiente concluídas.');
+select public.add_service_progress_update('41000000-0000-4000-8000-000000000001',50,'TEST Primeira etapa da pintura concluída.');
+do $$begin
+ if (select count(*) from public.service_progress_updates)<>2 then raise exception 'Progress update duplicated';end if;
+ begin perform public.add_service_progress_update('41000000-0000-4000-8000-000000000001',25,'TEST Tentativa de alterar um andamento anterior.');raise exception 'Progress rewritten';exception when sqlstate 'SP002' then null;end;
+ begin perform public.add_service_progress_update('41000000-0000-4000-8000-000000000001',40,'TEST Tentativa de reduzir o percentual informado.');raise exception 'Progress regressed';exception when sqlstate 'SP002' then null;end;
+ begin insert into public.service_progress_updates(request_id,provider_id,progress_percent,note) values('41000000-0000-4000-8000-000000000001',auth.uid(),75,'TEST Escrita direta indevida no andamento.');raise exception 'Direct progress insert allowed';exception when insufficient_privilege then null;end;
+end $$;
 select public.request_service_completion('41000000-0000-4000-8000-000000000001');
 select public.request_service_completion('41000000-0000-4000-8000-000000000001');
+do $$begin
+ begin perform public.add_service_progress_update('41000000-0000-4000-8000-000000000001',75,'TEST Andamento após pedido de conclusão.');raise exception 'Progress after completion request';exception when sqlstate 'SP003' then null;end;
+end $$;
 select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000001',true);
 do $$begin
  begin perform public.request_completion_adjustment('41000000-0000-4000-8000-000000000001','curto');raise exception 'Invalid adjustment accepted';exception when sqlstate 'SE015' then null;end;
@@ -113,7 +133,7 @@ do $$begin
 end $$;
 select set_config('request.jwt.claim.sub','40000000-0000-4000-8000-000000000003',true);
 do $$begin
- if exists(select 1 from public.service_execution_events) or exists(select 1 from public.service_ratings) or exists(select 1 from public.provider_arrival_estimates) or exists(select 1 from public.service_completion_adjustments) then raise exception 'Outsider read execution';end if;
+ if exists(select 1 from public.service_execution_events) or exists(select 1 from public.service_ratings) or exists(select 1 from public.provider_arrival_estimates) or exists(select 1 from public.service_completion_adjustments) or exists(select 1 from public.service_progress_updates) then raise exception 'Outsider read execution';end if;
  begin perform public.rate_completed_service('41000000-0000-4000-8000-000000000001',5,null);raise exception 'Outsider rated';exception when insufficient_privilege then null;end;
 end $$;
 reset role;

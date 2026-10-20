@@ -1,5 +1,5 @@
 // UI contract double only. PostgreSQL/RLS are verified separately in database.test.mjs.
-const state=window.testState={user:null,role:window.testRole||'cliente',requests:[],messages:[],messageReads:[],quotes:[],decisions:[],contracts:[],contractDecisions:[],executionEvents:[],arrivalEstimates:[],completionAdjustments:[],ratings:[],cancellations:[],extras:[],disputes:[],inspections:[],calls:[],applications:[]};
+const state=window.testState={user:null,role:window.testRole||'cliente',requests:[],messages:[],messageReads:[],quotes:[],decisions:[],contracts:[],contractDecisions:[],executionEvents:[],arrivalEstimates:[],completionAdjustments:[],progressUpdates:[],ratings:[],cancellations:[],extras:[],disputes:[],inspections:[],calls:[],applications:[]};
 let listener=()=>{};
 const response=data=>Promise.resolve({data,error:null});
 const account={id:'10000000-0000-4000-8000-000000000001',email:'teste@example.invalid'};
@@ -22,7 +22,7 @@ class Query {
       if(this.table==='provider_applications')state.applications.push({...item,status:'pendente'});
       return {data:null,error:null};
     }
-    let data=({profiles:[{id:account.id,role:state.role,full_name:'Pessoa de teste',is_available:true}],professions:[{id:1,name:'Eletricista'},{id:2,name:'Pintor'}],provider_applications:state.applications,service_requests:state.requests,provider_service_areas:[],service_messages:state.messages,service_quotes:state.quotes,service_quote_decisions:state.decisions,service_contracts:state.contracts,service_contract_decisions:state.contractDecisions,service_execution_events:state.executionEvents,provider_arrival_estimates:state.arrivalEstimates,service_completion_adjustments:state.completionAdjustments,service_ratings:state.ratings,service_cancellations:state.cancellations,service_extras:state.extras,service_disputes:state.disputes,service_inspections:state.inspections})[this.table]||[];
+    let data=({profiles:[{id:account.id,role:state.role,full_name:'Pessoa de teste',is_available:true}],professions:[{id:1,name:'Eletricista'},{id:2,name:'Pintor'}],provider_applications:state.applications,service_requests:state.requests,provider_service_areas:[],service_messages:state.messages,service_quotes:state.quotes,service_quote_decisions:state.decisions,service_contracts:state.contracts,service_contract_decisions:state.contractDecisions,service_execution_events:state.executionEvents,provider_arrival_estimates:state.arrivalEstimates,service_completion_adjustments:state.completionAdjustments,service_progress_updates:state.progressUpdates,service_ratings:state.ratings,service_cancellations:state.cancellations,service_extras:state.extras,service_disputes:state.disputes,service_inspections:state.inspections})[this.table]||[];
     if(this.table==='profiles'&&window.missingProfile)data=[];
     for(const [key,value] of this.filters)data=data.filter(r=>Array.isArray(value)?value.includes(r[key]):r[key]===value);
     return {data:this.single?(data[0]||null):data,error:null};
@@ -94,6 +94,9 @@ export function createClient(){return {
     }
     if(name==='respond_completion_adjustment'){
       const adjustment=state.completionAdjustments.find(x=>x.request_id===request.id);adjustment.status='respondido';adjustment.provider_response=args.p_response;adjustment.responded_at=new Date().toISOString();return {data:true,error:null};
+    }
+    if(name==='add_service_progress_update'){
+      const id='progress-'+Date.now();state.progressUpdates.push({id,request_id:request.id,provider_id:account.id,progress_percent:args.p_progress_percent,note:args.p_note,created_at:new Date().toISOString()});return {data:id,error:null};
     }
     if(name==='start_service'){request.status='em_andamento';if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='iniciado'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'iniciado',created_at:new Date().toISOString()});return {data:true,error:null};}
     if(name==='request_service_completion'){if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='conclusao_solicitada'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});return {data:true,error:null};}

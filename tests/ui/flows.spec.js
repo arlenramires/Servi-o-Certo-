@@ -149,6 +149,22 @@ test('provider starts a bilaterally accepted service and requests completion',as
   await page.getByRole('button',{name:'Solicitar confirmação de conclusão'}).click();await expect(page.locator('#execution')).toContainText('Aguardando confirmação do cliente');
   expect(await page.evaluate(()=>window.testState.executionEvents.map(e=>e.event_type))).toEqual(['a_caminho','chegou_local','chegada_confirmada_cliente','iniciado','conclusao_solicitada']);
 });
+test('provider registers increasing progress visible in the execution timeline',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
+  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0],r=s.requests[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()});});
+  await page.locator('#refresh').click();await page.getByLabel('Andamento do serviço').selectOption('25');await page.getByLabel('Resumo do andamento').fill('Preparação e proteção do ambiente concluídas.');await page.getByRole('button',{name:'Registrar andamento'}).click();
+  await expect(page.locator('#execution')).toContainText('25% — Preparação e proteção do ambiente concluídas.');await expect(page.getByLabel('Andamento do serviço')).not.toHaveValue('25');
+  await page.getByLabel('Andamento do serviço').selectOption('50');await page.getByLabel('Resumo do andamento').fill('Primeira etapa da pintura concluída.');await page.getByRole('button',{name:'Registrar andamento'}).click();
+  expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='add_service_progress_update').map(c=>c.args))).toEqual([
+    {p_request_id:'contract-service',p_progress_percent:25,p_note:'Preparação e proteção do ambiente concluídas.'},
+    {p_request_id:'contract-service',p_progress_percent:50,p_note:'Primeira etapa da pintura concluída.'}
+  ]);
+});
+test('client sees provider progress without receiving progress controls',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});
+  await page.evaluate(()=>{const s=window.testState,r=s.requests[0];r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()});s.progressUpdates.push({request_id:r.id,provider_id:r.provider_id,progress_percent:50,note:'Primeira etapa da pintura concluída.',created_at:new Date().toISOString()});});
+  await page.locator('#refresh').click();await expect(page.locator('#execution')).toContainText('50% — Primeira etapa da pintura concluída.');await expect(page.getByLabel('Andamento do serviço')).toHaveCount(0);await expect(page.getByRole('button',{name:'Registrar andamento'})).toHaveCount(0);
+});
 test('provider reports ordered on-the-way and arrival statuses to the client',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
   await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});

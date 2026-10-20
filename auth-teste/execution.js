@@ -8,15 +8,16 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
   }
   async function load(request){
     const ticket=++serial,context=getContext();el('executionSection').hidden=false;
-    const [eventsResult,ratingsResult,contractsResult,etaResult,adjustmentResult]=await Promise.all([
+    const [eventsResult,ratingsResult,contractsResult,etaResult,adjustmentResult,progressResult]=await Promise.all([
       api.from('service_execution_events').select('actor_id,event_type,created_at').eq('request_id',request.id).order('created_at',{ascending:true}),
       api.from('service_ratings').select('reviewer_id,reviewee_id,score,comment,created_at').eq('request_id',request.id).order('created_at',{ascending:true}),
       api.from('service_contracts').select('id,version').eq('request_id',request.id).order('version',{ascending:false}).limit(1),
       api.from('provider_arrival_estimates').select('estimated_arrival_at,updated_at').eq('request_id',request.id).maybeSingle(),
-      api.from('service_completion_adjustments').select('description,status,provider_response,created_at,responded_at').eq('request_id',request.id).maybeSingle()
+      api.from('service_completion_adjustments').select('description,status,provider_response,created_at,responded_at').eq('request_id',request.id).maybeSingle(),
+      api.from('service_progress_updates').select('progress_percent,note,created_at').eq('request_id',request.id).order('created_at',{ascending:true})
     ]);
     if(ticket!==serial||context.generation!==getContext().generation||getContext().selected?.id!==request.id)return;
-    const events=check(eventsResult)||[],ratings=check(ratingsResult)||[],contracts=check(contractsResult)||[],eta=check(etaResult),adjustment=check(adjustmentResult),latest=contracts[0];
+    const events=check(eventsResult)||[],ratings=check(ratingsResult)||[],contracts=check(contractsResult)||[],eta=check(etaResult),adjustment=check(adjustmentResult),updates=check(progressResult)||[],latest=contracts[0];
     const decisions=latest?(check(await api.from('service_contract_decisions').select('actor_id,decision').eq('contract_id',latest.id))||[]):[];
     if(ticket!==serial)return;
     const bilateral=decisions.filter(d=>d.decision==='aceito').length===2&&!decisions.some(d=>d.decision==='recusado');
@@ -24,6 +25,7 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
     const preStart=!bilateral?'Aguardando aceite das duas partes no acordo.':arrivalConfirmed?'Cliente confirmou a chegada. O prestador pode iniciar o serviço.':arrived?(context.profile.role==='cliente'?'Prestador informou que chegou. Confirme somente se ele estiver no local.':'Chegada informada. Aguardando confirmação do cliente.'):onWay?'Prestador está a caminho.':'Acordo aceito pelas duas partes. O prestador pode informar o deslocamento.';
     const progress=requested?(adjustment?.status==='pendente'?'Cliente solicitou um ajuste antes da confirmação.':adjustment?.status==='respondido'?'Prestador respondeu ao ajuste. Aguardando confirmação do cliente.':'Prestador informou a conclusão. Aguardando confirmação do cliente.'):'Serviço em andamento.';
     el('execution').replaceChildren(node('p',request.status==='aceito'?preStart:request.status==='em_andamento'?progress:request.status==='concluido'?'Conclusão confirmada pelo cliente. Nenhum pagamento ou repasse foi marcado por esta ação.':'Execução indisponível.','notice'));
+    for(const update of updates)el('execution').append(node('p',update.progress_percent+'% — '+update.note,'notice'));
     if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&!onWay){const b=node('button','Estou a caminho','secondary');b.onclick=()=>action('mark_provider_arrival',request,'Deslocamento informado ao cliente.',{p_event:'a_caminho'});el('execution').append(b);}
     if(request.status==='aceito'&&onWay&&!arrived){
       if(eta)el('execution').append(node('p','Previsão informada: '+new Date(eta.estimated_arrival_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'.','notice'));
@@ -37,7 +39,17 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
     if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&onWay&&!arrived){const b=node('button','Cheguei ao local','secondary');b.onclick=()=>action('mark_provider_arrival',request,'Chegada registrada para o cliente.',{p_event:'chegou_local'});el('execution').append(b);}
     if(context.profile.role==='cliente'&&request.status==='aceito'&&bilateral&&arrived&&!arrivalConfirmed){const b=node('button','Confirmar chegada do prestador');b.onclick=()=>action('confirm_provider_arrival',request,'Chegada confirmada. O prestador já pode iniciar o serviço.');el('execution').append(b);}
     if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&arrivalConfirmed){const b=node('button','Iniciar serviço');b.onclick=()=>action('start_service',request,'Início registrado. Nenhum pagamento foi movimentado.');el('execution').append(b);}
-    if(context.profile.role==='prestador'&&request.status==='em_andamento'&&started&&!requested){const b=node('button','Solicitar confirmação de conclusão');b.onclick=()=>action('request_service_completion',request,'Conclusão solicitada ao cliente.');el('execution').append(b);}
+    if(context.profile.role==='prestador'&&request.status==='em_andamento'&&started&&!requested){
+      const latestProgress=updates.reduce((value,item)=>Math.max(value,item.progress_percent),0),choices=[25,50,75,90].filter(value=>value>latestProgress);
+      if(choices.length){
+        const percentLabel=node('label','Andamento do serviço'),select=document.createElement('select'),noteLabel=node('label','Resumo do andamento'),input=document.createElement('textarea'),button=node('button','Registrar andamento','secondary');
+        select.setAttribute('aria-label','Andamento do serviço');for(const value of choices)select.add(new Option(value+'%',String(value)));
+        input.setAttribute('aria-label','Resumo do andamento');input.maxLength=500;input.rows=2;button.type='button';
+        button.onclick=()=>action('add_service_progress_update',request,'Andamento registrado e visível ao cliente.',{p_progress_percent:Number(select.value),p_note:input.value.trim()});
+        percentLabel.append(select);noteLabel.append(input);el('execution').append(percentLabel,noteLabel,button);
+      }
+      const b=node('button','Solicitar confirmação de conclusão');b.onclick=()=>action('request_service_completion',request,'Conclusão solicitada ao cliente.');el('execution').append(b);
+    }
     if(adjustment){
       el('execution').append(node('p','Ajuste solicitado: '+adjustment.description,'notice'));
       if(adjustment.status==='respondido')el('execution').append(node('p','Resposta do prestador: '+adjustment.provider_response,'notice'));
