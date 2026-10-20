@@ -44,7 +44,8 @@ function friendly(error) {
     SP003:'O andamento só pode ser registrado durante a execução, antes da conclusão.',
     RA001:'Escolha uma data futura e informe um motivo com 10 a 500 caracteres.',
     RA002:'O reagendamento só pode ser decidido antes do deslocamento.',
-    RA003:'A proposta ou decisão já registrada não pode ser alterada.' })[error?.code]
+    RA003:'A proposta ou decisão já registrada não pode ser alterada.',
+    RA004:'Aguarde a decisão do reagendamento antes de iniciar o deslocamento.' })[error?.code]
     || ({CN001:'Explique o motivo com pelo menos 10 caracteres.',CN002:'Este serviço não pode ser cancelado por este fluxo.'})[error?.code]
     || ({EX001:'Confira a descrição, o valor e a decisão do serviço extra.',EX002:'Este serviço não aceita extras nesta etapa.',
       EX003:'O extra pendente precisa ser decidido e decisões anteriores não podem ser alteradas.',EX004:'Aguarde o cliente decidir o serviço extra antes de solicitar a conclusão.'})[error?.code]

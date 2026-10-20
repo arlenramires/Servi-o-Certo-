@@ -15,7 +15,7 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
       api.from('provider_arrival_estimates').select('estimated_arrival_at,updated_at').eq('request_id',request.id).maybeSingle(),
       api.from('service_completion_adjustments').select('description,status,provider_response,created_at,responded_at').eq('request_id',request.id).maybeSingle(),
       api.from('service_progress_updates').select('progress_percent,note,created_at').eq('request_id',request.id).order('created_at',{ascending:true}),
-      api.from('service_schedule_changes').select('id,proposed_for,reason,status,created_at,decided_at').eq('request_id',request.id).order('created_at',{ascending:true})
+      api.from('service_schedule_changes').select('id,proposed_by,proposed_for,reason,status,created_at,decided_at').eq('request_id',request.id).order('created_at',{ascending:true})
     ]);
     if(ticket!==serial||context.generation!==getContext().generation||getContext().selected?.id!==request.id)return;
     const events=check(eventsResult)||[],ratings=check(ratingsResult)||[],contracts=check(contractsResult)||[],eta=check(etaResult),adjustment=check(adjustmentResult),updates=check(progressResult)||[],scheduleChanges=check(scheduleResult)||[],latest=contracts[0];
@@ -26,24 +26,24 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
     const preStart=!bilateral?'Aguardando aceite das duas partes no acordo.':arrivalConfirmed?'Cliente confirmou a chegada. O prestador pode iniciar o serviço.':arrived?(context.profile.role==='cliente'?'Prestador informou que chegou. Confirme somente se ele estiver no local.':'Chegada informada. Aguardando confirmação do cliente.'):onWay?'Prestador está a caminho.':'Acordo aceito pelas duas partes. O prestador pode informar o deslocamento.';
     const progress=requested?(adjustment?.status==='pendente'?'Cliente solicitou um ajuste antes da confirmação.':adjustment?.status==='respondido'?'Prestador respondeu ao ajuste. Aguardando confirmação do cliente.':'Prestador informou a conclusão. Aguardando confirmação do cliente.'):'Serviço em andamento.';
     el('execution').replaceChildren(node('p',request.status==='aceito'?preStart:request.status==='em_andamento'?progress:request.status==='concluido'?'Conclusão confirmada pelo cliente. Nenhum pagamento ou repasse foi marcado por esta ação.':'Execução indisponível.','notice'));
-    const scheduleLabels={pendente:'aguardando decisão do cliente',aceito:'aceito pelo cliente',recusado:'recusado pelo cliente'};
-    for(const change of scheduleChanges)el('execution').append(node('p','Reagendamento para '+new Date(change.proposed_for).toLocaleString('pt-BR')+' — '+change.reason+' ('+scheduleLabels[change.status]+').','notice'));
+    const scheduleStatus=change=>change.status==='pendente'?(change.proposed_by===context.user.id?'aguardando decisão da outra parte':'aguardando sua decisão'):change.status==='aceito'?'aceito pela outra parte':'recusado pela outra parte';
+    for(const change of scheduleChanges)el('execution').append(node('p','Reagendamento '+(change.proposed_by===context.user.id?'proposto por você':'proposto pela outra parte')+' para '+new Date(change.proposed_for).toLocaleString('pt-BR')+' — '+change.reason+' ('+scheduleStatus(change)+').','notice'));
     const pendingSchedule=scheduleChanges.find(change=>change.status==='pendente');
     if(request.status==='aceito'&&!onWay){
-      if(context.profile.role==='prestador'&&!pendingSchedule){
+      if(!pendingSchedule){
         const dateLabel=node('label','Nova data proposta'),date=document.createElement('input'),reasonLabel=node('label','Motivo do reagendamento'),reason=document.createElement('textarea'),button=node('button','Propor reagendamento','secondary');
         date.type='datetime-local';date.setAttribute('aria-label','Nova data proposta');reason.setAttribute('aria-label','Motivo do reagendamento');reason.maxLength=500;reason.rows=2;button.type='button';
         button.onclick=()=>{const proposed=new Date(date.value);if(!date.value||Number.isNaN(proposed.getTime())){message(friendly({code:'RA001'}));return;}action('propose_service_reschedule',request,'Reagendamento enviado para decisão do cliente.',{p_proposed_for:proposed.toISOString(),p_reason:reason.value.trim()});};
         dateLabel.append(date);reasonLabel.append(reason);el('execution').append(dateLabel,reasonLabel,button);
       }
-      if(context.profile.role==='cliente'&&pendingSchedule){
+      if(pendingSchedule&&pendingSchedule.proposed_by!==context.user.id){
         for(const [decision,label] of [['aceito','Aceitar nova data'],['recusado','Recusar nova data']]){
           const button=node('button',label,decision==='aceito'?'':'secondary');button.type='button';button.onclick=async()=>{try{check(await api.rpc('decide_service_reschedule',{p_change_id:pendingSchedule.id,p_decision:decision}));message(decision==='aceito'?'Nova data aceita e aplicada ao serviço.':'Nova data recusada. O horário anterior foi mantido.');await onChanged();}catch(error){message(friendly(error));}};el('execution').append(button);
         }
       }
     }
     for(const update of updates)el('execution').append(node('p',update.progress_percent+'% — '+update.note,'notice'));
-    if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&!onWay){const b=node('button','Estou a caminho','secondary');b.onclick=()=>action('mark_provider_arrival',request,'Deslocamento informado ao cliente.',{p_event:'a_caminho'});el('execution').append(b);}
+    if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&!onWay&&!pendingSchedule){const b=node('button','Estou a caminho','secondary');b.onclick=()=>action('mark_provider_arrival',request,'Deslocamento informado ao cliente.',{p_event:'a_caminho'});el('execution').append(b);}
     if(request.status==='aceito'&&onWay&&!arrived){
       if(eta)el('execution').append(node('p','Previsão informada: '+new Date(eta.estimated_arrival_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'.','notice'));
       if(context.profile.role==='prestador'){

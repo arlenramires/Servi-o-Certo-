@@ -53,10 +53,10 @@ export function createClient(){return {
     }
     const request=state.requests.find(r=>r.id===args?.p_request_id);
     if(name==='propose_service_reschedule'){
-      const id='schedule-'+Date.now();state.scheduleChanges.push({id,request_id:request.id,provider_id:account.id,proposed_for:args.p_proposed_for,reason:args.p_reason,status:'pendente',created_at:new Date().toISOString(),decided_at:null});return {data:id,error:null};
+      const id='schedule-'+Date.now();state.scheduleChanges.push({id,request_id:request.id,provider_id:request.provider_id,proposed_by:account.id,proposed_for:args.p_proposed_for,reason:args.p_reason,status:'pendente',created_at:new Date().toISOString(),decided_at:null});return {data:id,error:null};
     }
     if(name==='decide_service_reschedule'){
-      const change=state.scheduleChanges.find(x=>x.id===args.p_change_id),target=state.requests.find(x=>x.id===change.request_id);change.status=args.p_decision;change.decided_at=new Date().toISOString();if(args.p_decision==='aceito')target.scheduled_for=change.proposed_for;return {data:true,error:null};
+      const change=state.scheduleChanges.find(x=>x.id===args.p_change_id),target=state.requests.find(x=>x.id===change.request_id);change.status=args.p_decision;change.decided_by=account.id;change.decided_at=new Date().toISOString();if(args.p_decision==='aceito')target.scheduled_for=change.proposed_for;return {data:true,error:null};
     }
     if(name==='propose_service_extra'){
       const id='extra-'+Date.now();state.extras.push({id,request_id:request.id,provider_id:account.id,description:args.p_description,amount_cents:args.p_amount_cents,status:'proposto',decided_by:null,created_at:new Date().toISOString(),decided_at:null});return {data:id,error:null};

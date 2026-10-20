@@ -74,9 +74,12 @@ async function applyDeliveries(db) {
   const progressFiles=(await readdir(dir)).filter(f=>f.endsWith('_service_progress_updates.sql'));
   assert.equal(progressFiles.length,1);
   await db.exec(await readFile(new URL(progressFiles[0],dir),'utf8'));
-  const rescheduleFiles=(await readdir(dir)).filter(f=>f.endsWith('_service_rescheduling.sql'));
+  const rescheduleFiles=(await readdir(dir)).filter(f=>f.endsWith('_service_rescheduling.sql')&&!f.endsWith('_bilateral_service_rescheduling.sql'));
   assert.equal(rescheduleFiles.length,1);
   await db.exec(await readFile(new URL(rescheduleFiles[0],dir),'utf8'));
+  const bilateralRescheduleFiles=(await readdir(dir)).filter(f=>f.endsWith('_bilateral_service_rescheduling.sql'));
+  assert.equal(bilateralRescheduleFiles.length,1);
+  await db.exec(await readFile(new URL(bilateralRescheduleFiles[0],dir),'utf8'));
 }
 
 test('PostgreSQL: signup, RLS, locality, qualification, atomic claim and chat',async()=>{
