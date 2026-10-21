@@ -137,19 +137,20 @@ async function refresh(ticket=generation) {
   const requests=check(requestResult)||[],unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)])),filter=el('requestFilter').value,sort=el('requestSort').value,
     query=el('requestSearch').value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR'),
     visibleRequests=requests.filter(r=>{
-      const matchesStatus=filter==='all'||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='waiting'&&r.status==='aberto')||(filter==='servicing'&&['aceito','em_andamento'].includes(r.status))||(filter==='history'&&['concluido','cancelado'].includes(r.status))||(filter==='urgent'&&r.is_urgent)||(filter==='scheduled'&&r.scheduled_for)||(filter==='unread'&&(unread.get(r.id)||0)>0);
+      const matchesStatus=filter==='all'||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='waiting'&&r.status==='aberto')||(filter==='servicing'&&['aceito','em_andamento'].includes(r.status))||(filter==='completed'&&r.status==='concluido')||(filter==='history'&&['concluido','cancelado'].includes(r.status))||(filter==='urgent'&&r.is_urgent)||(filter==='scheduled'&&r.scheduled_for)||(filter==='unread'&&(unread.get(r.id)||0)>0);
       const searchable=(r.profession+' '+r.description).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
       return matchesStatus&&(!query||searchable.includes(query));
     }).sort((a,b)=>sort==='oldest'?new Date(a.created_at)-new Date(b.created_at):sort==='urgent'?(Number(b.is_urgent)-Number(a.is_urgent)||new Date(b.created_at)-new Date(a.created_at)):sort==='schedule'?(Number(!a.scheduled_for)-Number(!b.scheduled_for)||(a.scheduled_for&&b.scheduled_for?new Date(a.scheduled_for)-new Date(b.scheduled_for):0)||new Date(b.created_at)-new Date(a.created_at)):new Date(b.created_at)-new Date(a.created_at)),
     activeCount=requests.filter(r=>['aberto','aceito','em_andamento'].includes(r.status)).length,
     waitingCount=requests.filter(r=>r.status==='aberto').length,
     servicingCount=requests.filter(r=>['aceito','em_andamento'].includes(r.status)).length,
+    completedCount=requests.filter(r=>r.status==='concluido').length,
     historyCount=requests.filter(r=>['concluido','cancelado'].includes(r.status)).length,
     urgentCount=requests.filter(r=>r.is_urgent).length,
     scheduledCount=requests.filter(r=>r.scheduled_for).length,
     unreadCount=requests.filter(r=>(unread.get(r.id)||0)>0).length;
   if(ticket!==generation)return;
-  const filterLabels={all:`Todos (${requests.length})`,active:`Ativos (${activeCount})`,waiting:`Aguardando profissional (${waitingCount})`,servicing:`Em atendimento (${servicingCount})`,history:`Histórico (${historyCount})`,urgent:`Urgentes (${urgentCount})`,scheduled:`Com horário preferido (${scheduledCount})`,unread:`Mensagens novas (${unreadCount})`};
+  const filterLabels={all:`Todos (${requests.length})`,active:`Ativos (${activeCount})`,waiting:`Aguardando profissional (${waitingCount})`,servicing:`Em atendimento (${servicingCount})`,completed:`Concluídos (${completedCount})`,history:`Histórico (${historyCount})`,urgent:`Urgentes (${urgentCount})`,scheduled:`Com horário preferido (${scheduledCount})`,unread:`Mensagens novas (${unreadCount})`};
   for(const option of el('requestFilter').options)option.textContent=filterLabels[option.value];
   el('requestSummary').textContent=`Exibindo ${visibleRequests.length} de ${requests.length} serviço${requests.length===1?'':'s'} · ${activeCount} ativo${activeCount===1?'':'s'} · ${historyCount} no histórico · ${unreadCount} com mensagens novas.`;
   el('requests').replaceChildren();

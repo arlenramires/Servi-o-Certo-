@@ -197,6 +197,18 @@ test('client filters services being attended without changing them',async({page}
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['servicing-accepted','servicing-progress','servicing-open']);
 });
 
+test('client filters completed services without mixing cancelled history',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'completed-electrician',profession:'Eletricista',description:'Instalação finalizada',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'},
+    {id:'completed-painter',profession:'Pintor',description:'Pintura finalizada',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
+    {id:'cancelled-painter',profession:'Pintor',description:'Pintura cancelada',status:'cancelado',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'}
+  ));
+  await page.locator('#refresh').click();await expect(page.locator('#requestFilter option[value="completed"]')).toHaveText('Concluídos (2)');await page.locator('#requestFilter').selectOption('completed');
+  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).not.toContainText('Pintura cancelada');
+  await page.locator('#requestSearch').fill('pintor');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Pintura finalizada');
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['completed-electrician','completed-painter','cancelled-painter']);
+});
+
 test('client searches services by profession or description and combines status filter',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'search-active',profession:'Eletricista',description:'Revisar fiação da cozinha',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
