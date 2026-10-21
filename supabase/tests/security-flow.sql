@@ -9,8 +9,8 @@ do $$begin
  if (select count(*) from public.profiles where id::text like '10000000-%' and role='cliente')<>4 then raise exception 'Metadata role escalation or duplicate signup trigger'; end if;
 end $$;
 update public.profiles set role='prestador',is_available=true where id in ('10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000004');
-insert into public.professions(id,name) overriding system value values(-991,'TEST Profissão');
-update public.profession_compliance_rules set classification='portfolio',reviewed_at=now() where profession_id=-991;
+insert into public.professions(id,name) overriding system value values(-991,'TEST Profissão'),(-992,'TEST Outra Profissão');
+update public.profession_compliance_rules set classification='portfolio',reviewed_at=now() where profession_id in (-991,-992);
 insert into public.provider_professions(provider_id,profession_id,verification_status)
 select id,-991,'verificado' from public.profiles where id in ('10000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000004');
 insert into public.provider_service_areas(provider_id,city,state,latitude,longitude,service_radius_km)
@@ -39,6 +39,10 @@ do $$begin
  if not exists(select 1 from public.service_requests where id=current_setting('test.request_id')::uuid and city='Parintins' and state='AM' and latitude is null and longitude is null) then raise exception 'Location did not change or stale coordinates remained';end if;
  begin perform public.set_open_request_location(current_setting('test.request_id')::uuid,'X','AM');raise exception 'Invalid city allowed';exception when sqlstate 'RL001' then null;end;
  perform public.set_open_request_location(current_setting('test.request_id')::uuid,'Manaus','AM');
+ if not public.set_open_request_profession(current_setting('test.request_id')::uuid,'  test outra profissão  ') then raise exception 'Client could not change profession';end if;
+ if (select profession<>'TEST Outra Profissão' from public.service_requests where id=current_setting('test.request_id')::uuid) then raise exception 'Profession was not canonicalized and changed';end if;
+ begin perform public.set_open_request_profession(current_setting('test.request_id')::uuid,'TEST Inexistente');raise exception 'Unknown profession allowed';exception when sqlstate 'RP001' then null;end;
+ perform public.set_open_request_profession(current_setting('test.request_id')::uuid,'TEST Profissão');
  if exists(select 1 from public.profiles where id<>auth.uid()) then raise exception 'Profile privacy failure'; end if;
  begin update public.profiles set role='administrador' where id=auth.uid(); raise exception 'Role escalation allowed'; exception when insufficient_privilege then null; end;
  begin insert into public.provider_applications(user_id,profession,status) values(auth.uid(),'TEST Profissão','aprovado'); raise exception 'Self approval allowed'; exception when insufficient_privilege then null; end;
@@ -65,6 +69,7 @@ do $$declare rid uuid;begin
  begin perform public.set_open_request_schedule(rid,now()+interval '2 days');raise exception 'Provider changed client schedule';exception when insufficient_privilege then null;end;
  begin perform public.set_open_request_description(rid,'Provider tried to change client request description');raise exception 'Provider changed client description';exception when insufficient_privilege then null;end;
  begin perform public.set_open_request_location(rid,'Belém','PA');raise exception 'Provider changed client location';exception when insufficient_privilege then null;end;
+ begin perform public.set_open_request_profession(rid,'TEST Outra Profissão');raise exception 'Provider changed client profession';exception when insufficient_privilege then null;end;
  if not public.accept_request(rid) then raise exception 'Eligible provider could not claim'; end if;
  if public.accept_request(rid) then raise exception 'Duplicate claim succeeded'; end if;
  if (select count(*) from public.service_requests)<>1 then raise exception 'Assigned provider cannot read request'; end if;
@@ -100,6 +105,7 @@ do $$begin
  begin perform public.set_open_request_schedule(current_setting('test.request_id')::uuid,now()+interval '2 days');raise exception 'Client changed schedule after acceptance';exception when sqlstate 'RS002' then null;end;
  begin perform public.set_open_request_description(current_setting('test.request_id')::uuid,'Client tried to change an accepted request description');raise exception 'Client changed description after acceptance';exception when sqlstate 'RE002' then null;end;
  begin perform public.set_open_request_location(current_setting('test.request_id')::uuid,'Belém','PA');raise exception 'Client changed location after acceptance';exception when sqlstate 'RL002' then null;end;
+ begin perform public.set_open_request_profession(current_setting('test.request_id')::uuid,'TEST Outra Profissão');raise exception 'Client changed profession after acceptance';exception when sqlstate 'RP002' then null;end;
 end $$;
 reset role;
 update public.profession_compliance_rules set reviewed_at=now() where profession_id=-991;
@@ -138,6 +144,7 @@ do $$begin
  begin perform public.set_open_request_schedule(current_setting('test.request_id')::uuid,now()+interval '2 days'); raise exception 'Anon schedule update allowed'; exception when insufficient_privilege then null; end;
  begin perform public.set_open_request_description(current_setting('test.request_id')::uuid,'Anonymous change to request description'); raise exception 'Anon description update allowed'; exception when insufficient_privilege then null; end;
  begin perform public.set_open_request_location(current_setting('test.request_id')::uuid,'Belém','PA'); raise exception 'Anon location update allowed'; exception when insufficient_privilege then null; end;
+ begin perform public.set_open_request_profession(current_setting('test.request_id')::uuid,'TEST Outra Profissão'); raise exception 'Anon profession update allowed'; exception when insufficient_privilege then null; end;
 end $$;
 reset role;
 rollback;

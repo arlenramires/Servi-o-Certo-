@@ -104,6 +104,9 @@ async function applyDeliveries(db) {
   const openLocationFiles=(await readdir(dir)).filter(f=>f.endsWith('_client_open_request_location.sql'));
   assert.equal(openLocationFiles.length,1);
   await db.exec(await readFile(new URL(openLocationFiles[0],dir),'utf8'));
+  const openProfessionFiles=(await readdir(dir)).filter(f=>f.endsWith('_client_open_request_profession.sql'));
+  assert.equal(openProfessionFiles.length,1);
+  await db.exec(await readFile(new URL(openProfessionFiles[0],dir),'utf8'));
 }
 
 test('PostgreSQL: signup, RLS, locality, qualification, atomic claim and chat',async()=>{

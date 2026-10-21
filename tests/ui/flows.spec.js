@@ -54,6 +54,12 @@ test('client changes the region while a request remains open',async({page})=>{
   await expect(page.locator('#status')).toContainText('Região do pedido atualizada');await expect(card).toContainText('Parintins / AM');
   expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='set_open_request_location').args)).toEqual({p_request_id:expect.any(String),p_city:'Parintins',p_state:'AM'});
 });
+test('client changes the profession while a request remains open',async({page})=>{
+  await login(page);await page.locator('#serviceProfession').selectOption('Pintor');await page.locator('#description').fill('Pintura de uma sala com correção do acabamento.');await page.locator('#createRequest').click();
+  const card=page.locator('#requests .service').first();await card.getByLabel('Profissão do pedido').selectOption('Eletricista');await card.getByRole('button',{name:'Atualizar profissão'}).click();
+  await expect(page.locator('#status')).toContainText('Profissão do pedido atualizada');await expect(card.getByRole('heading')).toHaveText('Eletricista');
+  expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='set_open_request_profession').args)).toEqual({p_request_id:expect.any(String),p_profession:'Eletricista'});
+});
 test('incoming messages show an unread count that clears when conversation opens',async({page})=>{
   await login(page);
   await page.evaluate(()=>{

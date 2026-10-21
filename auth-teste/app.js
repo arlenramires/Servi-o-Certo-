@@ -49,7 +49,8 @@ function friendly(error) {
     RU001:'A urgência só pode ser alterada enquanto o pedido está aberto.',
     RS001:'Escolha um horário futuro.',RS002:'O horário só pode ser alterado enquanto o pedido está aberto.',
     RE001:'Descreva o serviço com 10 a 3000 caracteres.',RE002:'A descrição só pode ser alterada enquanto o pedido está aberto.',
-    RL001:'Confira a cidade e a UF.',RL002:'A região só pode ser alterada enquanto o pedido está aberto.' })[error?.code]
+    RL001:'Confira a cidade e a UF.',RL002:'A região só pode ser alterada enquanto o pedido está aberto.',
+    RP001:'Escolha uma profissão disponível no catálogo.',RP002:'A profissão só pode ser alterada enquanto o pedido está aberto.' })[error?.code]
     || ({CN001:'Explique o motivo com pelo menos 10 caracteres.',CN002:'Este serviço não pode ser cancelado por este fluxo.'})[error?.code]
     || ({EX001:'Confira a descrição, o valor e a decisão do serviço extra.',EX002:'Este serviço não aceita extras nesta etapa.',
       EX003:'O extra pendente precisa ser decidido e decisões anteriores não podem ser alteradas.',EX004:'Aguarde o cliente decidir o serviço extra antes de solicitar a conclusão.'})[error?.code]
@@ -143,6 +144,16 @@ async function refresh(ticket=generation) {
     card.append(text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state),text('p',r.description));
     if(r.is_urgent)card.append(text('strong','Atendimento urgente'));
     if(profile.role==='cliente'&&r.status==='aberto'&&!r.provider_id) {
+      const professionLabel=text('label','Profissão do pedido');professionLabel.htmlFor='request-profession-'+r.id;
+      const requestProfession=document.createElement('select');requestProfession.id=professionLabel.htmlFor;
+      for(const option of el('serviceProfession').options)if(option.value)requestProfession.add(new Option(option.textContent,option.value));
+      requestProfession.value=r.profession;
+      const saveProfession=text('button','Atualizar profissão','secondary');saveProfession.type='button';
+      saveProfession.onclick=async()=>{saveProfession.disabled=true;try{
+        const profession=requestProfession.value;if(!profession)throw new InputError('Escolha uma profissão disponível no catálogo.');
+        check(await api.rpc('set_open_request_profession',{p_request_id:r.id,p_profession:profession}));
+        message('Profissão do pedido atualizada. A busca considera agora a nova especialidade.');await refresh();
+      }catch(error){message(friendly(error));}finally{saveProfession.disabled=false;}};
       const urgency=text('button',r.is_urgent?'Remover urgência':'Marcar como urgente','secondary');urgency.type='button';
       urgency.onclick=async()=>{urgency.disabled=true;try{
         const next=!r.is_urgent;check(await api.rpc('set_request_urgency',{p_request_id:r.id,p_urgent:next}));
@@ -177,7 +188,7 @@ async function refresh(ticket=generation) {
         check(await api.rpc('set_open_request_location',{p_request_id:r.id,p_city:city,p_state:state}));
         message('Região do pedido atualizada. A busca considera agora a nova cidade e UF.');await refresh();
       }catch(error){message(friendly(error));}finally{saveLocation.disabled=false;}};
-      card.append(urgency,scheduleLabel,schedule,saveSchedule,descriptionLabel,description,saveDescription,cityLabel,requestCity,stateLabel,requestState,saveLocation);
+      card.append(professionLabel,requestProfession,saveProfession,urgency,scheduleLabel,schedule,saveSchedule,descriptionLabel,description,saveDescription,cityLabel,requestCity,stateLabel,requestState,saveLocation);
     }
     const count=unread.get(r.id)||0;if(count)card.append(text('strong',count+' nova'+(count===1?' mensagem':'s mensagens'),'unread-count'));
     if(r.scheduled_for)card.append(text('small','Agendado: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));
