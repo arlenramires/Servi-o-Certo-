@@ -193,6 +193,17 @@ async function refresh(ticket=generation) {
     const count=unread.get(r.id)||0;if(count)card.append(text('strong',count+' nova'+(count===1?' mensagem':'s mensagens'),'unread-count'));
     if(r.scheduled_for)card.append(text('small','Agendado: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));
     const cancelButton=cancellations.buttonFor(r);if(cancelButton)card.append(cancelButton);
+    if(profile.role==='cliente'&&['cancelado','concluido'].includes(r.status)) {
+      const repeat=text('button','Solicitar novamente','secondary');repeat.type='button';
+      repeat.onclick=()=>{
+        const available=[...el('serviceProfession').options].some(option=>option.value===r.profession);
+        if(!available){message('Esta profissão não está disponível no catálogo atual.');return;}
+        el('serviceProfession').value=r.profession;el('description').value=r.description;el('city').value=r.city;el('state').value=r.state;
+        el('scheduled').value='';el('urgent').checked=false;el('clientPanel').scrollIntoView({behavior:'smooth',block:'start'});el('description').focus();
+        message('Dados copiados para uma nova solicitação. Revise as informações antes de enviar.');
+      };
+      card.append(repeat);
+    }
     if(['aceito','em_andamento','concluido'].includes(r.status)) {
       const button=text('button','Abrir conversa','secondary');button.onclick=()=>busy('refresh',()=>openConversation(r));card.append(button);
     }

@@ -105,6 +105,19 @@ test('layout fits viewport',async({page})=>{
   await login(page);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
 
+test('client reuses a finished request only after reviewing a new form',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'repeat-cancelled',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pintar novamente a sala e corrigir o acabamento.',status:'cancelado',city:'Parintins',state:'AM',scheduled_for:'2026-10-20T15:00:00.000Z',is_urgent:true,created_at:new Date().toISOString()},
+    {id:'repeat-completed',client_id:'10000000-0000-4000-8000-000000000001',profession:'Eletricista',description:'Revisar instalação elétrica concluída anteriormente.',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()}
+  ));
+  await page.locator('#refresh').click();await expect(page.getByRole('button',{name:'Solicitar novamente'})).toHaveCount(2);
+  const original=page.locator('[data-request="repeat-cancelled"]');await original.getByRole('button',{name:'Solicitar novamente'}).click();
+  await expect(page.locator('#status')).toContainText('Revise as informações');await expect(page.locator('#serviceProfession')).toHaveValue('Pintor');await expect(page.locator('#description')).toHaveValue('Pintar novamente a sala e corrigir o acabamento.');await expect(page.locator('#city')).toHaveValue('Parintins');await expect(page.locator('#state')).toHaveValue('AM');await expect(page.locator('#scheduled')).toHaveValue('');await expect(page.locator('#urgent')).not.toBeChecked();
+  await page.locator('#createRequest').click();await expect(page.locator('#status')).toContainText('Pedido registrado');
+  const result=await page.evaluate(()=>({original:window.testState.requests.find(r=>r.id==='repeat-cancelled'),created:window.testState.requests.at(-1)}));
+  expect(result).toMatchObject({original:{status:'cancelado'},created:{status:'aberto',profession:'Pintor',description:'Pintar novamente a sala e corrigir o acabamento.',city:'Parintins',state:'AM',scheduled_for:null,is_urgent:false}});expect(result.created).not.toHaveProperty('provider_id');
+});
+
 test('client cancels an open request with an audited reason and no fee claim',async({page})=>{
   await login(page);
   await page.evaluate(()=>window.testState.requests.push({id:'client-cancellation',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido que não é mais necessário',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
