@@ -372,6 +372,9 @@ el('requestFilter').onchange=()=>busy('refresh',()=>refresh());
 el('requestSort').onchange=()=>busy('refresh',()=>refresh());
 el('requestSearchForm').onsubmit=event=>{event.preventDefault();busy('searchRequests',()=>refresh());};
 el('clearRequestSearch').onclick=()=>{el('requestSearch').value='';busy('clearRequestSearch',()=>refresh());};
+el('clearRequestFilters').onclick=()=>{
+  el('requestSearch').value='';el('requestFilter').value='all';el('requestSort').value='recent';busy('clearRequestFilters',()=>refresh());
+};
 el('messageForm').onsubmit=event=>{event.preventDefault();busy('sendMessage',async()=>{
   if(!selected||!user)throw new InputError('Selecione um serviço aceito.');
   const body=el('message').value.trim();if(!body)throw new InputError('Escreva uma mensagem.');

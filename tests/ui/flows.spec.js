@@ -182,6 +182,19 @@ test('client orders services by date or urgency without changing requests',async
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['sort-oldest','sort-urgent','sort-newest']);
 });
 
+test('client clears search, status filter and ordering without changing services',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'clear-oldest',profession:'Pintor',description:'Pintura antiga',status:'concluido',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-18T12:00:00.000Z'},
+    {id:'clear-urgent',profession:'Eletricista',description:'Reparo elétrico urgente',status:'aberto',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-19T12:00:00.000Z'},
+    {id:'clear-newest',profession:'Encanador',description:'Reparo hidráulico recente',status:'aceito',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-20T12:00:00.000Z'}
+  ));
+  const order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));
+  await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('history');await page.locator('#requestSort').selectOption('oldest');await page.locator('#requestSearch').fill('pintura');await page.locator('#searchRequests').click();
+  await expect(page.locator('#requests .service')).toHaveCount(1);expect(await order()).toEqual(['clear-oldest']);
+  await page.locator('#clearRequestFilters').click();await expect(page.locator('#requestSearch')).toHaveValue('');await expect(page.locator('#requestFilter')).toHaveValue('all');await expect(page.locator('#requestSort')).toHaveValue('recent');
+  await expect(page.locator('#requests .service')).toHaveCount(3);expect(await order()).toEqual(['clear-newest','clear-urgent','clear-oldest']);expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['clear-oldest','clear-urgent','clear-newest']);
+});
+
 test('service summary counts active, history and currently displayed requests',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'summary-open',profession:'Pintor',description:'Pintura ativa',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
