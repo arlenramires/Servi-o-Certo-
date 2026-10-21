@@ -205,7 +205,7 @@ async function refresh(ticket=generation) {
       card.append(professionLabel,requestProfession,saveProfession,urgency,scheduleLabel,schedule,saveSchedule,descriptionLabel,description,saveDescription,cityLabel,requestCity,stateLabel,requestState,saveLocation);
     }
     const count=unread.get(r.id)||0;if(count)card.append(text('strong',count+' nova'+(count===1?' mensagem':'s mensagens'),'unread-count'));
-    if(r.scheduled_for)card.append(text('small','Agendado: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));
+    if(r.scheduled_for)card.append(text('small','Horário preferido: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));
     const cancelButton=cancellations.buttonFor(r);if(cancelButton)card.append(cancelButton);
     if(profile.role==='cliente'&&['cancelado','concluido'].includes(r.status)) {
       const repeat=text('button','Solicitar novamente','secondary');repeat.type='button';
