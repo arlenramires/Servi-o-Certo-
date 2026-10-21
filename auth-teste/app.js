@@ -134,20 +134,20 @@ async function refresh(ticket=generation) {
     api.from('service_requests').select('id,profession,description,status,created_at,city,state,scheduled_for,is_urgent,provider_id').order('created_at',{ascending:false}).limit(100),
     api.rpc('unread_service_message_counts')
   ]);
-  const requests=check(requestResult)||[],filter=el('requestFilter').value,sort=el('requestSort').value,
+  const requests=check(requestResult)||[],unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)])),filter=el('requestFilter').value,sort=el('requestSort').value,
     query=el('requestSearch').value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR'),
     visibleRequests=requests.filter(r=>{
-      const matchesStatus=filter==='all'||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='history'&&['concluido','cancelado'].includes(r.status));
+      const matchesStatus=filter==='all'||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='history'&&['concluido','cancelado'].includes(r.status))||(filter==='unread'&&(unread.get(r.id)||0)>0);
       const searchable=(r.profession+' '+r.description).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
       return matchesStatus&&(!query||searchable.includes(query));
     }).sort((a,b)=>sort==='oldest'?new Date(a.created_at)-new Date(b.created_at):sort==='urgent'?(Number(b.is_urgent)-Number(a.is_urgent)||new Date(b.created_at)-new Date(a.created_at)):new Date(b.created_at)-new Date(a.created_at)),
-    unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)])),
     activeCount=requests.filter(r=>['aberto','aceito','em_andamento'].includes(r.status)).length,
-    historyCount=requests.filter(r=>['concluido','cancelado'].includes(r.status)).length;
+    historyCount=requests.filter(r=>['concluido','cancelado'].includes(r.status)).length,
+    unreadCount=requests.filter(r=>(unread.get(r.id)||0)>0).length;
   if(ticket!==generation)return;
-  const filterLabels={all:`Todos (${requests.length})`,active:`Ativos (${activeCount})`,history:`Histórico (${historyCount})`};
+  const filterLabels={all:`Todos (${requests.length})`,active:`Ativos (${activeCount})`,history:`Histórico (${historyCount})`,unread:`Mensagens novas (${unreadCount})`};
   for(const option of el('requestFilter').options)option.textContent=filterLabels[option.value];
-  el('requestSummary').textContent=`Exibindo ${visibleRequests.length} de ${requests.length} serviço${requests.length===1?'':'s'} · ${activeCount} ativo${activeCount===1?'':'s'} · ${historyCount} no histórico.`;
+  el('requestSummary').textContent=`Exibindo ${visibleRequests.length} de ${requests.length} serviço${requests.length===1?'':'s'} · ${activeCount} ativo${activeCount===1?'':'s'} · ${historyCount} no histórico · ${unreadCount} com mensagens novas.`;
   el('requests').replaceChildren();
   if(!visibleRequests.length)el('requests').append(text('p',requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of visibleRequests) {

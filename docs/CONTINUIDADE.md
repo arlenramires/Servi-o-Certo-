@@ -37,6 +37,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 31. [Busca nos próprios serviços](ENTREGA-2026-10-21-BUSCA-SERVICOS.md). Cliente e prestador podem localizar pedidos por profissão ou descrição, combinar a busca com ativos/histórico e limpar o termo sem modificar registros.
 32. [Ordenação dos próprios serviços](ENTREGA-2026-10-21-ORDENACAO-SERVICOS.md). A lista pode priorizar pedidos recentes, antigos ou urgentes, mantendo busca e filtros combináveis sem alterar os registros.
 33. [Resumo quantitativo dos próprios serviços](ENTREGA-2026-10-21-RESUMO-SERVICOS.md). A área informa total, ativos, histórico e quantidade exibida após busca/filtro, sem ampliar acesso ou modificar pedidos.
+34. [Filtro de serviços com mensagens novas](ENTREGA-2026-10-21-FILTRO-MENSAGENS-NOVAS.md). Cliente e prestador podem isolar conversas com mensagens não lidas; a contagem usa somente serviços já autorizados e desaparece depois da leitura.
 
 ## Próximas entregas prioritárias
 

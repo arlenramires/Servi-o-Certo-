@@ -78,6 +78,28 @@ test('incoming messages show an unread count that clears when conversation opens
   await expect(card.locator('.unread-count')).toHaveCount(0);
   expect(await page.evaluate(()=>window.testState.messageReads)).toEqual([expect.objectContaining({request_id:'unread-service',user_id:'10000000-0000-4000-8000-000000000001'})]);
 });
+test('client filters services with unread messages and refreshes the count after reading',async({page})=>{
+  await login(page);
+  await page.evaluate(()=>{
+    const now=Date.now(),client='10000000-0000-4000-8000-000000000001';
+    window.testState.requests.push(
+      {id:'unread-filter-service',client_id:client,provider_id:'provider-id',profession:'Eletricista',description:'Serviço com mensagem nova',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(now-2000).toISOString()},
+      {id:'read-filter-service',client_id:client,provider_id:'provider-id',profession:'Pintor',description:'Serviço sem mensagem nova',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(now-1000).toISOString()}
+    );
+    window.testState.messages.push({id:'unread-filter-message',request_id:'unread-filter-service',sender_id:'provider-id',body:'Posso chegar pela manhã.',created_at:new Date(now).toISOString()});
+  });
+  await page.locator('#refresh').click();
+  await expect(page.locator('#requestFilter option[value="unread"]')).toHaveText('Mensagens novas (1)');
+  await page.locator('#requestFilter').selectOption('unread');
+  await expect(page.locator('#requests .service')).toHaveCount(1);
+  await expect(page.locator('#requests')).toContainText('Serviço com mensagem nova');
+  await expect(page.locator('#requests')).not.toContainText('Serviço sem mensagem nova');
+  await page.getByRole('button',{name:'Abrir conversa'}).click();
+  await page.locator('#refresh').click();
+  await expect(page.locator('#requestFilter option[value="unread"]')).toHaveText('Mensagens novas (0)');
+  await expect(page.locator('#requests .service')).toHaveCount(0);
+  await expect(page.locator('#requests')).toContainText('Nenhum serviço nesta categoria.');
+});
 test('provider handles an already claimed opportunity without false success',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await expect(page.locator('#clientPanel')).toBeHidden();await expect(page.locator('#providerApply')).toBeHidden();await page.getByRole('button',{name:'Aceitar chamado'}).click();await expect(page.locator('#status')).toContainText('não está mais disponível');
 });
@@ -167,10 +189,10 @@ test('service summary counts active, history and currently displayed requests',a
     {id:'summary-done',profession:'Pintor',description:'Pintura concluída',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString()},
     {id:'summary-cancelled',profession:'Encanador',description:'Reparo cancelado',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString()}
   ));
-  await page.locator('#refresh').click();await expect(page.locator('#requestSummary')).toHaveText('Exibindo 4 de 4 serviços · 2 ativos · 2 no histórico.');
+  await page.locator('#refresh').click();await expect(page.locator('#requestSummary')).toHaveText('Exibindo 4 de 4 serviços · 2 ativos · 2 no histórico · 0 com mensagens novas.');
   await expect(page.locator('#requestFilter option[value="active"]')).toHaveText('Ativos (2)');await expect(page.locator('#requestFilter option[value="history"]')).toHaveText('Histórico (2)');
-  await page.locator('#requestFilter').selectOption('history');await expect(page.locator('#requestSummary')).toHaveText('Exibindo 2 de 4 serviços · 2 ativos · 2 no histórico.');
-  await page.locator('#requestSearch').fill('pintura');await page.locator('#searchRequests').click();await expect(page.locator('#requestSummary')).toHaveText('Exibindo 1 de 4 serviços · 2 ativos · 2 no histórico.');
+  await page.locator('#requestFilter').selectOption('history');await expect(page.locator('#requestSummary')).toHaveText('Exibindo 2 de 4 serviços · 2 ativos · 2 no histórico · 0 com mensagens novas.');
+  await page.locator('#requestSearch').fill('pintura');await page.locator('#searchRequests').click();await expect(page.locator('#requestSummary')).toHaveText('Exibindo 1 de 4 serviços · 2 ativos · 2 no histórico · 0 com mensagens novas.');
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.status))).toEqual(['aberto','em_andamento','concluido','cancelado']);
 });
 
