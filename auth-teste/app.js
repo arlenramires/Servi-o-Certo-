@@ -135,11 +135,16 @@ async function refresh(ticket=generation) {
     api.rpc('unread_service_message_counts')
   ]);
   const requests=check(requestResult)||[],filter=el('requestFilter').value,
-    visibleRequests=requests.filter(r=>filter==='all'||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='history'&&['concluido','cancelado'].includes(r.status))),
+    query=el('requestSearch').value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR'),
+    visibleRequests=requests.filter(r=>{
+      const matchesStatus=filter==='all'||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='history'&&['concluido','cancelado'].includes(r.status));
+      const searchable=(r.profession+' '+r.description).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+      return matchesStatus&&(!query||searchable.includes(query));
+    }),
     unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)]));
   if(ticket!==generation)return;
   el('requests').replaceChildren();
-  if(!visibleRequests.length)el('requests').append(text('p',requests.length?'Nenhum serviço nesta categoria.':'Nenhum serviço registrado.'));
+  if(!visibleRequests.length)el('requests').append(text('p',requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of visibleRequests) {
     const card=text('article','','service');
     card.dataset.request=r.id;
@@ -359,6 +364,8 @@ el('available').onchange=()=>busy('available',async()=>{
 });
 el('refresh').onclick=()=>busy('refresh',()=>refresh());
 el('requestFilter').onchange=()=>busy('refresh',()=>refresh());
+el('requestSearchForm').onsubmit=event=>{event.preventDefault();busy('searchRequests',()=>refresh());};
+el('clearRequestSearch').onclick=()=>{el('requestSearch').value='';busy('clearRequestSearch',()=>refresh());};
 el('messageForm').onsubmit=event=>{event.preventDefault();busy('sendMessage',async()=>{
   if(!selected||!user)throw new InputError('Selecione um serviço aceito.');
   const body=el('message').value.trim();if(!body)throw new InputError('Escreva uma mensagem.');

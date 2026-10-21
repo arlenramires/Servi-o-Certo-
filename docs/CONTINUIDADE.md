@@ -34,6 +34,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 28. [Ajuste da profissão no pedido aberto](ENTREGA-2026-10-20-AJUSTE-PROFISSAO-ABERTO.md). O cliente pode trocar a especialidade solicitada antes do aceite; o banco restringe a escolha ao catálogo existente e congela a profissão quando um prestador assume.
 29. [Solicitar novamente após cancelamento ou conclusão](ENTREGA-2026-10-20-SOLICITAR-NOVAMENTE.md). O cliente pode reaproveitar profissão, descrição e região em um novo formulário revisável; urgência e agenda são limpas, e o histórico anterior permanece intacto.
 30. [Filtros de serviços ativos e histórico](ENTREGA-2026-10-20-FILTROS-SERVICOS.md). A lista pode alternar entre todos, ativos e histórico sem excluir nem modificar pedidos; estados abertos/aceitos/em andamento e concluídos/cancelados permanecem separados de forma clara.
+31. [Busca nos próprios serviços](ENTREGA-2026-10-21-BUSCA-SERVICOS.md). Cliente e prestador podem localizar pedidos por profissão ou descrição, combinar a busca com ativos/histórico e limpar o termo sem modificar registros.
 
 ## Próximas entregas prioritárias
 
