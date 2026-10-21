@@ -100,6 +100,16 @@ test('client filters services with unread messages and refreshes the count after
   await expect(page.locator('#requests .service')).toHaveCount(0);
   await expect(page.locator('#requests')).toContainText('Nenhum serviço nesta categoria.');
 });
+test('client filters urgent services and combines the category with search',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'urgent-electrician',profession:'Eletricista',description:'Trocar quadro com risco',status:'aberto',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-21T10:00:00.000Z'},
+    {id:'urgent-painter',profession:'Pintor',description:'Pintura urgente após infiltração',status:'concluido',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-20T10:00:00.000Z'},
+    {id:'regular-electrician',profession:'Eletricista',description:'Revisão preventiva',status:'aceito',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-19T10:00:00.000Z'}
+  ));
+  await page.locator('#refresh').click();await expect(page.locator('#requestFilter option[value="urgent"]')).toHaveText('Urgentes (2)');await page.locator('#requestFilter').selectOption('urgent');
+  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Trocar quadro com risco');await expect(page.locator('#requests')).toContainText('Pintura urgente');await expect(page.locator('#requests')).not.toContainText('Revisão preventiva');
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Trocar quadro com risco');expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['urgent-electrician','urgent-painter','regular-electrician']);
+});
 test('provider handles an already claimed opportunity without false success',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await expect(page.locator('#clientPanel')).toBeHidden();await expect(page.locator('#providerApply')).toBeHidden();await page.getByRole('button',{name:'Aceitar chamado'}).click();await expect(page.locator('#status')).toContainText('não está mais disponível');
 });

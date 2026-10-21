@@ -39,6 +39,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 33. [Resumo quantitativo dos próprios serviços](ENTREGA-2026-10-21-RESUMO-SERVICOS.md). A área informa total, ativos, histórico e quantidade exibida após busca/filtro, sem ampliar acesso ou modificar pedidos.
 34. [Filtro de serviços com mensagens novas](ENTREGA-2026-10-21-FILTRO-MENSAGENS-NOVAS.md). Cliente e prestador podem isolar conversas com mensagens não lidas; a contagem usa somente serviços já autorizados e desaparece depois da leitura.
 35. [Limpeza conjunta dos filtros dos próprios serviços](ENTREGA-2026-10-21-LIMPAR-FILTROS-SERVICOS.md). Cliente e prestador podem restaurar busca, situação e ordenação de uma vez, voltando à lista completa e recente sem alterar os pedidos.
+36. [Filtro de serviços urgentes](ENTREGA-2026-10-21-FILTRO-URGENTES-SERVICOS.md). Cliente e prestador podem isolar os próprios pedidos urgentes, combinar a categoria com busca e consultar a contagem sem modificar os registros.
 
 ## Próximas entregas prioritárias
 
