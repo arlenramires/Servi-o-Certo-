@@ -134,13 +134,13 @@ async function refresh(ticket=generation) {
     api.from('service_requests').select('id,profession,description,status,created_at,city,state,scheduled_for,is_urgent,provider_id').order('created_at',{ascending:false}).limit(100),
     api.rpc('unread_service_message_counts')
   ]);
-  const requests=check(requestResult)||[],filter=el('requestFilter').value,
+  const requests=check(requestResult)||[],filter=el('requestFilter').value,sort=el('requestSort').value,
     query=el('requestSearch').value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR'),
     visibleRequests=requests.filter(r=>{
       const matchesStatus=filter==='all'||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='history'&&['concluido','cancelado'].includes(r.status));
       const searchable=(r.profession+' '+r.description).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
       return matchesStatus&&(!query||searchable.includes(query));
-    }),
+    }).sort((a,b)=>sort==='oldest'?new Date(a.created_at)-new Date(b.created_at):sort==='urgent'?(Number(b.is_urgent)-Number(a.is_urgent)||new Date(b.created_at)-new Date(a.created_at)):new Date(b.created_at)-new Date(a.created_at)),
     unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)]));
   if(ticket!==generation)return;
   el('requests').replaceChildren();
@@ -364,6 +364,7 @@ el('available').onchange=()=>busy('available',async()=>{
 });
 el('refresh').onclick=()=>busy('refresh',()=>refresh());
 el('requestFilter').onchange=()=>busy('refresh',()=>refresh());
+el('requestSort').onchange=()=>busy('refresh',()=>refresh());
 el('requestSearchForm').onsubmit=event=>{event.preventDefault();busy('searchRequests',()=>refresh());};
 el('clearRequestSearch').onclick=()=>{el('requestSearch').value='';busy('clearRequestSearch',()=>refresh());};
 el('messageForm').onsubmit=event=>{event.preventDefault();busy('sendMessage',async()=>{

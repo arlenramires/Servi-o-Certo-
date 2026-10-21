@@ -146,6 +146,20 @@ test('client searches services by profession or description and combines status 
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['search-active','search-history','search-painter']);
 });
 
+test('client orders services by date or urgency without changing requests',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'sort-oldest',profession:'Pintor',description:'Primeiro pedido comum',status:'concluido',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-18T12:00:00.000Z'},
+    {id:'sort-urgent',profession:'Eletricista',description:'Segundo pedido urgente',status:'aberto',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-19T12:00:00.000Z'},
+    {id:'sort-newest',profession:'Encanador',description:'Terceiro pedido comum',status:'aceito',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-20T12:00:00.000Z'}
+  ));
+  const order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));
+  await page.locator('#refresh').click();expect(await order()).toEqual(['sort-newest','sort-urgent','sort-oldest']);
+  await page.locator('#requestSort').selectOption('oldest');expect(await order()).toEqual(['sort-oldest','sort-urgent','sort-newest']);
+  await page.locator('#requestSort').selectOption('urgent');expect(await order()).toEqual(['sort-urgent','sort-newest','sort-oldest']);
+  await page.locator('#requestFilter').selectOption('active');expect(await order()).toEqual(['sort-urgent','sort-newest']);
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['sort-oldest','sort-urgent','sort-newest']);
+});
+
 test('client cancels an open request with an audited reason and no fee claim',async({page})=>{
   await login(page);
   await page.evaluate(()=>window.testState.requests.push({id:'client-cancellation',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido que não é mais necessário',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
