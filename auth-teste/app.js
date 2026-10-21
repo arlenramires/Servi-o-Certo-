@@ -140,7 +140,7 @@ async function refresh(ticket=generation) {
       const matchesStatus=filter==='all'||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='history'&&['concluido','cancelado'].includes(r.status))||(filter==='urgent'&&r.is_urgent)||(filter==='scheduled'&&r.scheduled_for)||(filter==='unread'&&(unread.get(r.id)||0)>0);
       const searchable=(r.profession+' '+r.description).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
       return matchesStatus&&(!query||searchable.includes(query));
-    }).sort((a,b)=>sort==='oldest'?new Date(a.created_at)-new Date(b.created_at):sort==='urgent'?(Number(b.is_urgent)-Number(a.is_urgent)||new Date(b.created_at)-new Date(a.created_at)):new Date(b.created_at)-new Date(a.created_at)),
+    }).sort((a,b)=>sort==='oldest'?new Date(a.created_at)-new Date(b.created_at):sort==='urgent'?(Number(b.is_urgent)-Number(a.is_urgent)||new Date(b.created_at)-new Date(a.created_at)):sort==='schedule'?(Number(!a.scheduled_for)-Number(!b.scheduled_for)||(a.scheduled_for&&b.scheduled_for?new Date(a.scheduled_for)-new Date(b.scheduled_for):0)||new Date(b.created_at)-new Date(a.created_at)):new Date(b.created_at)-new Date(a.created_at)),
     activeCount=requests.filter(r=>['aberto','aceito','em_andamento'].includes(r.status)).length,
     historyCount=requests.filter(r=>['concluido','cancelado'].includes(r.status)).length,
     urgentCount=requests.filter(r=>r.is_urgent).length,

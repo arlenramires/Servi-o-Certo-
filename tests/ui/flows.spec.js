@@ -202,6 +202,19 @@ test('client orders services by date or urgency without changing requests',async
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['sort-oldest','sort-urgent','sort-newest']);
 });
 
+test('client orders preferred times first without changing requests',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'schedule-later',profession:'Pintor',description:'Pintura com preferência posterior',status:'concluido',city:'Manaus',state:'AM',scheduled_for:'2026-10-25T14:00:00.000Z',created_at:'2026-10-21T12:00:00.000Z'},
+    {id:'schedule-none',profession:'Eletricista',description:'Instalação sem horário indicado',status:'aberto',city:'Manaus',state:'AM',scheduled_for:null,created_at:'2026-10-22T12:00:00.000Z'},
+    {id:'schedule-earlier',profession:'Encanador',description:'Reparo com preferência anterior',status:'aceito',city:'Manaus',state:'AM',scheduled_for:'2026-10-23T09:00:00.000Z',created_at:'2026-10-20T12:00:00.000Z'}
+  ));
+  const order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));
+  await page.locator('#refresh').click();await page.locator('#requestSort').selectOption('schedule');
+  expect(await order()).toEqual(['schedule-earlier','schedule-later','schedule-none']);
+  await page.locator('#requestFilter').selectOption('scheduled');expect(await order()).toEqual(['schedule-earlier','schedule-later']);
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['schedule-later','schedule-none','schedule-earlier']);
+});
+
 test('client clears search, status filter and ordering without changing services',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'clear-oldest',profession:'Pintor',description:'Pintura antiga',status:'concluido',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-18T12:00:00.000Z'},

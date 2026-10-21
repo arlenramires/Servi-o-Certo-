@@ -42,6 +42,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 36. [Filtro de serviços urgentes](ENTREGA-2026-10-21-FILTRO-URGENTES-SERVICOS.md). Cliente e prestador podem isolar os próprios pedidos urgentes, combinar a categoria com busca e consultar a contagem sem modificar os registros.
 37. [Filtro por horário preferido](ENTREGA-2026-10-21-FILTRO-HORARIO-PREFERIDO.md). Cliente e prestador podem localizar pedidos com data indicada e combinar a categoria com busca, sem apresentar a preferência como agendamento confirmado.
 38. [Identificação correta do horário preferido](ENTREGA-2026-10-21-ROTULO-HORARIO-PREFERIDO.md). Os cartões dos próprios serviços deixaram de apresentar a data indicada como agendamento confirmado e agora a identificam corretamente como preferência.
+39. [Ordenação por horário preferido](ENTREGA-2026-10-21-ORDENACAO-HORARIO-PREFERIDO.md). Os próprios serviços podem ser organizados pelo horário indicado mais próximo, mantendo pedidos sem preferência ao final e combinando a ordem com os filtros existentes sem alterar registros.
 
 ## Próximas entregas prioritárias
 
