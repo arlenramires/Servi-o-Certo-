@@ -134,11 +134,13 @@ async function refresh(ticket=generation) {
     api.from('service_requests').select('id,profession,description,status,created_at,city,state,scheduled_for,is_urgent,provider_id').order('created_at',{ascending:false}).limit(100),
     api.rpc('unread_service_message_counts')
   ]);
-  const requests=check(requestResult)||[],unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)]));
+  const requests=check(requestResult)||[],filter=el('requestFilter').value,
+    visibleRequests=requests.filter(r=>filter==='all'||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='history'&&['concluido','cancelado'].includes(r.status))),
+    unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)]));
   if(ticket!==generation)return;
   el('requests').replaceChildren();
-  if(!requests.length)el('requests').append(text('p','Nenhum serviço registrado.'));
-  for(const r of requests) {
+  if(!visibleRequests.length)el('requests').append(text('p',requests.length?'Nenhum serviço nesta categoria.':'Nenhum serviço registrado.'));
+  for(const r of visibleRequests) {
     const card=text('article','','service');
     card.dataset.request=r.id;
     card.append(text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state),text('p',r.description));
@@ -356,6 +358,7 @@ el('available').onchange=()=>busy('available',async()=>{
   catch(error){el('available').checked=profile?.is_available||false;throw error;}
 });
 el('refresh').onclick=()=>busy('refresh',()=>refresh());
+el('requestFilter').onchange=()=>busy('refresh',()=>refresh());
 el('messageForm').onsubmit=event=>{event.preventDefault();busy('sendMessage',async()=>{
   if(!selected||!user)throw new InputError('Selecione um serviço aceito.');
   const body=el('message').value.trim();if(!body)throw new InputError('Escreva uma mensagem.');

@@ -33,6 +33,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 27. [Ajuste da região no pedido aberto](ENTREGA-2026-10-20-AJUSTE-REGIAO-ABERTO.md). O cliente pode corrigir cidade/UF antes do aceite; a busca regional é atualizada, coordenadas antigas são descartadas e terceiros permanecem bloqueados.
 28. [Ajuste da profissão no pedido aberto](ENTREGA-2026-10-20-AJUSTE-PROFISSAO-ABERTO.md). O cliente pode trocar a especialidade solicitada antes do aceite; o banco restringe a escolha ao catálogo existente e congela a profissão quando um prestador assume.
 29. [Solicitar novamente após cancelamento ou conclusão](ENTREGA-2026-10-20-SOLICITAR-NOVAMENTE.md). O cliente pode reaproveitar profissão, descrição e região em um novo formulário revisável; urgência e agenda são limpas, e o histórico anterior permanece intacto.
+30. [Filtros de serviços ativos e histórico](ENTREGA-2026-10-20-FILTROS-SERVICOS.md). A lista pode alternar entre todos, ativos e histórico sem excluir nem modificar pedidos; estados abertos/aceitos/em andamento e concluídos/cancelados permanecem separados de forma clara.
 
 ## Próximas entregas prioritárias
 

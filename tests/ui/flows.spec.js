@@ -118,6 +118,19 @@ test('client reuses a finished request only after reviewing a new form',async({p
   expect(result).toMatchObject({original:{status:'cancelado'},created:{status:'aberto',profession:'Pintor',description:'Pintar novamente a sala e corrigir o acabamento.',city:'Parintins',state:'AM',scheduled_for:null,is_urgent:false}});expect(result.created).not.toHaveProperty('provider_id');
 });
 
+test('client filters active services and history without changing requests',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'filter-open',profession:'Pintor',description:'Pedido aberto',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
+    {id:'filter-accepted',profession:'Eletricista',description:'Pedido aceito',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()},
+    {id:'filter-completed',profession:'Pintor',description:'Pedido concluído',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString()},
+    {id:'filter-cancelled',profession:'Eletricista',description:'Pedido cancelado',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString()}
+  ));
+  await page.locator('#refresh').click();await expect(page.locator('#requests .service')).toHaveCount(4);
+  await page.locator('#requestFilter').selectOption('active');await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Pedido aberto');await expect(page.locator('#requests')).toContainText('Pedido aceito');await expect(page.locator('#requests')).not.toContainText('Pedido concluído');
+  await page.locator('#requestFilter').selectOption('history');await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Pedido concluído');await expect(page.locator('#requests')).toContainText('Pedido cancelado');await expect(page.locator('#requests')).not.toContainText('Pedido aberto');
+  await page.locator('#requestFilter').selectOption('all');await expect(page.locator('#requests .service')).toHaveCount(4);expect(await page.evaluate(()=>window.testState.requests.map(r=>r.status))).toEqual(['aberto','aceito','concluido','cancelado']);
+});
+
 test('client cancels an open request with an audited reason and no fee claim',async({page})=>{
   await login(page);
   await page.evaluate(()=>window.testState.requests.push({id:'client-cancellation',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido que não é mais necessário',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
