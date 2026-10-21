@@ -185,6 +185,18 @@ test('client filters requests waiting for a professional without changing them',
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['waiting-electrician','waiting-painter','accepted-electrician']);
 });
 
+test('client filters services being attended without changing them',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'servicing-accepted',profession:'Eletricista',description:'Instalação com profissional aceito',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'},
+    {id:'servicing-progress',profession:'Pintor',description:'Pintura em andamento',status:'em_andamento',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
+    {id:'servicing-open',profession:'Pintor',description:'Pintura ainda aguardando',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'}
+  ));
+  await page.locator('#refresh').click();await expect(page.locator('#requestFilter option[value="servicing"]')).toHaveText('Em atendimento (2)');await page.locator('#requestFilter').selectOption('servicing');
+  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).not.toContainText('Pintura ainda aguardando');
+  await page.locator('#requestSearch').fill('pintor');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Pintura em andamento');
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['servicing-accepted','servicing-progress','servicing-open']);
+});
+
 test('client searches services by profession or description and combines status filter',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'search-active',profession:'Eletricista',description:'Revisar fiação da cozinha',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
