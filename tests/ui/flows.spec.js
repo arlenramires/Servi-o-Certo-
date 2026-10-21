@@ -173,6 +173,18 @@ test('client filters active services and history without changing requests',asyn
   await page.locator('#requestFilter').selectOption('all');await expect(page.locator('#requests .service')).toHaveCount(4);expect(await page.evaluate(()=>window.testState.requests.map(r=>r.status))).toEqual(['aberto','aceito','concluido','cancelado']);
 });
 
+test('client filters requests waiting for a professional without changing them',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'waiting-electrician',profession:'Eletricista',description:'Revisar quadro aguardando profissional',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'},
+    {id:'waiting-painter',profession:'Pintor',description:'Pintar sala aguardando profissional',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
+    {id:'accepted-electrician',profession:'Eletricista',description:'Instalação já aceita',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'}
+  ));
+  await page.locator('#refresh').click();await expect(page.locator('#requestFilter option[value="waiting"]')).toHaveText('Aguardando profissional (2)');await page.locator('#requestFilter').selectOption('waiting');
+  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).not.toContainText('Instalação já aceita');
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Revisar quadro aguardando profissional');
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['waiting-electrician','waiting-painter','accepted-electrician']);
+});
+
 test('client searches services by profession or description and combines status filter',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'search-active',profession:'Eletricista',description:'Revisar fiação da cozinha',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
