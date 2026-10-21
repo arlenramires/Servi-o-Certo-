@@ -141,8 +141,13 @@ async function refresh(ticket=generation) {
       const searchable=(r.profession+' '+r.description).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
       return matchesStatus&&(!query||searchable.includes(query));
     }).sort((a,b)=>sort==='oldest'?new Date(a.created_at)-new Date(b.created_at):sort==='urgent'?(Number(b.is_urgent)-Number(a.is_urgent)||new Date(b.created_at)-new Date(a.created_at)):new Date(b.created_at)-new Date(a.created_at)),
-    unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)]));
+    unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)])),
+    activeCount=requests.filter(r=>['aberto','aceito','em_andamento'].includes(r.status)).length,
+    historyCount=requests.filter(r=>['concluido','cancelado'].includes(r.status)).length;
   if(ticket!==generation)return;
+  const filterLabels={all:`Todos (${requests.length})`,active:`Ativos (${activeCount})`,history:`Histórico (${historyCount})`};
+  for(const option of el('requestFilter').options)option.textContent=filterLabels[option.value];
+  el('requestSummary').textContent=`Exibindo ${visibleRequests.length} de ${requests.length} serviço${requests.length===1?'':'s'} · ${activeCount} ativo${activeCount===1?'':'s'} · ${historyCount} no histórico.`;
   el('requests').replaceChildren();
   if(!visibleRequests.length)el('requests').append(text('p',requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of visibleRequests) {

@@ -160,6 +160,20 @@ test('client orders services by date or urgency without changing requests',async
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['sort-oldest','sort-urgent','sort-newest']);
 });
 
+test('service summary counts active, history and currently displayed requests',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'summary-open',profession:'Pintor',description:'Pintura ativa',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
+    {id:'summary-progress',profession:'Eletricista',description:'Instalação em andamento',status:'em_andamento',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()},
+    {id:'summary-done',profession:'Pintor',description:'Pintura concluída',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString()},
+    {id:'summary-cancelled',profession:'Encanador',description:'Reparo cancelado',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString()}
+  ));
+  await page.locator('#refresh').click();await expect(page.locator('#requestSummary')).toHaveText('Exibindo 4 de 4 serviços · 2 ativos · 2 no histórico.');
+  await expect(page.locator('#requestFilter option[value="active"]')).toHaveText('Ativos (2)');await expect(page.locator('#requestFilter option[value="history"]')).toHaveText('Histórico (2)');
+  await page.locator('#requestFilter').selectOption('history');await expect(page.locator('#requestSummary')).toHaveText('Exibindo 2 de 4 serviços · 2 ativos · 2 no histórico.');
+  await page.locator('#requestSearch').fill('pintura');await page.locator('#searchRequests').click();await expect(page.locator('#requestSummary')).toHaveText('Exibindo 1 de 4 serviços · 2 ativos · 2 no histórico.');
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.status))).toEqual(['aberto','em_andamento','concluido','cancelado']);
+});
+
 test('client cancels an open request with an audited reason and no fee claim',async({page})=>{
   await login(page);
   await page.evaluate(()=>window.testState.requests.push({id:'client-cancellation',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido que não é mais necessário',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
