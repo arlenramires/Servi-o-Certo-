@@ -209,6 +209,18 @@ test('client filters completed services without mixing cancelled history',async(
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['completed-electrician','completed-painter','cancelled-painter']);
 });
 
+test('client filters cancelled services without mixing completed history',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'cancelled-electrician',profession:'Eletricista',description:'Instalação cancelada',status:'cancelado',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'},
+    {id:'cancelled-painter',profession:'Pintor',description:'Pintura cancelada pelo cliente',status:'cancelado',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
+    {id:'completed-painter',profession:'Pintor',description:'Pintura concluída',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'}
+  ));
+  await page.locator('#refresh').click();await expect(page.locator('#requestFilter option[value="cancelled"]')).toHaveText('Cancelados (2)');await page.locator('#requestFilter').selectOption('cancelled');
+  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).not.toContainText('Pintura concluída');
+  await page.locator('#requestSearch').fill('pintor');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Pintura cancelada pelo cliente');
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['cancelled-electrician','cancelled-painter','completed-painter']);
+});
+
 test('client searches services by profession or description and combines status filter',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'search-active',profession:'Eletricista',description:'Revisar fiação da cozinha',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()},

@@ -46,6 +46,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 40. [Filtro de pedidos aguardando profissional](ENTREGA-2026-10-21-FILTRO-AGUARDANDO-PROFISSIONAL.md). O cliente pode separar e contar pedidos ainda abertos, combinar a categoria com busca e manter pedidos aceitos, em andamento ou históricos fora desse recorte sem alterar registros.
 41. [Filtro de serviços em atendimento](ENTREGA-2026-10-21-FILTRO-EM-ATENDIMENTO.md). O cliente pode separar e contar serviços já aceitos ou em andamento, combinar a categoria com busca e manter pedidos ainda abertos ou históricos fora desse recorte sem alterar registros.
 42. [Filtro de serviços concluídos](ENTREGA-2026-10-21-FILTRO-CONCLUIDOS.md). O cliente pode separar e contar serviços concluídos, combinar a categoria com busca e manter cancelamentos fora desse recorte sem alterar o histórico.
+43. [Filtro de serviços cancelados](ENTREGA-2026-10-21-FILTRO-CANCELADOS.md). O cliente pode separar e contar serviços cancelados, combinar a categoria com busca e manter conclusões fora desse recorte sem alterar o histórico.
 
 ## Próximas entregas prioritárias
 
