@@ -325,6 +325,24 @@ test('client chooses how many services to show per step without changing request
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
 });
 
+test('client downloads only the filtered service list as safe CSV',async({page})=>{
+  await login(page);await page.evaluate(()=>{
+    window.testState.requests.push(
+      {id:'export-active',profession:'Eletricista',description:'Serviço ainda ativo',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-22T12:00:00.000Z'},
+      {id:'export-completed-one',profession:'Pintor',description:'=IMPORTXML("https://example.invalid")',status:'concluido',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-22T11:00:00.000Z'},
+      {id:'export-completed-two',profession:'Encanador',description:'Reparo concluído',status:'concluido',city:'Manaus',state:'AM',scheduled_for:'2026-10-23T15:00:00.000Z',created_at:'2026-10-22T10:00:00.000Z'}
+    );
+    for(let index=0;index<10;index++)window.testState.requests.push({id:`export-extra-${index}`,profession:'Pintor',description:`Resultado adicional ${index}`,status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.UTC(2026,9,21,12,index)).toISOString()});
+  });
+  await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');
+  await expect(page.locator('#requests .service')).toHaveCount(10);
+  const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#exportRequests').click()]);
+  expect(download.suggestedFilename()).toBe('servicos-filtrados.csv');const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);const csv=Buffer.concat(chunks).toString('utf8');
+  expect(csv.split('\r\n')).toHaveLength(13);expect(csv).toContain('"Pintor","Concluído","\'=IMPORTXML(""https://example.invalid"")"');expect(csv).toContain('"Encanador","Concluído","Reparo concluído"');expect(csv).toContain('Resultado adicional 9');expect(csv).not.toContain('Serviço ainda ativo');
+  expect(csv.indexOf('"Pintor","Concluído","\'=IMPORTXML')).toBeLessThan(csv.indexOf('"Encanador","Concluído","Reparo concluído"'));
+  await page.locator('#requestSearch').fill('sem resultado');await page.locator('#searchRequests').click();await expect(page.locator('#exportRequests')).toBeDisabled();
+});
+
 test('client cancels an open request with an audited reason and no fee claim',async({page})=>{
   await login(page);
   await page.evaluate(()=>window.testState.requests.push({id:'client-cancellation',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido que não é mais necessário',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));

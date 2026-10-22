@@ -11,7 +11,7 @@ import { createInspectionsPanel } from './inspections.js';
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const callbackUrl = new URL(location.pathname, location.origin).href;
-let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10;
+let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [];
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
 const message = value => { el('status').textContent = value; };
@@ -73,7 +73,7 @@ async function busy(id, task) {
   try { await task(); } catch(error) { message(friendly(error)); } finally { el(id).disabled=false; }
 }
 function clearWorkspace() {
-  profile=null; selected=null; requestPageSize=10; requestDisplayLimit=requestPageSize; el('requestPageSize').value=String(requestPageSize); ++conversationGeneration;
+  profile=null; selected=null; exportableRequests=[]; requestPageSize=10; requestDisplayLimit=requestPageSize; el('requestPageSize').value=String(requestPageSize); ++conversationGeneration;
   contracts.reset();
   execution.reset();
   cancellations.reset();
@@ -152,6 +152,7 @@ async function refresh(ticket=generation) {
     unreadCount=requests.filter(r=>(unread.get(r.id)||0)>0).length,
     displayedRequests=visibleRequests.slice(0,requestDisplayLimit);
   if(ticket!==generation)return;
+  exportableRequests=visibleRequests;
   const filterLabels={all:`Todos (${requests.length})`,active:`Ativos (${activeCount})`,waiting:`Aguardando profissional (${waitingCount})`,servicing:`Em atendimento (${servicingCount})`,completed:`Concluídos (${completedCount})`,cancelled:`Cancelados (${cancelledCount})`,history:`Histórico (${historyCount})`,urgent:`Urgentes (${urgentCount})`,scheduled:`Com horário preferido (${scheduledCount})`,unread:`Mensagens novas (${unreadCount})`};
   for(const option of el('requestFilter').options)option.textContent=filterLabels[option.value];
   el('requestSummary').textContent=visibleRequests.length>requestDisplayLimit
@@ -160,6 +161,7 @@ async function refresh(ticket=generation) {
   const remaining=visibleRequests.length-displayedRequests.length;
   el('requestMore').hidden=remaining<=0;el('requestMore').textContent=remaining>0?`Mostrar mais (${remaining} restante${remaining===1?'':'s'})`:'Mostrar mais';
   el('requestCollapse').hidden=requestDisplayLimit<=requestPageSize||visibleRequests.length<=requestPageSize;
+  el('exportRequests').disabled=!visibleRequests.length;
   el('requests').replaceChildren();
   if(!visibleRequests.length)el('requests').append(text('p',requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of displayedRequests) {
@@ -390,6 +392,12 @@ el('clearRequestFilters').onclick=()=>{
 };
 el('requestMore').onclick=()=>{requestDisplayLimit+=requestPageSize;busy('requestMore',()=>refresh());};
 el('requestCollapse').onclick=()=>{requestDisplayLimit=requestPageSize;busy('requestCollapse',()=>refresh());};
+el('exportRequests').onclick=()=>{
+  const csvCell=value=>{let cell=String(value??'').replace(/[\r\n]+/g,' ');if(/^[\t ]*[=+\-@]/.test(cell))cell="'"+cell;return `"${cell.replaceAll('"','""')}"`;},
+    rows=[['Profissão','Situação','Descrição','Cidade','UF','Urgente','Horário preferido','Criado em'],...exportableRequests.map(r=>[r.profession,labels[r.status]||r.status,r.description,r.city,r.state,r.is_urgent?'Sim':'Não',r.scheduled_for||'',r.created_at])],
+    blob=new Blob(['\ufeff'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download='servicos-filtrados.csv';link.click();URL.revokeObjectURL(url);
+};
 el('messageForm').onsubmit=event=>{event.preventDefault();busy('sendMessage',async()=>{
   if(!selected||!user)throw new InputError('Selecione um serviço aceito.');
   const body=el('message').value.trim();if(!body)throw new InputError('Escreva uma mensagem.');
