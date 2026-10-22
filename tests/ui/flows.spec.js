@@ -313,6 +313,18 @@ test('client collapses an expanded service list without losing its current view'
   await expect(page.locator('#requestFilter')).toHaveValue('all');await expect(page.locator('#requestSort')).toHaveValue('recent');expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
 });
 
+test('client chooses how many services to show per step without changing requests',async({page})=>{
+  await login(page);await page.evaluate(()=>{
+    for(let index=0;index<30;index++)window.testState.requests.push({id:`page-size-${index}`,client_id:'10000000-0000-4000-8000-000000000001',provider_id:'provider-id',profession:'Eletricista',description:`Serviço por etapa ${index}`,status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.UTC(2026,9,22,14,index)).toISOString()});
+  });
+  const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
+  await expect(page.locator('#requests .service')).toHaveCount(10);await page.locator('#requestPageSize').selectOption('25');
+  await expect(page.locator('#requests .service')).toHaveCount(25);await expect(page.locator('#requestMore')).toHaveText('Mostrar mais (5 restantes)');
+  await page.locator('#requestMore').click();await expect(page.locator('#requests .service')).toHaveCount(30);
+  await page.locator('#requestCollapse').click();await expect(page.locator('#requests .service')).toHaveCount(25);await expect(page.locator('#requestPageSize')).toHaveValue('25');
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
+});
+
 test('client cancels an open request with an audited reason and no fee claim',async({page})=>{
   await login(page);
   await page.evaluate(()=>window.testState.requests.push({id:'client-cancellation',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido que não é mais necessário',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));

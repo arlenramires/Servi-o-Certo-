@@ -11,8 +11,7 @@ import { createInspectionsPanel } from './inspections.js';
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const callbackUrl = new URL(location.pathname, location.origin).href;
-let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestDisplayLimit = 10;
-const requestPageSize = 10;
+let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10;
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
 const message = value => { el('status').textContent = value; };
@@ -74,7 +73,7 @@ async function busy(id, task) {
   try { await task(); } catch(error) { message(friendly(error)); } finally { el(id).disabled=false; }
 }
 function clearWorkspace() {
-  profile=null; selected=null; requestDisplayLimit=requestPageSize; ++conversationGeneration;
+  profile=null; selected=null; requestPageSize=10; requestDisplayLimit=requestPageSize; el('requestPageSize').value=String(requestPageSize); ++conversationGeneration;
   contracts.reset();
   execution.reset();
   cancellations.reset();
@@ -383,6 +382,7 @@ el('available').onchange=()=>busy('available',async()=>{
 el('refresh').onclick=()=>busy('refresh',()=>refresh());
 el('requestFilter').onchange=()=>{requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
 el('requestSort').onchange=()=>{requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
+el('requestPageSize').onchange=()=>{requestPageSize=Number(el('requestPageSize').value);requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
 el('requestSearchForm').onsubmit=event=>{event.preventDefault();requestDisplayLimit=requestPageSize;busy('searchRequests',()=>refresh());};
 el('clearRequestSearch').onclick=()=>{el('requestSearch').value='';requestDisplayLimit=requestPageSize;busy('clearRequestSearch',()=>refresh());};
 el('clearRequestFilters').onclick=()=>{
