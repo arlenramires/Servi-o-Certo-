@@ -290,6 +290,17 @@ test('service summary counts active, history and currently displayed requests',a
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.status))).toEqual(['aberto','em_andamento','concluido','cancelado']);
 });
 
+test('client progressively loads a long service list without changing requests',async({page})=>{
+  await login(page);await page.evaluate(()=>{
+    for(let index=0;index<15;index++)window.testState.requests.push({id:`page-${index}`,client_id:'10000000-0000-4000-8000-000000000001',provider_id:'provider-id',profession:index%2?'Pintor':'Eletricista',description:`Serviço acumulado ${index}`,status:index<12?'aceito':'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.UTC(2026,9,22,12,index)).toISOString()});
+  });
+  const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
+  await expect(page.locator('#requests .service')).toHaveCount(10);await expect(page.locator('#requestSummary')).toContainText('Exibindo 10 de 15 correspondentes');await expect(page.locator('#requestMore')).toHaveText('Mostrar mais (5 restantes)');
+  await page.locator('#requestMore').click();await expect(page.locator('#requests .service')).toHaveCount(15);await expect(page.locator('#requestMore')).toBeHidden();
+  await page.locator('#requestFilter').selectOption('completed');await expect(page.locator('#requests .service')).toHaveCount(3);await expect(page.locator('#requestMore')).toBeHidden();
+  await page.locator('#requestFilter').selectOption('all');await expect(page.locator('#requests .service')).toHaveCount(10);await expect(page.locator('#requestMore')).toHaveText('Mostrar mais (5 restantes)');expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
+});
+
 test('client cancels an open request with an audited reason and no fee claim',async({page})=>{
   await login(page);
   await page.evaluate(()=>window.testState.requests.push({id:'client-cancellation',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido que não é mais necessário',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));

@@ -11,7 +11,8 @@ import { createInspectionsPanel } from './inspections.js';
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const callbackUrl = new URL(location.pathname, location.origin).href;
-let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0;
+let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestDisplayLimit = 10;
+const requestPageSize = 10;
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
 const message = value => { el('status').textContent = value; };
@@ -73,7 +74,7 @@ async function busy(id, task) {
   try { await task(); } catch(error) { message(friendly(error)); } finally { el(id).disabled=false; }
 }
 function clearWorkspace() {
-  profile=null; selected=null; ++conversationGeneration;
+  profile=null; selected=null; requestDisplayLimit=requestPageSize; ++conversationGeneration;
   contracts.reset();
   execution.reset();
   cancellations.reset();
@@ -149,14 +150,19 @@ async function refresh(ticket=generation) {
     historyCount=requests.filter(r=>['concluido','cancelado'].includes(r.status)).length,
     urgentCount=requests.filter(r=>r.is_urgent).length,
     scheduledCount=requests.filter(r=>r.scheduled_for).length,
-    unreadCount=requests.filter(r=>(unread.get(r.id)||0)>0).length;
+    unreadCount=requests.filter(r=>(unread.get(r.id)||0)>0).length,
+    displayedRequests=visibleRequests.slice(0,requestDisplayLimit);
   if(ticket!==generation)return;
   const filterLabels={all:`Todos (${requests.length})`,active:`Ativos (${activeCount})`,waiting:`Aguardando profissional (${waitingCount})`,servicing:`Em atendimento (${servicingCount})`,completed:`Concluídos (${completedCount})`,cancelled:`Cancelados (${cancelledCount})`,history:`Histórico (${historyCount})`,urgent:`Urgentes (${urgentCount})`,scheduled:`Com horário preferido (${scheduledCount})`,unread:`Mensagens novas (${unreadCount})`};
   for(const option of el('requestFilter').options)option.textContent=filterLabels[option.value];
-  el('requestSummary').textContent=`Exibindo ${visibleRequests.length} de ${requests.length} serviço${requests.length===1?'':'s'} · ${activeCount} ativo${activeCount===1?'':'s'} · ${historyCount} no histórico · ${unreadCount} com mensagens novas.`;
+  el('requestSummary').textContent=visibleRequests.length>requestDisplayLimit
+    ?`Exibindo ${displayedRequests.length} de ${visibleRequests.length} correspondentes · ${requests.length} serviço${requests.length===1?'':'s'} no total · ${activeCount} ativo${activeCount===1?'':'s'} · ${historyCount} no histórico · ${unreadCount} com mensagens novas.`
+    :`Exibindo ${visibleRequests.length} de ${requests.length} serviço${requests.length===1?'':'s'} · ${activeCount} ativo${activeCount===1?'':'s'} · ${historyCount} no histórico · ${unreadCount} com mensagens novas.`;
+  const remaining=visibleRequests.length-displayedRequests.length;
+  el('requestMore').hidden=remaining<=0;el('requestMore').textContent=remaining>0?`Mostrar mais (${remaining} restante${remaining===1?'':'s'})`:'Mostrar mais';
   el('requests').replaceChildren();
   if(!visibleRequests.length)el('requests').append(text('p',requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
-  for(const r of visibleRequests) {
+  for(const r of displayedRequests) {
     const card=text('article','','service');
     card.dataset.request=r.id;
     card.append(text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state),text('p',r.description));
@@ -374,13 +380,14 @@ el('available').onchange=()=>busy('available',async()=>{
   catch(error){el('available').checked=profile?.is_available||false;throw error;}
 });
 el('refresh').onclick=()=>busy('refresh',()=>refresh());
-el('requestFilter').onchange=()=>busy('refresh',()=>refresh());
-el('requestSort').onchange=()=>busy('refresh',()=>refresh());
-el('requestSearchForm').onsubmit=event=>{event.preventDefault();busy('searchRequests',()=>refresh());};
-el('clearRequestSearch').onclick=()=>{el('requestSearch').value='';busy('clearRequestSearch',()=>refresh());};
+el('requestFilter').onchange=()=>{requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
+el('requestSort').onchange=()=>{requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
+el('requestSearchForm').onsubmit=event=>{event.preventDefault();requestDisplayLimit=requestPageSize;busy('searchRequests',()=>refresh());};
+el('clearRequestSearch').onclick=()=>{el('requestSearch').value='';requestDisplayLimit=requestPageSize;busy('clearRequestSearch',()=>refresh());};
 el('clearRequestFilters').onclick=()=>{
-  el('requestSearch').value='';el('requestFilter').value='all';el('requestSort').value='recent';busy('clearRequestFilters',()=>refresh());
+  el('requestSearch').value='';el('requestFilter').value='all';el('requestSort').value='recent';requestDisplayLimit=requestPageSize;busy('clearRequestFilters',()=>refresh());
 };
+el('requestMore').onclick=()=>{requestDisplayLimit+=requestPageSize;busy('requestMore',()=>refresh());};
 el('messageForm').onsubmit=event=>{event.preventDefault();busy('sendMessage',async()=>{
   if(!selected||!user)throw new InputError('Selecione um serviço aceito.');
   const body=el('message').value.trim();if(!body)throw new InputError('Escreva uma mensagem.');
