@@ -48,6 +48,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 42. [Filtro de serviços concluídos](ENTREGA-2026-10-21-FILTRO-CONCLUIDOS.md). O cliente pode separar e contar serviços concluídos, combinar a categoria com busca e manter cancelamentos fora desse recorte sem alterar o histórico.
 43. [Filtro de serviços cancelados](ENTREGA-2026-10-21-FILTRO-CANCELADOS.md). O cliente pode separar e contar serviços cancelados, combinar a categoria com busca e manter conclusões fora desse recorte sem alterar o histórico.
 44. [Carregamento progressivo dos próprios serviços](ENTREGA-2026-10-22-CARREGAMENTO-PROGRESSIVO-SERVICOS.md). A lista apresenta dez resultados por vez e permite carregar os restantes, reiniciando o recorte ao mudar busca, situação ou ordenação sem alterar pedidos.
+45. [Recolhimento da lista expandida de serviços](ENTREGA-2026-10-22-MOSTRAR-MENOS-SERVICOS.md). Depois de carregar resultados adicionais, cliente ou prestador pode voltar aos dez primeiros preservando busca, situação e ordenação sem alterar pedidos.
 
 ## Próximas entregas prioritárias
 

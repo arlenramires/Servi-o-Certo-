@@ -160,6 +160,7 @@ async function refresh(ticket=generation) {
     :`Exibindo ${visibleRequests.length} de ${requests.length} serviço${requests.length===1?'':'s'} · ${activeCount} ativo${activeCount===1?'':'s'} · ${historyCount} no histórico · ${unreadCount} com mensagens novas.`;
   const remaining=visibleRequests.length-displayedRequests.length;
   el('requestMore').hidden=remaining<=0;el('requestMore').textContent=remaining>0?`Mostrar mais (${remaining} restante${remaining===1?'':'s'})`:'Mostrar mais';
+  el('requestCollapse').hidden=requestDisplayLimit<=requestPageSize||visibleRequests.length<=requestPageSize;
   el('requests').replaceChildren();
   if(!visibleRequests.length)el('requests').append(text('p',requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of displayedRequests) {
@@ -388,6 +389,7 @@ el('clearRequestFilters').onclick=()=>{
   el('requestSearch').value='';el('requestFilter').value='all';el('requestSort').value='recent';requestDisplayLimit=requestPageSize;busy('clearRequestFilters',()=>refresh());
 };
 el('requestMore').onclick=()=>{requestDisplayLimit+=requestPageSize;busy('requestMore',()=>refresh());};
+el('requestCollapse').onclick=()=>{requestDisplayLimit=requestPageSize;busy('requestCollapse',()=>refresh());};
 el('messageForm').onsubmit=event=>{event.preventDefault();busy('sendMessage',async()=>{
   if(!selected||!user)throw new InputError('Selecione um serviço aceito.');
   const body=el('message').value.trim();if(!body)throw new InputError('Escreva uma mensagem.');
