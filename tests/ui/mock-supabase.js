@@ -6,13 +6,14 @@ const account={id:'10000000-0000-4000-8000-000000000001',email:'teste@example.in
 class Query {
   constructor(table){this.table=table;this.filters=[];this.operation='select';}
   select(){return this;} eq(k,v){this.filters.push([k,v]);return this;} order(){return this;} limit(){return this;}
+  range(from,to){this.rangeBounds=[from,to];return this;}
   in(k,v){this.filters.push([k,v]);return this;}
   maybeSingle(){this.single=true;return this;}
   insert(data){this.operation='insert';this.payload=data;return this;}
   upsert(data){this.operation='upsert';this.payload=data;return this;}
   then(resolve,reject){return this.execute().then(resolve,reject);}
   async execute(){
-    state.calls.push({table:this.table,operation:this.operation,payload:this.payload});
+    state.calls.push({table:this.table,operation:this.operation,payload:this.payload,range:this.rangeBounds});
     if(this.operation==='insert'){
       const item={id:'request-'+Date.now(),created_at:new Date().toISOString(),status:'aberto',...this.payload};
       if(this.table==='service_requests')state.requests.push(item);
@@ -25,6 +26,7 @@ class Query {
     let data=({profiles:[{id:account.id,role:state.role,full_name:'Pessoa de teste',is_available:true}],professions:[{id:1,name:'Eletricista'},{id:2,name:'Pintor'}],provider_applications:state.applications,service_requests:state.requests,provider_service_areas:[],service_messages:state.messages,service_quotes:state.quotes,service_quote_decisions:state.decisions,service_contracts:state.contracts,service_contract_decisions:state.contractDecisions,service_execution_events:state.executionEvents,provider_arrival_estimates:state.arrivalEstimates,service_completion_adjustments:state.completionAdjustments,service_progress_updates:state.progressUpdates,service_schedule_changes:state.scheduleChanges,service_ratings:state.ratings,service_cancellations:state.cancellations,service_extras:state.extras,service_disputes:state.disputes,service_inspections:state.inspections})[this.table]||[];
     if(this.table==='profiles'&&window.missingProfile)data=[];
     for(const [key,value] of this.filters)data=data.filter(r=>Array.isArray(value)?value.includes(r[key]):r[key]===value);
+    if(this.rangeBounds)data=data.slice(this.rangeBounds[0],this.rangeBounds[1]+1);
     return {data:this.single?(data[0]||null):data,error:null};
   }
 }

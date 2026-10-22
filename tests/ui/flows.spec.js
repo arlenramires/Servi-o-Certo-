@@ -343,6 +343,15 @@ test('client downloads only the filtered service list as safe CSV',async({page})
   await page.locator('#requestSearch').fill('sem resultado');await page.locator('#searchRequests').click();await expect(page.locator('#exportRequests')).toBeDisabled();
 });
 
+test('client loads every authorized service in deterministic batches',async({page})=>{
+  await login(page);await page.evaluate(()=>{
+    for(let index=0;index<205;index++)window.testState.requests.push({id:`batch-${String(index).padStart(3,'0')}`,profession:'Eletricista',description:`Serviço autorizado ${index}`,status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.UTC(2026,9,22,12)-index*60000).toISOString()});
+  });
+  await page.locator('#refresh').click();await expect(page.locator('#requests .service')).toHaveCount(10);await expect(page.locator('#requestSummary')).toContainText('Exibindo 10 de 205 correspondentes');
+  const ranges=await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='service_requests'&&call.operation==='select'&&call.range).slice(-3).map(call=>call.range));
+  expect(ranges).toEqual([[0,99],[100,199],[200,299]]);await expect(page.locator('#requestMore')).toHaveText('Mostrar mais (195 restantes)');
+});
+
 test('client cancels an open request with an audited reason and no fee claim',async({page})=>{
   await login(page);
   await page.evaluate(()=>window.testState.requests.push({id:'client-cancellation',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido que não é mais necessário',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));

@@ -14,6 +14,7 @@ const callbackUrl = new URL(location.pathname, location.origin).href;
 let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [];
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
+const requestBatchSize=100;
 const message = value => { el('status').textContent = value; };
 const check = response => { if (response.error) throw response.error; return response.data; };
 function friendly(error) {
@@ -128,13 +129,23 @@ async function loadAccount(nextUser) {
   }
   await refresh(ticket);
 }
+async function loadRequests(ticket) {
+  const requests=[];
+  for(let from=0;;from+=requestBatchSize) {
+    const page=check(await api.from('service_requests').select('id,profession,description,status,created_at,city,state,scheduled_for,is_urgent,provider_id').order('created_at',{ascending:false}).order('id',{ascending:false}).range(from,from+requestBatchSize-1))||[];
+    if(ticket!==generation)return null;
+    requests.push(...page);
+    if(page.length<requestBatchSize)return requests;
+  }
+}
 async function refresh(ticket=generation) {
   if(!profile||!user||recovery)return;
   const [requestResult,unreadResult]=await Promise.all([
-    api.from('service_requests').select('id,profession,description,status,created_at,city,state,scheduled_for,is_urgent,provider_id').order('created_at',{ascending:false}).limit(100),
+    loadRequests(ticket),
     api.rpc('unread_service_message_counts')
   ]);
-  const requests=check(requestResult)||[],unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)])),filter=el('requestFilter').value,sort=el('requestSort').value,
+  if(requestResult===null||ticket!==generation)return;
+  const requests=requestResult,unread=new Map((check(unreadResult)||[]).map(x=>[x.request_id,Number(x.unread_count)])),filter=el('requestFilter').value,sort=el('requestSort').value,
     query=el('requestSearch').value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR'),
     visibleRequests=requests.filter(r=>{
       const matchesStatus=filter==='all'||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='waiting'&&r.status==='aberto')||(filter==='servicing'&&['aceito','em_andamento'].includes(r.status))||(filter==='completed'&&r.status==='concluido')||(filter==='cancelled'&&r.status==='cancelado')||(filter==='history'&&['concluido','cancelado'].includes(r.status))||(filter==='urgent'&&r.is_urgent)||(filter==='scheduled'&&r.scheduled_for)||(filter==='unread'&&(unread.get(r.id)||0)>0);
