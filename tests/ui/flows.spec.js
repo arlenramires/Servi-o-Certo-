@@ -357,6 +357,21 @@ test('client orders services alphabetically by profession with recent ties first
   expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
 
+test('client orders services alphabetically by city and state with recent ties first',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'region-sao-luis',profession:'Pintor',description:'Pintura maranhense',status:'cancelado',city:'São Luís',state:'MA',created_at:'2026-10-23T12:00:00.000Z'},
+    {id:'region-manaus-old',profession:'Eletricista',description:'Instalação antiga em Manaus',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'},
+    {id:'region-belem',profession:'Encanador',description:'Reparo paraense',status:'concluido',city:'Belém',state:'PA',created_at:'2026-10-22T12:00:00.000Z'},
+    {id:'region-acailandia',profession:'Pedreiro',description:'Obra maranhense',status:'aberto',city:'Açailândia',state:'MA',created_at:'2026-10-18T12:00:00.000Z'},
+    {id:'region-manaus-new',profession:'Eletricista',description:'Instalação recente em Manaus',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'}
+  ));
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests)),order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));await page.locator('#refresh').click();
+  await page.locator('#requestSort').selectOption('region');expect(await order()).toEqual(['region-acailandia','region-belem','region-manaus-new','region-manaus-old','region-sao-luis']);
+  await page.locator('#requestFilter').selectOption('active');expect(await order()).toEqual(['region-acailandia','region-manaus-new','region-manaus-old']);
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();expect(await order()).toEqual(['region-manaus-new','region-manaus-old']);
+  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
+
 test('client orders services by workflow stage with recent ties first',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'status-completed',profession:'Pintor',description:'Etapa concluída',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-22T12:00:00.000Z'},
