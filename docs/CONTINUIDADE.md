@@ -68,6 +68,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 62. [Filtro de serviços solicitados há mais de trinta dias](ENTREGA-2026-10-23-FILTRO-SERVICOS-ANTIGOS.md). Cliente e prestador podem separar pedidos anteriores aos últimos trinta dias, combinar o período com a busca e consultar a contagem sem nova consulta ou alteração dos serviços.
 63. [Filtro por horário preferido futuro](ENTREGA-2026-10-23-FILTRO-HORARIO-PREFERIDO-FUTURO.md). Cliente e prestador podem separar serviços com preferência posterior ao instante atual, combinar o recorte com busca e consultar a contagem sem apresentar a preferência como agenda confirmada nem alterar registros.
 64. [Busca pela data do horário preferido](ENTREGA-2026-10-23-BUSCA-HORARIO-PREFERIDO.md). Cliente e prestador podem localizar serviços autorizados pela data brasileira ou ISO da preferência, combinar o termo com os filtros existentes e manter datas inválidas fora da busca sem nova consulta nem alteração dos pedidos.
+65. [Filtro por horário preferido passado](ENTREGA-2026-10-23-FILTRO-HORARIO-PREFERIDO-PASSADO.md). Cliente e prestador podem separar serviços com preferência anterior ao instante atual, combinar o recorte com busca e excluir datas inválidas ou ausentes sem apresentar a preferência como agenda confirmada nem alterar registros.
 
 ## Próximas entregas prioritárias
 

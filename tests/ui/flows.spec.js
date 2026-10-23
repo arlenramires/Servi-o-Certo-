@@ -141,6 +141,20 @@ test('client filters future preferred times without implying confirmed appointme
   await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','upcoming-electrician');
   await expect(page.locator('#requests')).toContainText('Horário preferido:');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
+test('client filters past preferred times without implying confirmed appointments',async({page})=>{
+  await login(page);await page.evaluate(()=>{const hour=60*60*1000;window.testState.requests.push(
+    {id:'past-preferred-electrician',profession:'Eletricista',description:'Revisão com preferência anterior',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString(),scheduled_for:new Date(Date.now()-hour).toISOString()},
+    {id:'past-preferred-painter',profession:'Pintor',description:'Pintura com preferência anterior',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString(),scheduled_for:new Date(Date.now()-2*hour).toISOString()},
+    {id:'future-preferred-plumber',profession:'Encanador',description:'Reparo com preferência futura',status:'aberto',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString(),scheduled_for:new Date(Date.now()+hour).toISOString()},
+    {id:'invalid-past-preferred',profession:'Pedreiro',description:'Preferência inválida',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString(),scheduled_for:'data-invalida'},
+    {id:'missing-past-preferred',profession:'Marceneiro',description:'Sem preferência',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-4000).toISOString(),scheduled_for:null}
+  );});
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
+  await page.locator('#requestFilter').selectOption('pastPreferred');await expect(page.locator('#requestFilter option[value="pastPreferred"]')).toHaveText('Horário preferido passado (2)');
+  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Revisão com preferência anterior');await expect(page.locator('#requests')).toContainText('Pintura com preferência anterior');
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','past-preferred-electrician');
+  expect(await page.locator('#requests').innerText()).not.toContain('Agendado');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
 test('provider handles an already claimed opportunity without false success',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await expect(page.locator('#clientPanel')).toBeHidden();await expect(page.locator('#providerApply')).toBeHidden();await page.getByRole('button',{name:'Aceitar chamado'}).click();await expect(page.locator('#status')).toContainText('não está mais disponível');
 });
