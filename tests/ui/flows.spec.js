@@ -249,7 +249,7 @@ test('client locates an authorized service by its code without changing requests
     {id:'service-code-42ac',profession:'Eletricista',description:'Revisar instalação da sala',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()}
   ));
   const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
-  await expect(page.locator('label[for="requestSearch"]')).toHaveText('Buscar por código, profissão, descrição ou região');
+  await expect(page.locator('label[for="requestSearch"]')).toHaveText('Buscar por código, profissão, descrição, região ou situação');
   await page.locator('#requestSearch').fill('8F31');await page.locator('#searchRequests').click();
   await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','service-code-8f31');
   await expect(page.locator('#requests')).toContainText('Código: service-code-8f31');await expect(page.locator('#requests')).not.toContainText('Código: service-code-42ac');
@@ -262,9 +262,22 @@ test('client searches authorized services by city or state without changing requ
     {id:'region-boa-vista',profession:'Eletricista',description:'Revisar instalação residencial',status:'aceito',city:'Boa Vista',state:'RR',created_at:new Date(Date.now()-1000).toISOString()}
   ));
   const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
-  await expect(page.locator('label[for="requestSearch"]')).toHaveText('Buscar por código, profissão, descrição ou região');
+  await expect(page.locator('label[for="requestSearch"]')).toHaveText('Buscar por código, profissão, descrição, região ou situação');
   await page.locator('#requestSearch').fill('sao paulo');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','region-sao-paulo');
   await page.locator('#requestSearch').fill('RR');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','region-boa-vista');
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
+});
+
+test('client searches authorized services by exact status without changing requests',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'status-accepted',profession:'Eletricista',description:'Revisar instalação residencial',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
+    {id:'status-progress',profession:'Eletricista',description:'Revisar instalação residencial',status:'em_andamento',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()},
+    {id:'status-completed',profession:'Eletricista',description:'Revisar instalação residencial',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString()}
+  ));
+  const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
+  await page.locator('#requestSearch').fill('aceito');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','status-accepted');
+  await page.locator('#requestSearch').fill('em andamento');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','status-progress');
+  await page.locator('#requestSearch').fill('concluido');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','status-completed');
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
 });
 

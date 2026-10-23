@@ -55,6 +55,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 49. [Código copiável do próprio serviço](ENTREGA-2026-10-22-CODIGO-COPIAVEL-SERVICO.md). Cada cartão autorizado exibe o identificador do serviço e permite copiá-lo para atendimento ou conferência, com alternativa compatível para navegadores antigos e sem modificar o pedido.
 50. [Busca pelo código do próprio serviço](ENTREGA-2026-10-22-BUSCA-CODIGO-SERVICO.md). Cliente e prestador podem localizar um serviço autorizado pelo identificador completo ou por parte dele, combinando a referência com os filtros existentes sem nova consulta nem alteração do pedido.
 51. [Busca pela região do próprio serviço](ENTREGA-2026-10-22-BUSCA-REGIAO-SERVICO.md). Cliente e prestador podem localizar serviços autorizados por cidade ou UF, inclusive sem acentos, mantendo a combinação com os filtros existentes e sem nova consulta nem alteração do pedido.
+52. [Busca pela situação do próprio serviço](ENTREGA-2026-10-22-BUSCA-SITUACAO-SERVICO.md). Cliente e prestador podem localizar serviços autorizados pela situação exata, como aceito, em andamento ou concluído, inclusive sem acentos, mantendo filtros e registros intactos.
 
 ## Próximas entregas prioritárias
 

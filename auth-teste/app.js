@@ -155,7 +155,7 @@ async function refresh(ticket=generation) {
     query=el('requestSearch').value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR'),
     visibleRequests=requests.filter(r=>{
       const matchesStatus=filter==='all'||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='waiting'&&r.status==='aberto')||(filter==='servicing'&&['aceito','em_andamento'].includes(r.status))||(filter==='completed'&&r.status==='concluido')||(filter==='cancelled'&&r.status==='cancelado')||(filter==='history'&&['concluido','cancelado'].includes(r.status))||(filter==='urgent'&&r.is_urgent)||(filter==='scheduled'&&r.scheduled_for)||(filter==='unread'&&(unread.get(r.id)||0)>0);
-      const searchable=(r.id+' '+r.profession+' '+r.description+' '+r.city+' '+r.state).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+      const searchable=(r.id+' '+r.profession+' '+r.description+' '+r.city+' '+r.state+' '+r.status.replaceAll('_',' ')+' '+(labels[r.status]||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
       return matchesStatus&&(!query||searchable.includes(query));
     }).sort((a,b)=>sort==='oldest'?new Date(a.created_at)-new Date(b.created_at):sort==='urgent'?(Number(b.is_urgent)-Number(a.is_urgent)||new Date(b.created_at)-new Date(a.created_at)):sort==='schedule'?(Number(!a.scheduled_for)-Number(!b.scheduled_for)||(a.scheduled_for&&b.scheduled_for?new Date(a.scheduled_for)-new Date(b.scheduled_for):0)||new Date(b.created_at)-new Date(a.created_at)):new Date(b.created_at)-new Date(a.created_at)),
     activeCount=requests.filter(r=>['aberto','aceito','em_andamento'].includes(r.status)).length,
