@@ -69,6 +69,12 @@ const extras=createExtrasPanel({api,getContext:()=>({user,profile,selected,gener
 const disputes=createDisputesPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 const inspections=createInspectionsPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 function text(tag, value, className) { const node=document.createElement(tag); node.textContent=value; if(className)node.className=className; return node; }
+async function copyText(value) {
+  if(navigator.clipboard?.writeText)return navigator.clipboard.writeText(value);
+  const field=document.createElement('textarea');field.value=value;field.setAttribute('readonly','');field.style.position='fixed';field.style.opacity='0';
+  document.body.append(field);field.select();const copied=document.execCommand('copy');field.remove();
+  if(!copied)throw new Error('copy_failed');
+}
 async function busy(id, task) {
   el(id).disabled=true;
   try { await task(); } catch(error) { message(friendly(error)); } finally { el(id).disabled=false; }
@@ -179,6 +185,9 @@ async function refresh(ticket=generation) {
     const card=text('article','','service');
     card.dataset.request=r.id;
     card.append(text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state),text('p',r.description));
+    const requestCode=text('small','Código: '+r.id,'service-code'),copyCode=text('button','Copiar código','secondary');copyCode.type='button';
+    copyCode.onclick=async()=>{copyCode.disabled=true;try{await copyText(r.id);message('Código do serviço copiado: '+r.id);}catch{message('Não foi possível copiar automaticamente. O código continua visível no cartão.');}finally{copyCode.disabled=false;}};
+    card.append(requestCode,copyCode);
     if(r.is_urgent)card.append(text('strong','Atendimento urgente'));
     if(profile.role==='cliente'&&r.status==='aberto'&&!r.provider_id) {
       const professionLabel=text('label','Profissão do pedido');professionLabel.htmlFor='request-profession-'+r.id;
