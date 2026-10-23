@@ -281,6 +281,16 @@ test('client searches authorized services by exact status without changing reque
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
 });
 
+test('client sees when an authorized service was requested without changing it',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'requested-at-service',profession:'Eletricista',description:'Revisar instalação residencial',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:30:00.000Z'}
+  ));
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
+  const requestedAt=page.locator('[data-request="requested-at-service"] time.request-created');
+  await expect(requestedAt).toBeVisible();await expect(requestedAt).toHaveAttribute('datetime','2026-10-19T12:30:00.000Z');await expect(requestedAt).toContainText('Solicitado em');
+  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
+
 test('client orders services by date or urgency without changing requests',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'sort-oldest',profession:'Pintor',description:'Primeiro pedido comum',status:'concluido',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-18T12:00:00.000Z'},

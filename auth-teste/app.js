@@ -184,7 +184,9 @@ async function refresh(ticket=generation) {
   for(const r of displayedRequests) {
     const card=text('article','','service');
     card.dataset.request=r.id;
-    card.append(text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state),text('p',r.description));
+    const createdAt=new Date(r.created_at),summary=[text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state)];
+    if(!Number.isNaN(createdAt.getTime())) {const requestedAt=text('time','Solicitado em '+createdAt.toLocaleString('pt-BR'),'muted request-created');requestedAt.dateTime=createdAt.toISOString();summary.push(requestedAt);}
+    card.append(...summary,text('p',r.description));
     const requestCode=text('small','Código: '+r.id,'service-code'),copyCode=text('button','Copiar código','secondary');copyCode.type='button';
     copyCode.onclick=async()=>{copyCode.disabled=true;try{await copyText(r.id);message('Código do serviço copiado: '+r.id);}catch{message('Não foi possível copiar automaticamente. O código continua visível no cartão.');}finally{copyCode.disabled=false;}};
     card.append(requestCode,copyCode);
