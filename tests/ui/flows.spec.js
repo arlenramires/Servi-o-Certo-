@@ -343,6 +343,20 @@ test('client orders services by date or urgency without changing requests',async
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['sort-oldest','sort-urgent','sort-newest']);
 });
 
+test('client orders services alphabetically by profession with recent ties first',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'profession-painter',profession:'Pintor',description:'Pintura residencial',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
+    {id:'profession-electrician-old',profession:'Eletricista',description:'Instalação antiga',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'},
+    {id:'profession-butcher',profession:'Açougueiro',description:'Preparação profissional',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-18T12:00:00.000Z'},
+    {id:'profession-electrician-new',profession:'Eletricista',description:'Instalação recente',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'}
+  ));
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests)),order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));await page.locator('#refresh').click();
+  await page.locator('#requestSort').selectOption('profession');expect(await order()).toEqual(['profession-butcher','profession-electrician-new','profession-electrician-old','profession-painter']);
+  await page.locator('#requestFilter').selectOption('active');expect(await order()).toEqual(['profession-butcher','profession-electrician-new','profession-electrician-old']);
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();expect(await order()).toEqual(['profession-electrician-new','profession-electrician-old']);
+  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
+
 test('client orders preferred times first without changing requests',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'schedule-later',profession:'Pintor',description:'Pintura com preferência posterior',status:'concluido',city:'Manaus',state:'AM',scheduled_for:'2026-10-25T14:00:00.000Z',created_at:'2026-10-21T12:00:00.000Z'},

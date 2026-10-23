@@ -60,6 +60,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 54. [Filtro de serviços solicitados nos últimos sete dias](ENTREGA-2026-10-23-FILTRO-SERVICOS-RECENTES.md). Cliente e prestador podem isolar pedidos recentes, combinar o período com a busca e consultar a contagem sem nova consulta ou alteração dos serviços.
 55. [Busca pela data de solicitação do serviço](ENTREGA-2026-10-23-BUSCA-DATA-SOLICITACAO.md). Cliente e prestador podem localizar pedidos autorizados pela data brasileira ou ISO, combinando o termo com os filtros existentes sem nova consulta nem alteração dos serviços.
 56. [Filtro de serviços solicitados hoje](ENTREGA-2026-10-23-FILTRO-SERVICOS-HOJE.md). Cliente e prestador podem isolar pedidos criados no dia local, combinar o recorte com a busca e consultar a quantidade sem nova consulta nem alteração dos serviços.
+57. [Ordenação dos próprios serviços por profissão](ENTREGA-2026-10-23-ORDENACAO-PROFISSAO-SERVICOS.md). Cliente e prestador podem organizar serviços autorizados alfabeticamente pela profissão, com pedidos mais recentes primeiro em empates e combinação com filtros e busca sem alterar registros.
 
 ## Próximas entregas prioritárias
 
