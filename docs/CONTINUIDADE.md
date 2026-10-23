@@ -54,6 +54,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 48. [Paginação completa dos próprios serviços](ENTREGA-2026-10-22-PAGINACAO-COMPLETA-SERVICOS.md). A área “Meus serviços” busca todos os registros autorizados em lotes ordenados de cem, removendo o teto anterior sem ampliar acesso; lista, contagens, filtros, busca e CSV passam a considerar também o histórico além da primeira página.
 49. [Código copiável do próprio serviço](ENTREGA-2026-10-22-CODIGO-COPIAVEL-SERVICO.md). Cada cartão autorizado exibe o identificador do serviço e permite copiá-lo para atendimento ou conferência, com alternativa compatível para navegadores antigos e sem modificar o pedido.
 50. [Busca pelo código do próprio serviço](ENTREGA-2026-10-22-BUSCA-CODIGO-SERVICO.md). Cliente e prestador podem localizar um serviço autorizado pelo identificador completo ou por parte dele, combinando a referência com os filtros existentes sem nova consulta nem alteração do pedido.
+51. [Busca pela região do próprio serviço](ENTREGA-2026-10-22-BUSCA-REGIAO-SERVICO.md). Cliente e prestador podem localizar serviços autorizados por cidade ou UF, inclusive sem acentos, mantendo a combinação com os filtros existentes e sem nova consulta nem alteração do pedido.
 
 ## Próximas entregas prioritárias
 
