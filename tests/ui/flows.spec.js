@@ -315,6 +315,21 @@ test('client filters services requested in the last seven days without changing 
   expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
 
+test('client filters services requested in the last thirty days without changing them',async({page})=>{
+  await login(page);await page.evaluate(()=>{const day=24*60*60*1000;window.testState.requests.push(
+    {id:'month-electrician',profession:'Eletricista',description:'Revisão solicitada neste mês',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-29*day).toISOString()},
+    {id:'month-painter',profession:'Pintor',description:'Pintura solicitada recentemente',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-10*day).toISOString()},
+    {id:'older-than-month',profession:'Eletricista',description:'Revisão antiga',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-31*day).toISOString()},
+    {id:'future-month',profession:'Encanador',description:'Registro futuro inválido',status:'aberto',city:'Manaus',state:'AM',created_at:new Date(Date.now()+day).toISOString()},
+    {id:'undated-month',profession:'Pedreiro',description:'Registro legado sem data',status:'cancelado',city:'Manaus',state:'AM'}
+  );});
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
+  await page.locator('#requestFilter').selectOption('month');await expect(page.locator('#requestFilter option[value="month"]')).toHaveText('Solicitados nos últimos 30 dias (2)');
+  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Revisão solicitada neste mês');await expect(page.locator('#requests')).toContainText('Pintura solicitada recentemente');
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','month-electrician');
+  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
+
 test('client filters services requested today and combines the result with search',async({page})=>{
   await login(page);await page.evaluate(()=>{const now=new Date(),todayStart=new Date(now);todayStart.setHours(0,0,0,0);const today=new Date(todayStart.getTime()+Math.max(1,Math.floor((now.getTime()-todayStart.getTime())/2))),yesterday=new Date(todayStart.getTime()-1);window.testState.requests.push(
     {id:'today-electrician',profession:'Eletricista',description:'Revisão solicitada hoje',status:'aceito',city:'Manaus',state:'AM',created_at:today.toISOString()},
