@@ -61,6 +61,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 55. [Busca pela data de solicitação do serviço](ENTREGA-2026-10-23-BUSCA-DATA-SOLICITACAO.md). Cliente e prestador podem localizar pedidos autorizados pela data brasileira ou ISO, combinando o termo com os filtros existentes sem nova consulta nem alteração dos serviços.
 56. [Filtro de serviços solicitados hoje](ENTREGA-2026-10-23-FILTRO-SERVICOS-HOJE.md). Cliente e prestador podem isolar pedidos criados no dia local, combinar o recorte com a busca e consultar a quantidade sem nova consulta nem alteração dos serviços.
 57. [Ordenação dos próprios serviços por profissão](ENTREGA-2026-10-23-ORDENACAO-PROFISSAO-SERVICOS.md). Cliente e prestador podem organizar serviços autorizados alfabeticamente pela profissão, com pedidos mais recentes primeiro em empates e combinação com filtros e busca sem alterar registros.
+58. [Ordenação dos próprios serviços pela etapa do fluxo](ENTREGA-2026-10-23-ORDENACAO-ETAPA-SERVICOS.md). Cliente e prestador podem organizar serviços autorizados desde os pedidos aguardando profissional até cancelamentos, com registros mais recentes primeiro dentro da mesma etapa e combinação com filtros e busca sem alterar pedidos.
 
 ## Próximas entregas prioritárias
 
