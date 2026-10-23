@@ -249,7 +249,7 @@ test('client locates an authorized service by its code without changing requests
     {id:'service-code-42ac',profession:'Eletricista',description:'Revisar instalação da sala',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()}
   ));
   const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
-  await expect(page.locator('label[for="requestSearch"]')).toHaveText('Buscar por código, profissão, descrição, região ou situação');
+  await expect(page.locator('label[for="requestSearch"]')).toHaveText('Buscar por código, profissão, descrição, região, situação ou data');
   await page.locator('#requestSearch').fill('8F31');await page.locator('#searchRequests').click();
   await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','service-code-8f31');
   await expect(page.locator('#requests')).toContainText('Código: service-code-8f31');await expect(page.locator('#requests')).not.toContainText('Código: service-code-42ac');
@@ -262,7 +262,7 @@ test('client searches authorized services by city or state without changing requ
     {id:'region-boa-vista',profession:'Eletricista',description:'Revisar instalação residencial',status:'aceito',city:'Boa Vista',state:'RR',created_at:new Date(Date.now()-1000).toISOString()}
   ));
   const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
-  await expect(page.locator('label[for="requestSearch"]')).toHaveText('Buscar por código, profissão, descrição, região ou situação');
+  await expect(page.locator('label[for="requestSearch"]')).toHaveText('Buscar por código, profissão, descrição, região, situação ou data');
   await page.locator('#requestSearch').fill('sao paulo');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','region-sao-paulo');
   await page.locator('#requestSearch').fill('RR');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','region-boa-vista');
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
@@ -288,6 +288,17 @@ test('client sees when an authorized service was requested without changing it',
   const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
   const requestedAt=page.locator('[data-request="requested-at-service"] time.request-created');
   await expect(requestedAt).toBeVisible();await expect(requestedAt).toHaveAttribute('datetime','2026-10-19T12:30:00.000Z');await expect(requestedAt).toContainText('Solicitado em');
+  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
+
+test('client searches authorized services by request date without changing them',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'date-october-19',profession:'Eletricista',description:'Revisão residencial',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:30:00.000Z'},
+    {id:'date-october-20',profession:'Pintor',description:'Pintura residencial',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-20T12:30:00.000Z'}
+  ));
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
+  await page.locator('#requestSearch').fill('19/10/2026');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','date-october-19');
+  await page.locator('#requestSearch').fill('2026-10-20');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','date-october-20');
   expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
 

@@ -69,6 +69,7 @@ const extras=createExtrasPanel({api,getContext:()=>({user,profile,selected,gener
 const disputes=createDisputesPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 const inspections=createInspectionsPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 function text(tag, value, className) { const node=document.createElement(tag); node.textContent=value; if(className)node.className=className; return node; }
+function requestDateSearchValue(value) { const date=new Date(value); return Number.isNaN(date.getTime())?'':value+' '+date.toLocaleDateString('pt-BR'); }
 async function copyText(value) {
   if(navigator.clipboard?.writeText)return navigator.clipboard.writeText(value);
   const field=document.createElement('textarea');field.value=value;field.setAttribute('readonly','');field.style.position='fixed';field.style.opacity='0';
@@ -156,7 +157,7 @@ async function refresh(ticket=generation) {
     query=el('requestSearch').value.trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR'),
     visibleRequests=requests.filter(r=>{
       const matchesStatus=filter==='all'||(filter==='recent'&&isRecent(r))||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='waiting'&&r.status==='aberto')||(filter==='servicing'&&['aceito','em_andamento'].includes(r.status))||(filter==='completed'&&r.status==='concluido')||(filter==='cancelled'&&r.status==='cancelado')||(filter==='history'&&['concluido','cancelado'].includes(r.status))||(filter==='urgent'&&r.is_urgent)||(filter==='scheduled'&&r.scheduled_for)||(filter==='unread'&&(unread.get(r.id)||0)>0);
-      const searchable=(r.id+' '+r.profession+' '+r.description+' '+r.city+' '+r.state+' '+r.status.replaceAll('_',' ')+' '+(labels[r.status]||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+      const searchable=(r.id+' '+r.profession+' '+r.description+' '+r.city+' '+r.state+' '+r.status.replaceAll('_',' ')+' '+(labels[r.status]||'')+' '+requestDateSearchValue(r.created_at)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
       return matchesStatus&&(!query||searchable.includes(query));
     }).sort((a,b)=>sort==='oldest'?new Date(a.created_at)-new Date(b.created_at):sort==='urgent'?(Number(b.is_urgent)-Number(a.is_urgent)||new Date(b.created_at)-new Date(a.created_at)):sort==='schedule'?(Number(!a.scheduled_for)-Number(!b.scheduled_for)||(a.scheduled_for&&b.scheduled_for?new Date(a.scheduled_for)-new Date(b.scheduled_for):0)||new Date(b.created_at)-new Date(a.created_at)):new Date(b.created_at)-new Date(a.created_at)),
     recentCount=requests.filter(isRecent).length,
