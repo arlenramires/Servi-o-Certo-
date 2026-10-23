@@ -372,6 +372,25 @@ test('client orders services alphabetically by city and state with recent ties f
   expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
 
+test('client orders conversations by unread message count with recent ties first',async({page})=>{
+  await login(page);await page.evaluate(()=>{
+    const client='10000000-0000-4000-8000-000000000001',requests=[
+      {id:'unread-sort-none',client_id:client,provider_id:'provider-id',profession:'Pintor',description:'Conversa sem novidade',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-23T12:00:00.000Z'},
+      {id:'unread-sort-one',client_id:client,provider_id:'provider-id',profession:'Encanador',description:'Conversa com uma novidade',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-22T12:00:00.000Z'},
+      {id:'unread-sort-old',client_id:client,provider_id:'provider-id',profession:'Eletricista',description:'Conversa antiga com duas novidades',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'},
+      {id:'unread-sort-new',client_id:client,provider_id:'provider-id',profession:'Eletricista',description:'Conversa recente com duas novidades',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'}
+    ];
+    window.testState.requests.push(...requests);
+    for(const request of requests.slice(1))window.testState.messages.push({id:'message-'+request.id+'-1',request_id:request.id,sender_id:'provider-id',body:'Mensagem recebida',created_at:'2026-10-23T13:00:00.000Z'});
+    for(const request of requests.slice(2))window.testState.messages.push({id:'message-'+request.id+'-2',request_id:request.id,sender_id:'provider-id',body:'Outra mensagem recebida',created_at:'2026-10-23T13:01:00.000Z'});
+  });
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests)),order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));await page.locator('#refresh').click();
+  await page.locator('#requestSort').selectOption('unread');expect(await order()).toEqual(['unread-sort-new','unread-sort-old','unread-sort-one','unread-sort-none']);
+  await page.locator('#requestFilter').selectOption('active');expect(await order()).toEqual(['unread-sort-new','unread-sort-old','unread-sort-one']);
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();expect(await order()).toEqual(['unread-sort-new','unread-sort-old']);
+  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
+
 test('client orders services by workflow stage with recent ties first',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'status-completed',profession:'Pintor',description:'Etapa concluída',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-22T12:00:00.000Z'},
