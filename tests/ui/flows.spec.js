@@ -291,6 +291,19 @@ test('client sees when an authorized service was requested without changing it',
   expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
 
+test('client filters services requested in the last seven days without changing them',async({page})=>{
+  await login(page);await page.evaluate(()=>{const day=24*60*60*1000;window.testState.requests.push(
+    {id:'recent-request',profession:'Eletricista',description:'Revisão elétrica recente',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-6*day).toISOString()},
+    {id:'old-request',profession:'Eletricista',description:'Revisão elétrica antiga',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-8*day).toISOString()},
+    {id:'undated-request',profession:'Pintor',description:'Registro legado sem data',status:'cancelado',city:'Manaus',state:'AM'}
+  );});
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
+  await page.locator('#requestFilter').selectOption('recent');await expect(page.locator('#requestFilter option[value="recent"]')).toHaveText('Solicitados nos últimos 7 dias (1)');
+  await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','recent-request');
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);
+  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
+
 test('client orders services by date or urgency without changing requests',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'sort-oldest',profession:'Pintor',description:'Primeiro pedido comum',status:'concluido',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-18T12:00:00.000Z'},

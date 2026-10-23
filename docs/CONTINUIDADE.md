@@ -57,6 +57,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 51. [Busca pela região do próprio serviço](ENTREGA-2026-10-22-BUSCA-REGIAO-SERVICO.md). Cliente e prestador podem localizar serviços autorizados por cidade ou UF, inclusive sem acentos, mantendo a combinação com os filtros existentes e sem nova consulta nem alteração do pedido.
 52. [Busca pela situação do próprio serviço](ENTREGA-2026-10-22-BUSCA-SITUACAO-SERVICO.md). Cliente e prestador podem localizar serviços autorizados pela situação exata, como aceito, em andamento ou concluído, inclusive sem acentos, mantendo filtros e registros intactos.
 53. [Data de solicitação visível no próprio serviço](ENTREGA-2026-10-23-DATA-SOLICITACAO-SERVICO.md). Cada cartão autorizado informa quando o pedido foi criado, com data semântica para acessibilidade e sem nova consulta ou alteração do serviço.
+54. [Filtro de serviços solicitados nos últimos sete dias](ENTREGA-2026-10-23-FILTRO-SERVICOS-RECENTES.md). Cliente e prestador podem isolar pedidos recentes, combinar o período com a busca e consultar a contagem sem nova consulta ou alteração dos serviços.
 
 ## Próximas entregas prioritárias
 
