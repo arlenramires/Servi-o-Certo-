@@ -155,6 +155,19 @@ test('client filters past preferred times without implying confirmed appointment
   await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','past-preferred-electrician');
   expect(await page.locator('#requests').innerText()).not.toContain('Agendado');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
+test('client filters services without a preferred time without changing requests',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'without-preferred-electrician',profession:'Eletricista',description:'Revisão sem preferência definida',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString(),scheduled_for:null},
+    {id:'without-preferred-painter',profession:'Pintor',description:'Pintura sem preferência definida',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()},
+    {id:'with-preferred-electrician',profession:'Eletricista',description:'Instalação com preferência definida',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString(),scheduled_for:new Date(Date.now()+60*60*1000).toISOString()},
+    {id:'invalid-preferred-plumber',profession:'Encanador',description:'Preferência preenchida mas inválida',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString(),scheduled_for:'data-invalida'}
+  ));
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
+  await page.locator('#requestFilter').selectOption('withoutPreferred');await expect(page.locator('#requestFilter option[value="withoutPreferred"]')).toHaveText('Sem horário preferido (2)');
+  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Revisão sem preferência definida');await expect(page.locator('#requests')).toContainText('Pintura sem preferência definida');await expect(page.locator('#requests')).not.toContainText('Instalação com preferência definida');
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','without-preferred-electrician');
+  await expect(page.locator('#requests')).not.toContainText('Horário preferido:');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
 test('provider handles an already claimed opportunity without false success',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await expect(page.locator('#clientPanel')).toBeHidden();await expect(page.locator('#providerApply')).toBeHidden();await page.getByRole('button',{name:'Aceitar chamado'}).click();await expect(page.locator('#status')).toContainText('não está mais disponível');
 });
@@ -337,7 +350,8 @@ test('client searches authorized services by preferred date without changing the
     {id:'preferred-invalid',profession:'Pedreiro',description:'Registro com preferência inválida',status:'cancelado',city:'Manaus',state:'AM',created_at:'2026-10-21T12:30:00.000Z',scheduled_for:'data-invalida'}
   ));
   const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestSearch').fill('15/04/2030');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-april-15');
+  const localizedPreferredDate=await page.evaluate(()=>new Date('2030-04-15T18:00:00.000Z').toLocaleDateString('pt-BR'));
+  await page.locator('#requestSearch').fill(localizedPreferredDate);await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-april-15');
   await page.locator('#requestFilter').selectOption('scheduled');await page.locator('#requestSearch').fill('2030-05-20');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-may-20');
   expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
