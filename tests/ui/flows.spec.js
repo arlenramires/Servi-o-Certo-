@@ -315,6 +315,20 @@ test('client filters services requested in the last seven days without changing 
   expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
 
+test('client filters services requested today and combines the result with search',async({page})=>{
+  await login(page);await page.evaluate(()=>{const now=new Date(),todayStart=new Date(now);todayStart.setHours(0,0,0,0);const today=new Date(todayStart.getTime()+Math.max(1,Math.floor((now.getTime()-todayStart.getTime())/2))),yesterday=new Date(todayStart.getTime()-1);window.testState.requests.push(
+    {id:'today-electrician',profession:'Eletricista',description:'Revisão solicitada hoje',status:'aceito',city:'Manaus',state:'AM',created_at:today.toISOString()},
+    {id:'yesterday-painter',profession:'Pintor',description:'Pintura solicitada ontem',status:'concluido',city:'Manaus',state:'AM',created_at:yesterday.toISOString()},
+    {id:'today-undated',profession:'Encanador',description:'Registro antigo sem data',status:'cancelado',city:'Manaus',state:'AM'}
+  );});
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
+  await page.locator('#requestFilter').selectOption('today');await expect(page.locator('#requestFilter option[value="today"]')).toHaveText('Solicitados hoje (1)');
+  await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','today-electrician');
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);
+  await page.locator('#requestSearch').fill('pintor');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(0);
+  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
+
 test('client orders services by date or urgency without changing requests',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'sort-oldest',profession:'Pintor',description:'Primeiro pedido comum',status:'concluido',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-18T12:00:00.000Z'},
