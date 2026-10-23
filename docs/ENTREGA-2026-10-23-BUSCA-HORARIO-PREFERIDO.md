@@ -25,6 +25,7 @@ Validada em 23/10/2026 às 14:46 (America/Boa_Vista).
 - Após a instalação limpa, o executável do Chromium não estava presente no cache do Playwright.
 - O endereço primário de download retornou arquivos vazios; Chromium, FFMPEG e headless shell foram restaurados pelo espelho alternativo do próprio instalador.
 - A primeira suíte integral apontou quatro expectativas antigas do texto do rótulo da busca; elas foram alinhadas à nova descrição e a suíte integral seguinte passou sem falhas.
+- A primeira transferência do arquivo grande de testes para o GitHub foi truncada pelo limite de saída intermediário; a inconsistência foi detectada na conferência pós-publicação e corrigida com o conteúdo integral antes da validação final do CI.
 
 ## Preservações e limites
 
