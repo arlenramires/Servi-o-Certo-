@@ -66,6 +66,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 60. [Ordenação dos próprios serviços por mensagens novas](ENTREGA-2026-10-23-ORDENACAO-MENSAGENS-NOVAS.md). Cliente e prestador podem priorizar conversas autorizadas pela quantidade de mensagens não lidas, com pedidos mais recentes primeiro em empates e combinação com filtros e busca sem alterar mensagens ou serviços.
 61. [Filtro de serviços solicitados nos últimos trinta dias](ENTREGA-2026-10-23-FILTRO-SERVICOS-30-DIAS.md). Cliente e prestador podem isolar pedidos criados nos últimos trinta dias, combinar o período com a busca e consultar a contagem sem nova consulta ou alteração dos serviços.
 62. [Filtro de serviços solicitados há mais de trinta dias](ENTREGA-2026-10-23-FILTRO-SERVICOS-ANTIGOS.md). Cliente e prestador podem separar pedidos anteriores aos últimos trinta dias, combinar o período com a busca e consultar a contagem sem nova consulta ou alteração dos serviços.
+63. [Filtro por horário preferido futuro](ENTREGA-2026-10-23-FILTRO-HORARIO-PREFERIDO-FUTURO.md). Cliente e prestador podem separar serviços com preferência posterior ao instante atual, combinar o recorte com busca e consultar a contagem sem apresentar a preferência como agenda confirmada nem alterar registros.
 
 ## Próximas entregas prioritárias
 

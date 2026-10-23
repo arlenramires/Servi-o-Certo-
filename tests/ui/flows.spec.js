@@ -127,6 +127,20 @@ test('client filters services with a preferred time without implying confirmatio
   await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Instalação com horário indicado');await expect(page.locator('#requests')).toContainText('Pintura com preferência');await expect(page.locator('#requests')).not.toContainText('Revisão sem horário');
   await page.locator('#requestSearch').fill('pintor');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Pintura com preferência');expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['scheduled-electrician','scheduled-painter','unscheduled-electrician']);
 });
+test('client filters future preferred times without implying confirmed appointments',async({page})=>{
+  await login(page);await page.evaluate(()=>{const hour=60*60*1000;window.testState.requests.push(
+    {id:'upcoming-electrician',profession:'Eletricista',description:'Instalação com preferência futura',status:'aberto',city:'Manaus',state:'AM',scheduled_for:new Date(Date.now()+24*hour).toISOString(),created_at:new Date(Date.now()-hour).toISOString()},
+    {id:'upcoming-painter',profession:'Pintor',description:'Pintura com preferência futura',status:'aceito',city:'Manaus',state:'AM',scheduled_for:new Date(Date.now()+48*hour).toISOString(),created_at:new Date(Date.now()-2*hour).toISOString()},
+    {id:'past-preference',profession:'Eletricista',description:'Preferência já passada',status:'concluido',city:'Manaus',state:'AM',scheduled_for:new Date(Date.now()-hour).toISOString(),created_at:new Date(Date.now()-3*hour).toISOString()},
+    {id:'invalid-preference',profession:'Pedreiro',description:'Preferência inválida',status:'aberto',city:'Manaus',state:'AM',scheduled_for:'data-invalida',created_at:new Date(Date.now()-4*hour).toISOString()},
+    {id:'no-preference',profession:'Encanador',description:'Serviço sem preferência',status:'aberto',city:'Manaus',state:'AM',scheduled_for:null,created_at:new Date(Date.now()-5*hour).toISOString()}
+  );});
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
+  await page.locator('#requestFilter').selectOption('upcoming');await expect(page.locator('#requestFilter option[value="upcoming"]')).toHaveText('Horário preferido futuro (2)');
+  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Instalação com preferência futura');await expect(page.locator('#requests')).toContainText('Pintura com preferência futura');await expect(page.locator('#requests')).not.toContainText('Preferência já passada');
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','upcoming-electrician');
+  await expect(page.locator('#requests')).toContainText('Horário preferido:');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
 test('provider handles an already claimed opportunity without false success',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await expect(page.locator('#clientPanel')).toBeHidden();await expect(page.locator('#providerApply')).toBeHidden();await page.getByRole('button',{name:'Aceitar chamado'}).click();await expect(page.locator('#status')).toContainText('não está mais disponível');
 });
