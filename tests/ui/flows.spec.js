@@ -243,6 +243,19 @@ test('client searches services by profession or description and combines status 
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['search-active','search-history','search-painter']);
 });
 
+test('client locates an authorized service by its code without changing requests',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'service-code-8f31',profession:'Eletricista',description:'Revisar instalação da cozinha',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
+    {id:'service-code-42ac',profession:'Eletricista',description:'Revisar instalação da sala',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()}
+  ));
+  const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
+  await expect(page.locator('label[for="requestSearch"]')).toHaveText('Buscar por código, profissão ou descrição');
+  await page.locator('#requestSearch').fill('8F31');await page.locator('#searchRequests').click();
+  await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','service-code-8f31');
+  await expect(page.locator('#requests')).toContainText('Código: service-code-8f31');await expect(page.locator('#requests')).not.toContainText('Código: service-code-42ac');
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
+});
+
 test('client orders services by date or urgency without changing requests',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'sort-oldest',profession:'Pintor',description:'Primeiro pedido comum',status:'concluido',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-18T12:00:00.000Z'},

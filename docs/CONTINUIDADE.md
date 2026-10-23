@@ -53,6 +53,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 47. [Exportação segura da lista filtrada de serviços](ENTREGA-2026-10-22-EXPORTACAO-SERVICOS-CSV.md). Cliente ou prestador baixa em CSV todos os próprios serviços correspondentes à busca, situação e ordenação atuais, com neutralização de fórmulas de planilha e sem consultar ou alterar registros adicionais.
 48. [Paginação completa dos próprios serviços](ENTREGA-2026-10-22-PAGINACAO-COMPLETA-SERVICOS.md). A área “Meus serviços” busca todos os registros autorizados em lotes ordenados de cem, removendo o teto anterior sem ampliar acesso; lista, contagens, filtros, busca e CSV passam a considerar também o histórico além da primeira página.
 49. [Código copiável do próprio serviço](ENTREGA-2026-10-22-CODIGO-COPIAVEL-SERVICO.md). Cada cartão autorizado exibe o identificador do serviço e permite copiá-lo para atendimento ou conferência, com alternativa compatível para navegadores antigos e sem modificar o pedido.
+50. [Busca pelo código do próprio serviço](ENTREGA-2026-10-22-BUSCA-CODIGO-SERVICO.md). Cliente e prestador podem localizar um serviço autorizado pelo identificador completo ou por parte dele, combinando a referência com os filtros existentes sem nova consulta nem alteração do pedido.
 
 ## Próximas entregas prioritárias
 
