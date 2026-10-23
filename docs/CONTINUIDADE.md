@@ -65,6 +65,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 59. [Ordenação dos próprios serviços por cidade e UF](ENTREGA-2026-10-23-ORDENACAO-REGIAO-SERVICOS.md). Cliente e prestador podem organizar serviços autorizados alfabeticamente pela cidade e UF, com colação em português, pedidos mais recentes primeiro em empates e combinação com filtros e busca sem alterar registros.
 60. [Ordenação dos próprios serviços por mensagens novas](ENTREGA-2026-10-23-ORDENACAO-MENSAGENS-NOVAS.md). Cliente e prestador podem priorizar conversas autorizadas pela quantidade de mensagens não lidas, com pedidos mais recentes primeiro em empates e combinação com filtros e busca sem alterar mensagens ou serviços.
 61. [Filtro de serviços solicitados nos últimos trinta dias](ENTREGA-2026-10-23-FILTRO-SERVICOS-30-DIAS.md). Cliente e prestador podem isolar pedidos criados nos últimos trinta dias, combinar o período com a busca e consultar a contagem sem nova consulta ou alteração dos serviços.
+62. [Filtro de serviços solicitados há mais de trinta dias](ENTREGA-2026-10-23-FILTRO-SERVICOS-ANTIGOS.md). Cliente e prestador podem separar pedidos anteriores aos últimos trinta dias, combinar o período com a busca e consultar a contagem sem nova consulta ou alteração dos serviços.
 
 ## Próximas entregas prioritárias
 
