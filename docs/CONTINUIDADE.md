@@ -87,6 +87,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 81. [Papel do usuário na exportação CSV](ENTREGA-2026-10-24-PAPEL-USUARIO-EXPORTACAO-CSV.md). A planilha identifica cada linha como exportada pelo cliente ou pelo prestador autenticado, deixando o contexto explícito fora da plataforma sem consulta adicional nem alteração dos serviços.
 82. [Código estável da situação na exportação CSV](ENTREGA-2026-10-24-CODIGO-SITUACAO-EXPORTACAO-CSV.md). A planilha preserva a situação legível e acrescenta seu código técnico estável para conferência, filtros e integrações, sem consulta adicional nem alteração dos serviços.
 83. [Exportação estruturada dos próprios serviços em JSON](ENTREGA-2026-10-24-EXPORTACAO-SERVICOS-JSON.md). Cliente e prestador podem baixar em JSON todos os serviços correspondentes ao filtro, busca e ordem atuais, com contexto da exportação e dados já autorizados, sem consulta adicional nem alteração dos registros.
+84. [Cópia em lote dos códigos dos serviços filtrados](ENTREGA-2026-10-24-COPIA-CODIGOS-SERVICOS.md). Cliente e prestador podem copiar de uma vez os identificadores de todos os serviços correspondentes ao filtro, busca e ordem atuais, inclusive além da paginação visual, sem consulta adicional nem alteração dos registros.
 
 ## Próximas entregas prioritárias
 

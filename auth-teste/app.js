@@ -197,7 +197,7 @@ async function refresh(ticket=generation) {
   const remaining=visibleRequests.length-displayedRequests.length;
   el('requestMore').hidden=remaining<=0;el('requestMore').textContent=remaining>0?`Mostrar mais (${remaining} restante${remaining===1?'':'s'})`:'Mostrar mais';
   el('requestCollapse').hidden=requestDisplayLimit<=requestPageSize||visibleRequests.length<=requestPageSize;
-  el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
+  el('copyRequestCodes').disabled=!visibleRequests.length;el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
   el('requests').replaceChildren();
   if(!visibleRequests.length)el('requests').append(text('p',requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of displayedRequests) {
@@ -433,6 +433,12 @@ el('clearRequestFilters').onclick=()=>{
 };
 el('requestMore').onclick=()=>{requestDisplayLimit+=requestPageSize;busy('requestMore',()=>refresh());};
 el('requestCollapse').onclick=()=>{requestDisplayLimit=requestPageSize;busy('requestCollapse',()=>refresh());};
+el('copyRequestCodes').onclick=async()=>{
+  const button=el('copyRequestCodes');button.disabled=true;
+  try {await copyText(exportableRequests.map(request=>request.id).join('\n'));message(`${exportableRequests.length} ${exportableRequests.length===1?'código copiado':'códigos copiados'} da lista filtrada.`);}
+  catch {message('Não foi possível copiar automaticamente os códigos. Tente novamente.');}
+  finally {button.disabled=!exportableRequests.length;}
+};
 el('exportRequests').onclick=()=>{
   const csvCell=value=>{let cell=String(value??'').replace(/[\r\n]+/g,' ');if(/^[\t ]*[=+\-@]/.test(cell))cell="'"+cell;return `"${cell.replaceAll('"','""')}"`;},
     csvLocalDate=value=>{const date=new Date(value);return value&&!Number.isNaN(date.getTime())?date.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'';},
