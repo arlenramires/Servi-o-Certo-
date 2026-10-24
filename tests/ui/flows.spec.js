@@ -687,14 +687,17 @@ test('client downloads service codes with only the filtered list as safe CSV',as
       {id:'export-completed-one',profession:'Pintor',description:'=IMPORTXML("https://example.invalid")',status:'concluido',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-22T11:00:00.000Z'},
       {id:'export-completed-two',profession:'Encanador',description:'Reparo concluído',status:'concluido',city:'Manaus',state:'AM',scheduled_for:'2026-10-23T15:00:00.000Z',created_at:'2026-10-22T10:00:00.000Z'}
     );
+    window.testState.messages.push({id:'export-unread-message',request_id:'export-completed-one',sender_id:'provider-id',body:'Mensagem para acompanhamento',created_at:'2026-10-22T11:30:00.000Z'});
     for(let index=0;index<10;index++)window.testState.requests.push({id:`export-extra-${index}`,profession:'Pintor',description:`Resultado adicional ${index}`,status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.UTC(2026,9,21,12,index)).toISOString()});
   });
+  const original=await page.evaluate(()=>JSON.stringify({requests:window.testState.requests,messages:window.testState.messages}));
   await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');
   await expect(page.locator('#requests .service')).toHaveCount(10);
   const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#exportRequests').click()]);
   expect(download.suggestedFilename()).toBe('servicos-filtrados.csv');const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);const csv=Buffer.concat(chunks).toString('utf8');
-  expect(csv.split('\r\n')).toHaveLength(13);expect(csv).toContain('\ufeff"Código","Profissão","Situação","Descrição"');expect(csv).toContain('"export-completed-one","Pintor","Concluído","\'=IMPORTXML(""https://example.invalid"")"');expect(csv).toContain('"export-completed-two","Encanador","Concluído","Reparo concluído"');expect(csv).toContain('"export-extra-9"');expect(csv).not.toContain('"export-active"');expect(csv).not.toContain('Serviço ainda ativo');
-  expect(csv.indexOf('"export-completed-one","Pintor","Concluído","\'=IMPORTXML')).toBeLessThan(csv.indexOf('"export-completed-two","Encanador","Concluído","Reparo concluído"'));
+  expect(csv.split('\r\n')).toHaveLength(13);expect(csv).toContain('\ufeff"Código","Profissão","Situação","Mensagens novas","Descrição"');expect(csv).toContain('"export-completed-one","Pintor","Concluído","1","\'=IMPORTXML(""https://example.invalid"")"');expect(csv).toContain('"export-completed-two","Encanador","Concluído","0","Reparo concluído"');expect(csv).toContain('"export-extra-9"');expect(csv).not.toContain('"export-active"');expect(csv).not.toContain('Serviço ainda ativo');
+  expect(csv.indexOf('"export-completed-one","Pintor","Concluído","1","\'=IMPORTXML')).toBeLessThan(csv.indexOf('"export-completed-two","Encanador","Concluído","0","Reparo concluído"'));
+  expect(await page.evaluate(()=>JSON.stringify({requests:window.testState.requests,messages:window.testState.messages}))).toBe(original);
   await page.locator('#requestSearch').fill('sem resultado');await page.locator('#searchRequests').click();await expect(page.locator('#exportRequests')).toBeDisabled();
 });
 

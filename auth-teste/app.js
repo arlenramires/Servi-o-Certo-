@@ -11,7 +11,7 @@ import { createInspectionsPanel } from './inspections.js';
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const callbackUrl = new URL(location.pathname, location.origin).href;
-let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [];
+let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map();
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
 const requestBatchSize=100;
@@ -81,7 +81,7 @@ async function busy(id, task) {
   try { await task(); } catch(error) { message(friendly(error)); } finally { el(id).disabled=false; }
 }
 function clearWorkspace() {
-  profile=null; selected=null; exportableRequests=[]; requestPageSize=10; requestDisplayLimit=requestPageSize; el('requestPageSize').value=String(requestPageSize); ++conversationGeneration;
+  profile=null; selected=null; exportableRequests=[]; exportableUnread=new Map(); requestPageSize=10; requestDisplayLimit=requestPageSize; el('requestPageSize').value=String(requestPageSize); ++conversationGeneration;
   contracts.reset();
   execution.reset();
   cancellations.reset();
@@ -188,6 +188,7 @@ async function refresh(ticket=generation) {
     displayedRequests=visibleRequests.slice(0,requestDisplayLimit);
   if(ticket!==generation)return;
   exportableRequests=visibleRequests;
+  exportableUnread=new Map(visibleRequests.map(r=>[r.id,unread.get(r.id)||0]));
   const filterLabels={all:`Todos (${requests.length})`,today:`Solicitados hoje (${todayCount})`,recent:`Solicitados nos últimos 7 dias (${recentCount})`,month:`Solicitados nos últimos 30 dias (${monthCount})`,older:`Solicitados há mais de 30 dias (${olderCount})`,active:`Ativos (${activeCount})`,waiting:`Aguardando profissional (${waitingCount})`,servicing:`Em atendimento (${servicingCount})`,accepted:`Aceitos (${acceptedCount})`,inProgress:`Em andamento (${inProgressCount})`,completed:`Concluídos (${completedCount})`,cancelled:`Cancelados (${cancelledCount})`,history:`Histórico (${historyCount})`,urgent:`Urgentes (${urgentCount})`,scheduled:`Com horário preferido (${scheduledCount})`,preferredToday:`Horário preferido hoje (${preferredTodayCount})`,preferredTomorrow:`Horário preferido amanhã (${preferredTomorrowCount})`,preferredWeek:`Horário preferido nos próximos 7 dias (${preferredWeekCount})`,preferredLater:`Horário preferido após 7 dias (${preferredLaterCount})`,upcoming:`Horário preferido futuro (${upcomingCount})`,pastPreferred:`Horário preferido passado (${pastPreferredCount})`,withoutPreferred:`Sem horário preferido (${withoutPreferredCount})`,unread:`Mensagens novas (${unreadCount})`,withoutUnread:`Sem mensagens novas (${withoutUnreadCount})`};
   for(const option of el('requestFilter').options)option.textContent=filterLabels[option.value];
   el('requestSummary').textContent=visibleRequests.length>requestDisplayLimit
@@ -434,7 +435,7 @@ el('requestMore').onclick=()=>{requestDisplayLimit+=requestPageSize;busy('reques
 el('requestCollapse').onclick=()=>{requestDisplayLimit=requestPageSize;busy('requestCollapse',()=>refresh());};
 el('exportRequests').onclick=()=>{
   const csvCell=value=>{let cell=String(value??'').replace(/[\r\n]+/g,' ');if(/^[\t ]*[=+\-@]/.test(cell))cell="'"+cell;return `"${cell.replaceAll('"','""')}"`;},
-    rows=[['Código','Profissão','Situação','Descrição','Cidade','UF','Urgente','Horário preferido','Criado em'],...exportableRequests.map(r=>[r.id,r.profession,labels[r.status]||r.status,r.description,r.city,r.state,r.is_urgent?'Sim':'Não',r.scheduled_for||'',r.created_at])],
+    rows=[['Código','Profissão','Situação','Mensagens novas','Descrição','Cidade','UF','Urgente','Horário preferido','Criado em'],...exportableRequests.map(r=>[r.id,r.profession,labels[r.status]||r.status,exportableUnread.get(r.id)||0,r.description,r.city,r.state,r.is_urgent?'Sim':'Não',r.scheduled_for||'',r.created_at])],
     blob=new Blob(['\ufeff'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download='servicos-filtrados.csv';link.click();URL.revokeObjectURL(url);
 };
