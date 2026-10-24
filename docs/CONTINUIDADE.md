@@ -83,6 +83,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 77. [Nome contextual da exportação CSV](ENTREGA-2026-10-24-NOME-CONTEXTUAL-EXPORTACAO-CSV.md). O arquivo baixado agora identifica a categoria filtrada e a data local da exportação, com nome seguro para o sistema de arquivos e sem modificar o conteúdo, os serviços ou os filtros ativos.
 78. [Busca no nome da exportação CSV](ENTREGA-2026-10-24-BUSCA-NOME-EXPORTACAO-CSV.md). Quando há uma busca ativa, o arquivo baixado também identifica o termo pesquisado, com normalização e limite seguro de tamanho, preservando o recorte, os pedidos e a compatibilidade do nome.
 79. [Ordenação no nome da exportação CSV](ENTREGA-2026-10-24-ORDENACAO-NOME-EXPORTACAO-CSV.md). Quando a lista usa uma ordem diferente da padrão, o arquivo baixado identifica esse critério no nome, preservando o formato anterior para “Mais recentes” e sem alterar o conteúdo ou os serviços.
+80. [Confirmação acessível da exportação CSV](ENTREGA-2026-10-24-CONFIRMACAO-EXPORTACAO-CSV.md). Após preparar o download, a interface informa em uma região de status quantos serviços foram exportados e o nome exato do arquivo, com singular e plural corretos e sem alterar registros.
 
 ## Próximas entregas prioritárias
 
