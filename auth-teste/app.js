@@ -11,6 +11,7 @@ import { createInspectionsPanel } from './inspections.js';
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const callbackUrl = new URL(location.pathname, location.origin).href;
+const linkedRequestId = new URLSearchParams(location.search).get('servico')?.trim().slice(0,200) || '';
 let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map();
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
@@ -134,6 +135,7 @@ async function loadAccount(nextUser) {
     if(ticket!==generation)return;
     if(area){ el('providerCity').value=area.city;el('providerState').value=area.state; }
   }
+  if(linkedRequestId)el('requestSearch').value=linkedRequestId;
   await refresh(ticket);
 }
 async function loadRequests(ticket) {
@@ -206,9 +208,10 @@ async function refresh(ticket=generation) {
     const createdAt=new Date(r.created_at),summary=[text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state)];
     if(!Number.isNaN(createdAt.getTime())) {const requestedAt=text('time','Solicitado em '+createdAt.toLocaleString('pt-BR'),'muted request-created');requestedAt.dateTime=createdAt.toISOString();summary.push(requestedAt);}
     card.append(...summary,text('p',r.description));
-    const requestCode=text('small','Código: '+r.id,'service-code'),copyCode=text('button','Copiar código','secondary');copyCode.type='button';
+    const requestCode=text('small','Código: '+r.id,'service-code'),copyCode=text('button','Copiar código','secondary'),copyLink=text('button','Copiar link','secondary');copyCode.type='button';copyLink.type='button';
     copyCode.onclick=async()=>{copyCode.disabled=true;try{await copyText(r.id);message('Código do serviço copiado: '+r.id);}catch{message('Não foi possível copiar automaticamente. O código continua visível no cartão.');}finally{copyCode.disabled=false;}};
-    card.append(requestCode,copyCode);
+    copyLink.onclick=async()=>{copyLink.disabled=true;try{const link=new URL(location.pathname,location.origin);link.searchParams.set('servico',r.id);await copyText(link.href);message('Link do serviço copiado. O acesso continua protegido pela conta.');}catch{message('Não foi possível copiar o link automaticamente.');}finally{copyLink.disabled=false;}};
+    card.append(requestCode,copyCode,copyLink);
     if(r.is_urgent)card.append(text('strong','Atendimento urgente'));
     if(profile.role==='cliente'&&r.status==='aberto'&&!r.provider_id) {
       const professionLabel=text('label','Profissão do pedido');professionLabel.htmlFor='request-profession-'+r.id;

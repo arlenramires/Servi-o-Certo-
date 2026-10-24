@@ -31,6 +31,17 @@ test('authorized user copies a visible service code after modern clipboard permi
   await expect(card.locator('.service-code')).toHaveText('Código: service-reference-123');await card.getByRole('button',{name:'Copiar código'}).click();
   await expect(page.locator('#status')).toHaveText('Código do serviço copiado: service-reference-123');expect(await page.evaluate(()=>window.modernClipboardAttempts)).toBe(1);expect(await page.evaluate(()=>window.copiedServiceCode)).toBe('service-reference-123');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
+test('authenticated service link locates only an authorized request and can be copied',async({page})=>{
+  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedServiceLink=value;}}}));
+  await page.goto('/auth-teste/?servico=linked-service-123');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('validpass123');await page.locator('#submit').click();await expect(page.locator('#workspace')).toBeVisible();
+  await expect(page.locator('#requestSearch')).toHaveValue('linked-service-123');await page.evaluate(()=>window.testState.requests.push(
+    {id:'linked-service-123',profession:'Eletricista',description:'Serviço autorizado pelo link',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
+    {id:'different-service',profession:'Pintor',description:'Outro serviço autorizado',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}
+  ));
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await expect(page.locator('#requests .service')).toHaveCount(1);
+  const card=page.locator('[data-request="linked-service-123"]');await expect(card).toBeVisible();await expect(page.locator('[data-request="different-service"]')).toHaveCount(0);const callsBeforeCopy=await page.evaluate(()=>window.testState.calls.length);await card.getByRole('button',{name:'Copiar link'}).click();
+  await expect(page.locator('#status')).toHaveText('Link do serviço copiado. O acesso continua protegido pela conta.');expect(await page.evaluate(()=>window.copiedServiceLink)).toBe('http://127.0.0.1:4173/auth-teste/?servico=linked-service-123');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeCopy);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
 test('client marks a request urgent and sees the persisted priority',async({page})=>{
   await login(page);await page.locator('#serviceProfession').selectOption('Eletricista');await page.locator('#description').fill('Reparo imediato no quadro elétrico da residência.');await page.locator('#urgent').check();await page.locator('#createRequest').click();
   await expect(page.locator('#status')).toContainText('Pedido urgente registrado');await expect(page.locator('#requests')).toContainText('Atendimento urgente');await expect(page.locator('#urgent')).not.toBeChecked();

@@ -89,6 +89,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 83. [Exportação estruturada dos próprios serviços em JSON](ENTREGA-2026-10-24-EXPORTACAO-SERVICOS-JSON.md). Cliente e prestador podem baixar em JSON todos os serviços correspondentes ao filtro, busca e ordem atuais, com contexto da exportação e dados já autorizados, sem consulta adicional nem alteração dos registros.
 84. [Cópia em lote dos códigos dos serviços filtrados](ENTREGA-2026-10-24-COPIA-CODIGOS-SERVICOS.md). Cliente e prestador podem copiar de uma vez os identificadores de todos os serviços correspondentes ao filtro, busca e ordem atuais, inclusive além da paginação visual, sem consulta adicional nem alteração dos registros.
 85. [Recuperação da cópia após negação de permissão](ENTREGA-2026-10-24-COPIA-FALLBACK-PERMISSAO.md). A cópia de um código ou da lista filtrada agora tenta automaticamente o mecanismo compatível quando o navegador oferece a API moderna, mas nega seu uso, mantendo o fluxo disponível sem consulta ou alteração dos serviços.
+86. [Link autenticado para localizar serviço](ENTREGA-2026-10-24-LINK-SERVICO-AUTENTICADO.md). Cliente e prestador podem copiar uma referência que leva à busca do serviço após o login; a URL contém somente o código e a lista continua limitada aos registros autorizados da conta, sem acesso público, consulta privilegiada ou alteração do pedido.
 
 ## Próximas entregas prioritárias
 
