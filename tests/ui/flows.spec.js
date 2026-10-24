@@ -107,6 +107,27 @@ test('client filters services with unread messages and refreshes the count after
   await expect(page.locator('#requests .service')).toHaveCount(0);
   await expect(page.locator('#requests')).toContainText('Nenhum serviço nesta categoria.');
 });
+test('client filters services without unread messages and combines the category with search',async({page})=>{
+  await login(page);
+  await page.evaluate(()=>{
+    const now=Date.now(),client='10000000-0000-4000-8000-000000000001';
+    window.testState.requests.push(
+      {id:'without-unread-electrician',client_id:client,provider_id:'provider-id',profession:'Eletricista',description:'Revisão sem mensagem nova',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(now-3000).toISOString()},
+      {id:'without-unread-painter',client_id:client,provider_id:'provider-id',profession:'Pintor',description:'Pintura já conferida',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(now-2000).toISOString()},
+      {id:'with-unread-electrician',client_id:client,provider_id:'provider-id',profession:'Eletricista',description:'Instalação com mensagem nova',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(now-1000).toISOString()}
+    );
+    window.testState.messages.push({id:'without-unread-filter-message',request_id:'with-unread-electrician',sender_id:'provider-id',body:'Preciso confirmar o horário.',created_at:new Date(now).toISOString()});
+  });
+  await page.locator('#refresh').click();
+  await expect(page.locator('#requestFilter option[value="withoutUnread"]')).toHaveText('Sem mensagens novas (2)');
+  await page.locator('#requestFilter').selectOption('withoutUnread');
+  await expect(page.locator('#requests .service')).toHaveCount(2);
+  await expect(page.locator('#requests')).not.toContainText('Instalação com mensagem nova');
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();
+  await expect(page.locator('#requests .service')).toHaveCount(1);
+  await expect(page.locator('#requests')).toContainText('Revisão sem mensagem nova');
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['without-unread-electrician','without-unread-painter','with-unread-electrician']);
+});
 test('client filters urgent services and combines the category with search',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'urgent-electrician',profession:'Eletricista',description:'Trocar quadro com risco',status:'aberto',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-21T10:00:00.000Z'},
