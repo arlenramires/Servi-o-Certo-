@@ -71,7 +71,7 @@ const inspections=createInspectionsPanel({api,getContext:()=>({user,profile,sele
 function text(tag, value, className) { const node=document.createElement(tag); node.textContent=value; if(className)node.className=className; return node; }
 function requestDateSearchValue(value) { const date=new Date(value); return Number.isNaN(date.getTime())?'':value+' '+date.toLocaleDateString('pt-BR'); }
 async function copyText(value) {
-  if(navigator.clipboard?.writeText)return navigator.clipboard.writeText(value);
+  if(navigator.clipboard?.writeText)try {await navigator.clipboard.writeText(value);return;} catch {}
   const field=document.createElement('textarea');field.value=value;field.setAttribute('readonly','');field.style.position='fixed';field.style.opacity='0';
   document.body.append(field);field.select();const copied=document.execCommand('copy');field.remove();
   if(!copied)throw new Error('copy_failed');
