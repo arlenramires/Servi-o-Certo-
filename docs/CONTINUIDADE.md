@@ -82,6 +82,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 76. [Datas legíveis e exatas na exportação CSV](ENTREGA-2026-10-24-DATAS-LEGIVEIS-EXPORTACAO-CSV.md). A planilha filtrada agora apresenta solicitação e horário preferido no formato local brasileiro, preservando ao lado os valores ISO exatos para conferência ou importação, sem consulta adicional nem alteração dos serviços.
 77. [Nome contextual da exportação CSV](ENTREGA-2026-10-24-NOME-CONTEXTUAL-EXPORTACAO-CSV.md). O arquivo baixado agora identifica a categoria filtrada e a data local da exportação, com nome seguro para o sistema de arquivos e sem modificar o conteúdo, os serviços ou os filtros ativos.
 78. [Busca no nome da exportação CSV](ENTREGA-2026-10-24-BUSCA-NOME-EXPORTACAO-CSV.md). Quando há uma busca ativa, o arquivo baixado também identifica o termo pesquisado, com normalização e limite seguro de tamanho, preservando o recorte, os pedidos e a compatibilidade do nome.
+79. [Ordenação no nome da exportação CSV](ENTREGA-2026-10-24-ORDENACAO-NOME-EXPORTACAO-CSV.md). Quando a lista usa uma ordem diferente da padrão, o arquivo baixado identifica esse critério no nome, preservando o formato anterior para “Mais recentes” e sem alterar o conteúdo ou os serviços.
 
 ## Próximas entregas prioritárias
 
