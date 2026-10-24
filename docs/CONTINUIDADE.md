@@ -77,6 +77,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 71. [Filtro de serviços sem mensagens novas](ENTREGA-2026-10-24-FILTRO-SEM-MENSAGENS-NOVAS.md). Cliente e prestador podem separar conversas autorizadas sem mensagens pendentes de leitura, combinar a categoria com busca e consultar a quantidade sem nova consulta nem alteração de mensagens ou serviços.
 72. [Filtro por horário preferido após sete dias](ENTREGA-2026-10-24-FILTRO-HORARIO-PREFERIDO-APOS-7-DIAS.md). Cliente e prestador podem separar serviços com preferência posterior à janela imediata de 168 horas, combinar o recorte com busca e excluir horários dentro da janela, passados ou inválidos sem apresentar preferência como agenda confirmada nem alterar registros.
 73. [Filtros por serviços aceitos e em andamento](ENTREGA-2026-10-24-FILTROS-ACEITOS-EM-ANDAMENTO.md). Cliente e prestador podem distinguir serviços aceitos que ainda aguardam o início daqueles cuja execução já começou, combinar cada etapa com busca e consultar as quantidades sem nova consulta nem alteração dos pedidos.
+74. [Código do serviço na exportação CSV](ENTREGA-2026-10-24-CODIGO-SERVICO-EXPORTACAO-CSV.md). A planilha filtrada de cliente e prestador agora inclui o identificador de cada serviço para atendimento e conferência, preservando filtro, ordem, proteção contra fórmulas e ausência de consultas adicionais ou alterações nos pedidos.
 
 ## Próximas entregas prioritárias
 

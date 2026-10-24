@@ -434,7 +434,7 @@ el('requestMore').onclick=()=>{requestDisplayLimit+=requestPageSize;busy('reques
 el('requestCollapse').onclick=()=>{requestDisplayLimit=requestPageSize;busy('requestCollapse',()=>refresh());};
 el('exportRequests').onclick=()=>{
   const csvCell=value=>{let cell=String(value??'').replace(/[\r\n]+/g,' ');if(/^[\t ]*[=+\-@]/.test(cell))cell="'"+cell;return `"${cell.replaceAll('"','""')}"`;},
-    rows=[['Profissão','Situação','Descrição','Cidade','UF','Urgente','Horário preferido','Criado em'],...exportableRequests.map(r=>[r.profession,labels[r.status]||r.status,r.description,r.city,r.state,r.is_urgent?'Sim':'Não',r.scheduled_for||'',r.created_at])],
+    rows=[['Código','Profissão','Situação','Descrição','Cidade','UF','Urgente','Horário preferido','Criado em'],...exportableRequests.map(r=>[r.id,r.profession,labels[r.status]||r.status,r.description,r.city,r.state,r.is_urgent?'Sim':'Não',r.scheduled_for||'',r.created_at])],
     blob=new Blob(['\ufeff'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download='servicos-filtrados.csv';link.click();URL.revokeObjectURL(url);
 };

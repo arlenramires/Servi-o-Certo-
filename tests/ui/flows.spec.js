@@ -680,7 +680,7 @@ test('client chooses how many services to show per step without changing request
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
 });
 
-test('client downloads only the filtered service list as safe CSV',async({page})=>{
+test('client downloads service codes with only the filtered list as safe CSV',async({page})=>{
   await login(page);await page.evaluate(()=>{
     window.testState.requests.push(
       {id:'export-active',profession:'Eletricista',description:'Serviço ainda ativo',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-22T12:00:00.000Z'},
@@ -693,8 +693,8 @@ test('client downloads only the filtered service list as safe CSV',async({page})
   await expect(page.locator('#requests .service')).toHaveCount(10);
   const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#exportRequests').click()]);
   expect(download.suggestedFilename()).toBe('servicos-filtrados.csv');const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);const csv=Buffer.concat(chunks).toString('utf8');
-  expect(csv.split('\r\n')).toHaveLength(13);expect(csv).toContain('"Pintor","Concluído","\'=IMPORTXML(""https://example.invalid"")"');expect(csv).toContain('"Encanador","Concluído","Reparo concluído"');expect(csv).toContain('Resultado adicional 9');expect(csv).not.toContain('Serviço ainda ativo');
-  expect(csv.indexOf('"Pintor","Concluído","\'=IMPORTXML')).toBeLessThan(csv.indexOf('"Encanador","Concluído","Reparo concluído"'));
+  expect(csv.split('\r\n')).toHaveLength(13);expect(csv).toContain('\ufeff"Código","Profissão","Situação","Descrição"');expect(csv).toContain('"export-completed-one","Pintor","Concluído","\'=IMPORTXML(""https://example.invalid"")"');expect(csv).toContain('"export-completed-two","Encanador","Concluído","Reparo concluído"');expect(csv).toContain('"export-extra-9"');expect(csv).not.toContain('"export-active"');expect(csv).not.toContain('Serviço ainda ativo');
+  expect(csv.indexOf('"export-completed-one","Pintor","Concluído","\'=IMPORTXML')).toBeLessThan(csv.indexOf('"export-completed-two","Encanador","Concluído","Reparo concluído"'));
   await page.locator('#requestSearch').fill('sem resultado');await page.locator('#searchRequests').click();await expect(page.locator('#exportRequests')).toBeDisabled();
 });
 
