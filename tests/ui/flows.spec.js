@@ -328,6 +328,21 @@ test('client filters services being attended without changing them',async({page}
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['servicing-accepted','servicing-progress','servicing-open']);
 });
 
+test('client separates accepted services from services already in progress',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'stage-accepted-electrician',profession:'Eletricista',description:'Instalação aceita aguardando início',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-22T12:00:00.000Z'},
+    {id:'stage-accepted-painter',profession:'Pintor',description:'Pintura aceita aguardando início',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'},
+    {id:'stage-progress-electrician',profession:'Eletricista',description:'Instalação elétrica em execução',status:'em_andamento',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
+    {id:'stage-completed',profession:'Pintor',description:'Pintura já concluída',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'}
+  ));
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
+  await expect(page.locator('#requestFilter option[value="accepted"]')).toHaveText('Aceitos (2)');await expect(page.locator('#requestFilter option[value="inProgress"]')).toHaveText('Em andamento (1)');
+  await page.locator('#requestFilter').selectOption('accepted');await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).not.toContainText('Instalação elétrica em execução');
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','stage-accepted-electrician');
+  await page.locator('#requestSearch').fill('');await page.locator('#searchRequests').click();await page.locator('#requestFilter').selectOption('inProgress');await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','stage-progress-electrician');
+  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
+
 test('client filters completed services without mixing cancelled history',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'completed-electrician',profession:'Eletricista',description:'Instalação finalizada',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'},
