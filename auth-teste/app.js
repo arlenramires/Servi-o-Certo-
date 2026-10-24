@@ -11,7 +11,7 @@ import { createInspectionsPanel } from './inspections.js';
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const callbackUrl = new URL(location.pathname, location.origin).href;
-const linkedRequestId = new URLSearchParams(location.search).get('servico')?.trim().slice(0,200) || '';
+let linkedRequestId = new URLSearchParams(location.search).get('servico')?.trim().slice(0,100) || '';
 let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map();
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
@@ -71,6 +71,10 @@ const disputes=createDisputesPanel({api,getContext:()=>({user,profile,selected,g
 const inspections=createInspectionsPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 function text(tag, value, className) { const node=document.createElement(tag); node.textContent=value; if(className)node.className=className; return node; }
 function requestDateSearchValue(value) { const date=new Date(value); return Number.isNaN(date.getTime())?'':value+' '+date.toLocaleDateString('pt-BR'); }
+function clearLinkedRequest() {
+  if(!linkedRequestId)return;
+  linkedRequestId='';const url=new URL(location.href);url.searchParams.delete('servico');history.replaceState(null,'',url.pathname+url.search+url.hash);
+}
 async function copyText(value) {
   if(navigator.clipboard?.writeText)try {await navigator.clipboard.writeText(value);return;} catch {}
   const field=document.createElement('textarea');field.value=value;field.setAttribute('readonly','');field.style.position='fixed';field.style.opacity='0';
@@ -162,7 +166,7 @@ async function refresh(ticket=generation) {
     visibleRequests=requests.filter(r=>{
       const matchesStatus=filter==='all'||(filter==='today'&&isToday(r))||(filter==='recent'&&isRecent(r))||(filter==='month'&&isMonth(r))||(filter==='older'&&isOlder(r))||(filter==='active'&&['aberto','aceito','em_andamento'].includes(r.status))||(filter==='waiting'&&r.status==='aberto')||(filter==='servicing'&&['aceito','em_andamento'].includes(r.status))||(filter==='accepted'&&r.status==='aceito')||(filter==='inProgress'&&r.status==='em_andamento')||(filter==='completed'&&r.status==='concluido')||(filter==='cancelled'&&r.status==='cancelado')||(filter==='history'&&['concluido','cancelado'].includes(r.status))||(filter==='urgent'&&r.is_urgent)||(filter==='scheduled'&&r.scheduled_for)||(filter==='preferredToday'&&isPreferredToday(r))||(filter==='preferredTomorrow'&&isPreferredTomorrow(r))||(filter==='preferredWeek'&&isPreferredWeek(r))||(filter==='preferredLater'&&isPreferredLater(r))||(filter==='upcoming'&&isUpcoming(r))||(filter==='pastPreferred'&&isPastPreferred(r))||(filter==='withoutPreferred'&&!r.scheduled_for)||(filter==='unread'&&(unread.get(r.id)||0)>0)||(filter==='withoutUnread'&&(unread.get(r.id)||0)===0);
       const searchable=(r.id+' '+r.profession+' '+r.description+' '+r.city+' '+r.state+' '+r.status.replaceAll('_',' ')+' '+(labels[r.status]||'')+' '+requestDateSearchValue(r.created_at)+' '+requestDateSearchValue(r.scheduled_for)).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
-      return matchesStatus&&(!query||searchable.includes(query));
+      return linkedRequestId?r.id===linkedRequestId:matchesStatus&&(!query||searchable.includes(query));
     }).sort((a,b)=>sort==='oldest'?new Date(a.created_at)-new Date(b.created_at):sort==='profession'?(a.profession.localeCompare(b.profession,'pt-BR',{sensitivity:'base'})||new Date(b.created_at)-new Date(a.created_at)):sort==='region'?((a.city||'').localeCompare(b.city||'','pt-BR',{sensitivity:'base'})||(a.state||'').localeCompare(b.state||'','pt-BR',{sensitivity:'base'})||new Date(b.created_at)-new Date(a.created_at)):sort==='status'?((statusOrder[a.status]??99)-(statusOrder[b.status]??99)||new Date(b.created_at)-new Date(a.created_at)):sort==='unread'?((unread.get(b.id)||0)-(unread.get(a.id)||0)||new Date(b.created_at)-new Date(a.created_at)):sort==='urgent'?(Number(b.is_urgent)-Number(a.is_urgent)||new Date(b.created_at)-new Date(a.created_at)):sort==='schedule'?sortPreferred(a,b,1):sort==='scheduleDesc'?sortPreferred(a,b,-1):new Date(b.created_at)-new Date(a.created_at)),
     todayCount=requests.filter(isToday).length,
     recentCount=requests.filter(isRecent).length,
@@ -201,7 +205,7 @@ async function refresh(ticket=generation) {
   el('requestCollapse').hidden=requestDisplayLimit<=requestPageSize||visibleRequests.length<=requestPageSize;
   el('copyRequestCodes').disabled=!visibleRequests.length;el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
   el('requests').replaceChildren();
-  if(!visibleRequests.length)el('requests').append(text('p',requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
+  if(!visibleRequests.length)el('requests').append(text('p',linkedRequestId?'Serviço não encontrado nesta conta. Confira o link ou entre com a conta participante.':requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of displayedRequests) {
     const card=text('article','','service');
     card.dataset.request=r.id;
@@ -429,10 +433,10 @@ el('refresh').onclick=()=>busy('refresh',()=>refresh());
 el('requestFilter').onchange=()=>{requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
 el('requestSort').onchange=()=>{requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
 el('requestPageSize').onchange=()=>{requestPageSize=Number(el('requestPageSize').value);requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
-el('requestSearchForm').onsubmit=event=>{event.preventDefault();requestDisplayLimit=requestPageSize;busy('searchRequests',()=>refresh());};
-el('clearRequestSearch').onclick=()=>{el('requestSearch').value='';requestDisplayLimit=requestPageSize;busy('clearRequestSearch',()=>refresh());};
+el('requestSearchForm').onsubmit=event=>{event.preventDefault();clearLinkedRequest();requestDisplayLimit=requestPageSize;busy('searchRequests',()=>refresh());};
+el('clearRequestSearch').onclick=()=>{clearLinkedRequest();el('requestSearch').value='';requestDisplayLimit=requestPageSize;busy('clearRequestSearch',()=>refresh());};
 el('clearRequestFilters').onclick=()=>{
-  el('requestSearch').value='';el('requestFilter').value='all';el('requestSort').value='recent';requestDisplayLimit=requestPageSize;busy('clearRequestFilters',()=>refresh());
+  clearLinkedRequest();el('requestSearch').value='';el('requestFilter').value='all';el('requestSort').value='recent';requestDisplayLimit=requestPageSize;busy('clearRequestFilters',()=>refresh());
 };
 el('requestMore').onclick=()=>{requestDisplayLimit+=requestPageSize;busy('requestMore',()=>refresh());};
 el('requestCollapse').onclick=()=>{requestDisplayLimit=requestPageSize;busy('requestCollapse',()=>refresh());};
