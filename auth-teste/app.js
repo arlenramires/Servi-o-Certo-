@@ -197,7 +197,7 @@ async function refresh(ticket=generation) {
   const remaining=visibleRequests.length-displayedRequests.length;
   el('requestMore').hidden=remaining<=0;el('requestMore').textContent=remaining>0?`Mostrar mais (${remaining} restante${remaining===1?'':'s'})`:'Mostrar mais';
   el('requestCollapse').hidden=requestDisplayLimit<=requestPageSize||visibleRequests.length<=requestPageSize;
-  el('exportRequests').disabled=!visibleRequests.length;
+  el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
   el('requests').replaceChildren();
   if(!visibleRequests.length)el('requests').append(text('p',requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of displayedRequests) {
@@ -441,6 +441,12 @@ el('exportRequests').onclick=()=>{
     rows=[['Código','Profissão','Situação','Situação (código)','Meu papel','Mensagens novas','Descrição','Cidade','UF','Urgente','Horário preferido','Horário preferido (ISO)','Solicitado em','Solicitado em (ISO)'],...exportableRequests.map(r=>[r.id,r.profession,labels[r.status]||r.status,r.status,roleLabel,exportableUnread.get(r.id)||0,r.description,r.city,r.state,r.is_urgent?'Sim':'Não',csvLocalDate(r.scheduled_for),r.scheduled_for||'',csvLocalDate(r.created_at),r.created_at])],
     blob=new Blob(['\ufeff'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a'),now=new Date(),day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-'),filterName=el('requestFilter').selectedOptions[0]?.textContent.replace(/\s+\(\d+\)$/,'')||'filtrados',filterSlug=fileSlug(filterName)||'filtrados',searchSlug=fileSlug(el('requestSearch').value.trim()).slice(0,40).replace(/-$/,''),sortSlug=el('requestSort').value==='recent'?'':fileSlug(el('requestSort').selectedOptions[0]?.textContent),contextSlug=[filterSlug,searchSlug,sortSlug].filter(Boolean).join('-'),filename=`servicos-${contextSlug}-${day}.csv`;
   link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);message(`Download preparado: ${exportableRequests.length} ${exportableRequests.length===1?'serviço':'serviços'} em ${filename}.`);
+};
+el('exportRequestsJson').onclick=()=>{
+  const fileSlug=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''),
+    now=new Date(),day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-'),filter=el('requestFilter').selectedOptions[0]?.textContent.replace(/\s+\(\d+\)$/,'')||'Filtrados',search=el('requestSearch').value.trim(),sort=el('requestSort').selectedOptions[0]?.textContent||'Mais recentes',role=profile?.role==='cliente'?'Cliente':profile?.role==='prestador'?'Prestador':'',filterSlug=fileSlug(filter)||'filtrados',searchSlug=fileSlug(search).slice(0,40).replace(/-$/,''),sortSlug=el('requestSort').value==='recent'?'':fileSlug(sort),contextSlug=[filterSlug,searchSlug,sortSlug].filter(Boolean).join('-'),filename=`servicos-${contextSlug}-${day}.json`,
+    payload={version:1,exportedAt:now.toISOString(),context:{filter,search,sort,role},services:exportableRequests.map(r=>({id:r.id,profession:r.profession,status:r.status,statusLabel:labels[r.status]||r.status,role,unreadMessages:exportableUnread.get(r.id)||0,description:r.description,city:r.city,state:r.state,urgent:!!r.is_urgent,scheduledFor:r.scheduled_for||null,createdAt:r.created_at}))},blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);message(`JSON preparado: ${exportableRequests.length} ${exportableRequests.length===1?'serviço':'serviços'} em ${filename}.`);
 };
 el('messageForm').onsubmit=event=>{event.preventDefault();busy('sendMessage',async()=>{
   if(!selected||!user)throw new InputError('Selecione um serviço aceito.');
