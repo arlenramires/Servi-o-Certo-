@@ -172,6 +172,23 @@ test('client filters preferred times for the local day without implying confirme
   await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-today-electrician');
   await expect(page.locator('#requests')).toContainText('Horário preferido:');expect(await page.locator('#requests').innerText()).not.toContain('Agendado');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
+test('client filters preferred times for tomorrow in the local day without changing requests',async({page})=>{
+  await login(page);await page.evaluate(()=>{const todayEvening=new Date(),tomorrowMorning=new Date(),tomorrowEvening=new Date(),dayAfterTomorrow=new Date();
+    todayEvening.setHours(23,59,0,0);tomorrowMorning.setDate(tomorrowMorning.getDate()+1);tomorrowMorning.setHours(0,1,0,0);tomorrowEvening.setDate(tomorrowEvening.getDate()+1);tomorrowEvening.setHours(22,30,0,0);dayAfterTomorrow.setDate(dayAfterTomorrow.getDate()+2);dayAfterTomorrow.setHours(0,0,0,0);
+    window.testState.requests.push(
+      {id:'preferred-tomorrow-electrician',profession:'Eletricista',description:'Revisão com preferência amanhã cedo',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString(),scheduled_for:tomorrowMorning.toISOString()},
+      {id:'preferred-tomorrow-painter',profession:'Pintor',description:'Pintura com preferência amanhã à noite',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString(),scheduled_for:tomorrowEvening.toISOString()},
+      {id:'preferred-today-limit',profession:'Pedreiro',description:'Preferência ainda hoje',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString(),scheduled_for:todayEvening.toISOString()},
+      {id:'preferred-after-tomorrow',profession:'Encanador',description:'Preferência depois de amanhã',status:'aberto',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString(),scheduled_for:dayAfterTomorrow.toISOString()},
+      {id:'preferred-invalid-tomorrow',profession:'Marceneiro',description:'Preferência inválida',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-4000).toISOString(),scheduled_for:'data-invalida'}
+    );
+  });
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
+  await page.locator('#requestFilter').selectOption('preferredTomorrow');await expect(page.locator('#requestFilter option[value="preferredTomorrow"]')).toHaveText('Horário preferido amanhã (2)');
+  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Revisão com preferência amanhã cedo');await expect(page.locator('#requests')).toContainText('Pintura com preferência amanhã à noite');await expect(page.locator('#requests')).not.toContainText('Preferência ainda hoje');await expect(page.locator('#requests')).not.toContainText('Preferência depois de amanhã');
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-tomorrow-electrician');
+  await expect(page.locator('#requests')).toContainText('Horário preferido:');expect(await page.locator('#requests').innerText()).not.toContain('Agendado');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
 test('client filters services without a preferred time without changing requests',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'without-preferred-electrician',profession:'Eletricista',description:'Revisão sem preferência definida',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString(),scheduled_for:null},
