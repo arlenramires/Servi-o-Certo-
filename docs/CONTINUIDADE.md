@@ -75,6 +75,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 69. [Filtro por horário preferido nos próximos sete dias](ENTREGA-2026-10-23-FILTRO-HORARIO-PREFERIDO-7-DIAS.md). Cliente e prestador podem priorizar serviços com preferência futura dentro de 168 horas, combinar o recorte com busca e excluir horários passados, posteriores à janela ou inválidos sem apresentar a preferência como agenda confirmada nem alterar registros.
 70. [Ordenação por horário preferido mais distante](ENTREGA-2026-10-24-ORDENACAO-HORARIO-PREFERIDO-DISTANTE.md). Cliente e prestador podem organizar serviços autorizados da preferência válida mais distante para a mais próxima, mantendo datas inválidas ou ausentes ao final e combinando a ordem com a busca sem alterar registros.
 71. [Filtro de serviços sem mensagens novas](ENTREGA-2026-10-24-FILTRO-SEM-MENSAGENS-NOVAS.md). Cliente e prestador podem separar conversas autorizadas sem mensagens pendentes de leitura, combinar a categoria com busca e consultar a quantidade sem nova consulta nem alteração de mensagens ou serviços.
+72. [Filtro por horário preferido após sete dias](ENTREGA-2026-10-24-FILTRO-HORARIO-PREFERIDO-APOS-7-DIAS.md). Cliente e prestador podem separar serviços com preferência posterior à janela imediata de 168 horas, combinar o recorte com busca e excluir horários dentro da janela, passados ou inválidos sem apresentar preferência como agenda confirmada nem alterar registros.
 
 ## Próximas entregas prioritárias
 
