@@ -72,6 +72,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 66. [Filtro de serviços sem horário preferido](ENTREGA-2026-10-23-FILTRO-SEM-HORARIO-PREFERIDO.md). Cliente e prestador podem localizar serviços autorizados que ainda não possuem preferência de horário, combinar o recorte com busca e consultar a quantidade sem nova consulta nem alteração dos pedidos.
 67. [Filtro por horário preferido hoje](ENTREGA-2026-10-23-FILTRO-HORARIO-PREFERIDO-HOJE.md). Cliente e prestador podem separar serviços cuja preferência cai no dia local, combinar o recorte com busca e excluir limites de ontem, amanhã ou datas inválidas sem apresentar a preferência como agenda confirmada nem alterar registros.
 68. [Filtro por horário preferido amanhã](ENTREGA-2026-10-23-FILTRO-HORARIO-PREFERIDO-AMANHA.md). Cliente e prestador podem separar serviços cuja preferência cai no próximo dia local, combinar o recorte com busca e excluir limites de hoje, depois de amanhã ou datas inválidas sem apresentar a preferência como agenda confirmada nem alterar registros.
+69. [Filtro por horário preferido nos próximos sete dias](ENTREGA-2026-10-23-FILTRO-HORARIO-PREFERIDO-7-DIAS.md). Cliente e prestador podem priorizar serviços com preferência futura dentro de 168 horas, combinar o recorte com busca e excluir horários passados, posteriores à janela ou inválidos sem apresentar a preferência como agenda confirmada nem alterar registros.
 
 ## Próximas entregas prioritárias
 

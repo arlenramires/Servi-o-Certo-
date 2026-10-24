@@ -189,6 +189,20 @@ test('client filters preferred times for tomorrow in the local day without chang
   await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-tomorrow-electrician');
   await expect(page.locator('#requests')).toContainText('Horário preferido:');expect(await page.locator('#requests').innerText()).not.toContain('Agendado');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
+test('client filters preferred times in the next seven days without changing requests',async({page})=>{
+  await login(page);await page.evaluate(()=>{const hour=60*60*1000,day=24*hour;window.testState.requests.push(
+    {id:'preferred-week-electrician',profession:'Eletricista',description:'Revisão com preferência em uma hora',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString(),scheduled_for:new Date(Date.now()+hour).toISOString()},
+    {id:'preferred-week-painter',profession:'Pintor',description:'Pintura com preferência em seis dias',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString(),scheduled_for:new Date(Date.now()+6*day).toISOString()},
+    {id:'preferred-after-week',profession:'Encanador',description:'Preferência depois da janela',status:'aberto',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString(),scheduled_for:new Date(Date.now()+7*day+hour).toISOString()},
+    {id:'preferred-week-past',profession:'Pedreiro',description:'Preferência já passada',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString(),scheduled_for:new Date(Date.now()-hour).toISOString()},
+    {id:'preferred-week-invalid',profession:'Marceneiro',description:'Preferência inválida',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-4000).toISOString(),scheduled_for:'data-invalida'}
+  );});
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
+  await page.locator('#requestFilter').selectOption('preferredWeek');await expect(page.locator('#requestFilter option[value="preferredWeek"]')).toHaveText('Horário preferido nos próximos 7 dias (2)');
+  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Revisão com preferência em uma hora');await expect(page.locator('#requests')).toContainText('Pintura com preferência em seis dias');await expect(page.locator('#requests')).not.toContainText('Preferência depois da janela');await expect(page.locator('#requests')).not.toContainText('Preferência já passada');
+  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-week-electrician');
+  await expect(page.locator('#requests')).toContainText('Horário preferido:');expect(await page.locator('#requests').innerText()).not.toContain('Agendado');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
 test('client filters services without a preferred time without changing requests',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'without-preferred-electrician',profession:'Eletricista',description:'Revisão sem preferência definida',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString(),scheduled_for:null},
