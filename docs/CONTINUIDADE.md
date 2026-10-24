@@ -79,6 +79,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 73. [Filtros por serviços aceitos e em andamento](ENTREGA-2026-10-24-FILTROS-ACEITOS-EM-ANDAMENTO.md). Cliente e prestador podem distinguir serviços aceitos que ainda aguardam o início daqueles cuja execução já começou, combinar cada etapa com busca e consultar as quantidades sem nova consulta nem alteração dos pedidos.
 74. [Código do serviço na exportação CSV](ENTREGA-2026-10-24-CODIGO-SERVICO-EXPORTACAO-CSV.md). A planilha filtrada de cliente e prestador agora inclui o identificador de cada serviço para atendimento e conferência, preservando filtro, ordem, proteção contra fórmulas e ausência de consultas adicionais ou alterações nos pedidos.
 75. [Mensagens novas na exportação CSV](ENTREGA-2026-10-24-MENSAGENS-NOVAS-EXPORTACAO-CSV.md). A planilha filtrada de cliente e prestador agora inclui a quantidade privada de mensagens não lidas de cada serviço, reutilizando os dados já carregados sem consulta adicional, alteração dos pedidos ou marcação das conversas como lidas.
+76. [Datas legíveis e exatas na exportação CSV](ENTREGA-2026-10-24-DATAS-LEGIVEIS-EXPORTACAO-CSV.md). A planilha filtrada agora apresenta solicitação e horário preferido no formato local brasileiro, preservando ao lado os valores ISO exatos para conferência ou importação, sem consulta adicional nem alteração dos serviços.
 
 ## Próximas entregas prioritárias
 

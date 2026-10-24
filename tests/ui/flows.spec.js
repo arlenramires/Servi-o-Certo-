@@ -680,7 +680,7 @@ test('client chooses how many services to show per step without changing request
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
 });
 
-test('client downloads service codes with only the filtered list as safe CSV',async({page})=>{
+test('client downloads filtered services with readable dates as safe CSV',async({page})=>{
   await login(page);await page.evaluate(()=>{
     window.testState.requests.push(
       {id:'export-active',profession:'Eletricista',description:'Serviço ainda ativo',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-22T12:00:00.000Z'},
@@ -691,11 +691,12 @@ test('client downloads service codes with only the filtered list as safe CSV',as
     for(let index=0;index<10;index++)window.testState.requests.push({id:`export-extra-${index}`,profession:'Pintor',description:`Resultado adicional ${index}`,status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.UTC(2026,9,21,12,index)).toISOString()});
   });
   const original=await page.evaluate(()=>JSON.stringify({requests:window.testState.requests,messages:window.testState.messages}));
+  const localDates=await page.evaluate(()=>({scheduled:new Date('2026-10-23T15:00:00.000Z').toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}),createdOne:new Date('2026-10-22T11:00:00.000Z').toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}),createdTwo:new Date('2026-10-22T10:00:00.000Z').toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}));
   await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');
   await expect(page.locator('#requests .service')).toHaveCount(10);
   const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#exportRequests').click()]);
   expect(download.suggestedFilename()).toBe('servicos-filtrados.csv');const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);const csv=Buffer.concat(chunks).toString('utf8');
-  expect(csv.split('\r\n')).toHaveLength(13);expect(csv).toContain('\ufeff"Código","Profissão","Situação","Mensagens novas","Descrição"');expect(csv).toContain('"export-completed-one","Pintor","Concluído","1","\'=IMPORTXML(""https://example.invalid"")"');expect(csv).toContain('"export-completed-two","Encanador","Concluído","0","Reparo concluído"');expect(csv).toContain('"export-extra-9"');expect(csv).not.toContain('"export-active"');expect(csv).not.toContain('Serviço ainda ativo');
+  expect(csv.split('\r\n')).toHaveLength(13);expect(csv).toContain('\ufeff"Código","Profissão","Situação","Mensagens novas","Descrição"');expect(csv).toContain('"Horário preferido","Horário preferido (ISO)","Solicitado em","Solicitado em (ISO)"');expect(csv).toContain(`"export-completed-one","Pintor","Concluído","1","'=IMPORTXML(""https://example.invalid"")","Manaus","AM","Sim","","","${localDates.createdOne}","2026-10-22T11:00:00.000Z"`);expect(csv).toContain(`"export-completed-two","Encanador","Concluído","0","Reparo concluído","Manaus","AM","Não","${localDates.scheduled}","2026-10-23T15:00:00.000Z","${localDates.createdTwo}","2026-10-22T10:00:00.000Z"`);expect(csv).toContain('"export-extra-9"');expect(csv).not.toContain('"export-active"');expect(csv).not.toContain('Serviço ainda ativo');
   expect(csv.indexOf('"export-completed-one","Pintor","Concluído","1","\'=IMPORTXML')).toBeLessThan(csv.indexOf('"export-completed-two","Encanador","Concluído","0","Reparo concluído"'));
   expect(await page.evaluate(()=>JSON.stringify({requests:window.testState.requests,messages:window.testState.messages}))).toBe(original);
   await page.locator('#requestSearch').fill('sem resultado');await page.locator('#searchRequests').click();await expect(page.locator('#exportRequests')).toBeDisabled();

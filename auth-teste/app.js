@@ -435,7 +435,8 @@ el('requestMore').onclick=()=>{requestDisplayLimit+=requestPageSize;busy('reques
 el('requestCollapse').onclick=()=>{requestDisplayLimit=requestPageSize;busy('requestCollapse',()=>refresh());};
 el('exportRequests').onclick=()=>{
   const csvCell=value=>{let cell=String(value??'').replace(/[\r\n]+/g,' ');if(/^[\t ]*[=+\-@]/.test(cell))cell="'"+cell;return `"${cell.replaceAll('"','""')}"`;},
-    rows=[['Código','Profissão','Situação','Mensagens novas','Descrição','Cidade','UF','Urgente','Horário preferido','Criado em'],...exportableRequests.map(r=>[r.id,r.profession,labels[r.status]||r.status,exportableUnread.get(r.id)||0,r.description,r.city,r.state,r.is_urgent?'Sim':'Não',r.scheduled_for||'',r.created_at])],
+    csvLocalDate=value=>{const date=new Date(value);return value&&!Number.isNaN(date.getTime())?date.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'';},
+    rows=[['Código','Profissão','Situação','Mensagens novas','Descrição','Cidade','UF','Urgente','Horário preferido','Horário preferido (ISO)','Solicitado em','Solicitado em (ISO)'],...exportableRequests.map(r=>[r.id,r.profession,labels[r.status]||r.status,exportableUnread.get(r.id)||0,r.description,r.city,r.state,r.is_urgent?'Sim':'Não',csvLocalDate(r.scheduled_for),r.scheduled_for||'',csvLocalDate(r.created_at),r.created_at])],
     blob=new Blob(['\ufeff'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download='servicos-filtrados.csv';link.click();URL.revokeObjectURL(url);
 };
