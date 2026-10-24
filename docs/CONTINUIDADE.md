@@ -81,6 +81,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 75. [Mensagens novas na exportação CSV](ENTREGA-2026-10-24-MENSAGENS-NOVAS-EXPORTACAO-CSV.md). A planilha filtrada de cliente e prestador agora inclui a quantidade privada de mensagens não lidas de cada serviço, reutilizando os dados já carregados sem consulta adicional, alteração dos pedidos ou marcação das conversas como lidas.
 76. [Datas legíveis e exatas na exportação CSV](ENTREGA-2026-10-24-DATAS-LEGIVEIS-EXPORTACAO-CSV.md). A planilha filtrada agora apresenta solicitação e horário preferido no formato local brasileiro, preservando ao lado os valores ISO exatos para conferência ou importação, sem consulta adicional nem alteração dos serviços.
 77. [Nome contextual da exportação CSV](ENTREGA-2026-10-24-NOME-CONTEXTUAL-EXPORTACAO-CSV.md). O arquivo baixado agora identifica a categoria filtrada e a data local da exportação, com nome seguro para o sistema de arquivos e sem modificar o conteúdo, os serviços ou os filtros ativos.
+78. [Busca no nome da exportação CSV](ENTREGA-2026-10-24-BUSCA-NOME-EXPORTACAO-CSV.md). Quando há uma busca ativa, o arquivo baixado também identifica o termo pesquisado, com normalização e limite seguro de tamanho, preservando o recorte, os pedidos e a compatibilidade do nome.
 
 ## Próximas entregas prioritárias
 
