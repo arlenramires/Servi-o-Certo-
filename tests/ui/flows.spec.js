@@ -552,6 +552,22 @@ test('client orders preferred times first without changing requests',async({page
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['schedule-later','schedule-none','schedule-earlier']);
 });
 
+test('client orders valid preferred times from farthest to nearest and keeps invalid or absent values last',async({page})=>{
+  await login(page);await page.evaluate(()=>window.testState.requests.push(
+    {id:'schedule-middle',profession:'Pintor',description:'Pintura com preferência intermediária',status:'concluido',city:'Manaus',state:'AM',scheduled_for:'2026-10-25T14:00:00.000Z',created_at:'2026-10-21T12:00:00.000Z'},
+    {id:'schedule-invalid',profession:'Marceneiro',description:'Reparo com preferência inválida',status:'aberto',city:'Manaus',state:'AM',scheduled_for:'data-invalida',created_at:'2026-10-24T12:00:00.000Z'},
+    {id:'schedule-absent',profession:'Eletricista',description:'Instalação sem horário indicado',status:'aberto',city:'Manaus',state:'AM',scheduled_for:null,created_at:'2026-10-23T12:00:00.000Z'},
+    {id:'schedule-farthest',profession:'Encanador',description:'Reparo com preferência mais distante',status:'aceito',city:'Manaus',state:'AM',scheduled_for:'2026-11-05T09:00:00.000Z',created_at:'2026-10-20T12:00:00.000Z'},
+    {id:'schedule-nearest',profession:'Pedreiro',description:'Reparo com preferência mais próxima',status:'aceito',city:'Manaus',state:'AM',scheduled_for:'2026-10-23T09:00:00.000Z',created_at:'2026-10-22T12:00:00.000Z'}
+  ));
+  const order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));
+  await page.locator('#refresh').click();await page.locator('#requestSort').selectOption('scheduleDesc');
+  expect(await order()).toEqual(['schedule-farthest','schedule-middle','schedule-nearest','schedule-invalid','schedule-absent']);
+  await page.locator('#requestSearch').fill('reparo');await page.locator('#searchRequests').click();
+  expect(await order()).toEqual(['schedule-farthest','schedule-nearest','schedule-invalid']);
+  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['schedule-middle','schedule-invalid','schedule-absent','schedule-farthest','schedule-nearest']);
+});
+
 test('client clears search, status filter and ordering without changing services',async({page})=>{
   await login(page);await page.evaluate(()=>window.testState.requests.push(
     {id:'clear-oldest',profession:'Pintor',description:'Pintura antiga',status:'concluido',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-18T12:00:00.000Z'},
