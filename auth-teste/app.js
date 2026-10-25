@@ -78,13 +78,16 @@ function requestSummaryText(request) {
   if(request.scheduled_for&&!Number.isNaN(scheduledFor.getTime()))lines.push('Horário preferido: '+scheduledFor.toLocaleString('pt-BR'));
   lines.push('Link autenticado: '+requestLink(request.id));return lines.join('\n');
 }
+function requestSummaryFilename(request) { const safeId=String(request.id).replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/(^-|-$)/g,'')||'servico';return `servico-${safeId}-resumo.txt`; }
 function downloadRequestSummary(request) {
-  const safeId=String(request.id).replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/(^-|-$)/g,'')||'servico',filename=`servico-${safeId}-resumo.txt`,blob=new Blob([requestSummaryText(request)],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  const filename=requestSummaryFilename(request),blob=new Blob([requestSummaryText(request)],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);return filename;
 }
 async function shareRequestSummary(request) {
-  const summary=requestSummaryText(request);
-  if(navigator.share){await navigator.share({title:'Serviço Certo — '+request.profession,text:summary});return 'shared';}
+  const summary=requestSummaryText(request),title='Serviço Certo — '+request.profession;let file,canShareFile=false;
+  try{file=new File([summary],requestSummaryFilename(request),{type:'text/plain;charset=utf-8'});canShareFile=Boolean(navigator.share&&navigator.canShare?.({files:[file]}));}catch{}
+  if(canShareFile){await navigator.share({title,text:'Resumo seguro do serviço em arquivo de texto.',files:[file]});return 'file';}
+  if(navigator.share){await navigator.share({title,text:summary});return 'shared';}
   await copyText(summary);return 'copied';
 }
 function clearLinkedRequest() {
@@ -234,7 +237,7 @@ async function refresh(ticket=generation) {
     copyLink.onclick=async()=>{copyLink.disabled=true;try{await copyText(requestLink(r.id));message('Link do serviço copiado. O acesso continua protegido pela conta.');}catch{message('Não foi possível copiar o link automaticamente.');}finally{copyLink.disabled=false;}};
     copySummary.onclick=async()=>{copySummary.disabled=true;try{await copyText(requestSummaryText(r));message('Resumo do serviço copiado sem descrição ou dados dos participantes.');}catch{message('Não foi possível copiar o resumo automaticamente.');}finally{copySummary.disabled=false;}};
     downloadSummary.onclick=()=>{downloadSummary.disabled=true;try{const filename=downloadRequestSummary(r);message('Resumo seguro preparado em '+filename+'.');}catch{message('Não foi possível baixar o resumo automaticamente.');}finally{downloadSummary.disabled=false;}};
-    shareSummary.onclick=async()=>{shareSummary.disabled=true;try{const result=await shareRequestSummary(r);message(result==='shared'?'Resumo seguro enviado ao compartilhamento do aparelho.':'Compartilhamento indisponível. Resumo seguro copiado.');}catch(error){message(error?.name==='AbortError'?'Compartilhamento cancelado.':'Não foi possível compartilhar o resumo.');}finally{shareSummary.disabled=false;}};
+    shareSummary.onclick=async()=>{shareSummary.disabled=true;try{const result=await shareRequestSummary(r);message(result==='file'?'Arquivo de resumo seguro enviado ao compartilhamento do aparelho.':result==='shared'?'Resumo seguro enviado ao compartilhamento do aparelho.':'Compartilhamento indisponível. Resumo seguro copiado.');}catch(error){message(error?.name==='AbortError'?'Compartilhamento cancelado.':'Não foi possível compartilhar o resumo.');}finally{shareSummary.disabled=false;}};
     card.append(requestCode,previewSummary,copyCode,copyLink,copySummary,downloadSummary,shareSummary,summaryPreview);
     if(r.is_urgent)card.append(text('strong','Atendimento urgente'));
     if(profile.role==='cliente'&&r.status==='aberto'&&!r.provider_id) {
