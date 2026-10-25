@@ -85,8 +85,8 @@ function downloadRequestSummary(request) {
 }
 function requestSummariesPayload(requests) {
   const fileSlug=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''),
-    now=new Date(),day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-'),filterName=el('requestFilter').selectedOptions[0]?.textContent.replace(/\s+\(\d+\)$/,'')||'filtrados',filterSlug=fileSlug(filterName)||'filtrados',searchSlug=fileSlug(el('requestSearch').value.trim()).slice(0,40).replace(/-$/,''),sortSlug=el('requestSort').value==='recent'?'':fileSlug(el('requestSort').selectedOptions[0]?.textContent),contextSlug=[filterSlug,searchSlug,sortSlug].filter(Boolean).join('-');
-  return {filename:`servico-certo-resumos-seguros-${contextSlug}-${day}.txt`,content:requests.map(requestSummaryText).join('\n\n---\n\n')};
+    now=new Date(),day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-'),filterName=el('requestFilter').selectedOptions[0]?.textContent.replace(/\s+\(\d+\)$/,'')||'filtrados',filterSlug=fileSlug(filterName)||'filtrados',search=el('requestSearch').value.trim(),searchSlug=fileSlug(search).slice(0,40).replace(/-$/,''),sortName=el('requestSort').selectedOptions[0]?.textContent||'Mais recentes',sortSlug=el('requestSort').value==='recent'?'':fileSlug(sortName),contextSlug=[filterSlug,searchSlug,sortSlug].filter(Boolean).join('-'),context=['Contexto dos resumos seguros',`Filtro: ${filterName}`,`Busca aplicada: ${search?'Sim':'Não'}`,`Ordenação: ${sortName}`,`Quantidade: ${requests.length}`].join('\n');
+  return {filename:`servico-certo-resumos-seguros-${contextSlug}-${day}.txt`,content:context+'\n\n---\n\n'+requests.map(requestSummaryText).join('\n\n---\n\n')};
 }
 function closeRequestSummariesPreview() {
   const preview=el('requestSummariesPreview'),button=el('previewRequestSummaries');preview.hidden=true;preview.textContent='';button.textContent='Ver resumos';button.setAttribute('aria-expanded','false');
@@ -497,7 +497,7 @@ el('previewRequestSummaries').onclick=()=>{
 };
 el('copyRequestSummaries').onclick=async()=>{
   const button=el('copyRequestSummaries');button.disabled=true;
-  try {await copyText(exportableRequests.map(requestSummaryText).join('\n\n---\n\n'));message(`${exportableRequests.length} ${exportableRequests.length===1?'resumo seguro copiado':'resumos seguros copiados'} da lista filtrada.`);}
+  try {await copyText(requestSummariesPayload(exportableRequests).content);message(`${exportableRequests.length} ${exportableRequests.length===1?'resumo seguro copiado':'resumos seguros copiados'} da lista filtrada.`);}
   catch {message('Não foi possível copiar automaticamente os resumos. Tente novamente.');}
   finally {button.disabled=!exportableRequests.length;}
 };
