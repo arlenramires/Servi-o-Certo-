@@ -83,6 +83,10 @@ function downloadRequestSummary(request) {
   const filename=requestSummaryFilename(request),blob=new Blob([requestSummaryText(request)],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);return filename;
 }
+function downloadRequestSummaries(requests) {
+  const now=new Date(),day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-'),filename=`servico-certo-resumos-seguros-${day}.txt`,content=requests.map(requestSummaryText).join('\n\n---\n\n'),blob=new Blob([content],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);return filename;
+}
 async function shareRequestSummary(request) {
   const summary=requestSummaryText(request),title='Serviço Certo — '+request.profession;let file,canShareFile=false;
   try{file=new File([summary],requestSummaryFilename(request),{type:'text/plain;charset=utf-8'});canShareFile=Boolean(navigator.share&&navigator.canShare?.({files:[file]}));}catch{}
@@ -222,7 +226,7 @@ async function refresh(ticket=generation) {
   const remaining=visibleRequests.length-displayedRequests.length;
   el('requestMore').hidden=remaining<=0;el('requestMore').textContent=remaining>0?`Mostrar mais (${remaining} restante${remaining===1?'':'s'})`:'Mostrar mais';
   el('requestCollapse').hidden=requestDisplayLimit<=requestPageSize||visibleRequests.length<=requestPageSize;
-  el('copyRequestCodes').disabled=!visibleRequests.length;el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
+  el('copyRequestCodes').disabled=!visibleRequests.length;el('downloadRequestSummaries').disabled=!visibleRequests.length;el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
   el('requests').replaceChildren();
   if(!visibleRequests.length)el('requests').append(text('p',linkedRequestId?'Serviço não encontrado nesta conta. Confira o link ou entre com a conta participante.':requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of displayedRequests) {
@@ -467,6 +471,12 @@ el('copyRequestCodes').onclick=async()=>{
   const button=el('copyRequestCodes');button.disabled=true;
   try {await copyText(exportableRequests.map(request=>request.id).join('\n'));message(`${exportableRequests.length} ${exportableRequests.length===1?'código copiado':'códigos copiados'} da lista filtrada.`);}
   catch {message('Não foi possível copiar automaticamente os códigos. Tente novamente.');}
+  finally {button.disabled=!exportableRequests.length;}
+};
+el('downloadRequestSummaries').onclick=()=>{
+  const button=el('downloadRequestSummaries');button.disabled=true;
+  try {const filename=downloadRequestSummaries(exportableRequests);message(`${exportableRequests.length} ${exportableRequests.length===1?'resumo seguro preparado':'resumos seguros preparados'} em ${filename}.`);}
+  catch {message('Não foi possível baixar os resumos automaticamente.');}
   finally {button.disabled=!exportableRequests.length;}
 };
 el('exportRequests').onclick=()=>{

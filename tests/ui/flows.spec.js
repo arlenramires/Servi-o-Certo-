@@ -745,6 +745,15 @@ test('client chooses how many services to show per step without changing request
   expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
 });
 
+test('client downloads every filtered safe summary beyond visible pagination',async({page})=>{
+  await login(page);await page.evaluate(()=>{
+    window.testState.requests.push({id:'summary-batch-active',profession:'Eletricista',description:'Descrição ativa que deve ficar fora',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-25T07:00:00.000Z'});
+    for(let index=0;index<12;index++)window.testState.requests.push({id:`summary-batch-${index}`,profession:'Pintor',description:`Descrição privada em lote ${index}`,status:'concluido',city:'Boa Vista',state:'RR',is_urgent:index===0,created_at:new Date(Date.UTC(2026,9,25,6,index)).toISOString()});
+  });
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');await expect(page.locator('#requests .service')).toHaveCount(10);const callsBeforeDownload=await page.evaluate(()=>window.testState.calls.length),[download]=await Promise.all([page.waitForEvent('download'),page.locator('#downloadRequestSummaries').click()]);
+  const localDay=await page.evaluate(()=>{const now=new Date();return [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');}),filename=`servico-certo-resumos-seguros-${localDay}.txt`;expect(download.suggestedFilename()).toBe(filename);await expect(page.locator('#status')).toHaveText(`12 resumos seguros preparados em ${filename}.`);const content=await readFile(await download.path(),'utf8');expect(content.match(/Serviço Certo/g)).toHaveLength(12);expect(content).toContain('Código: summary-batch-0');expect(content).toContain('Código: summary-batch-11');expect(content).toContain('Região: Boa Vista / RR');expect(content).not.toContain('summary-batch-active');expect(content).not.toContain('Descrição privada em lote');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeDownload);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
+
 test('client downloads filtered services with readable dates as safe CSV',async({page})=>{
   await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedRequestCodes=value;}}}));
   await login(page);await page.evaluate(()=>{
@@ -771,7 +780,7 @@ test('client downloads filtered services with readable dates as safe CSV',async(
   expect(await page.evaluate(()=>JSON.stringify({requests:window.testState.requests,messages:window.testState.messages}))).toBe(original);
   await page.locator('#requestSort').selectOption('oldest');await page.locator('#requestSearch').fill('Reparo concluído');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);
   const [searchedDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#exportRequests').click()]),searchedFilename=`servicos-concluidos-reparo-concluido-mais-antigos-${localDay}.csv`;expect(searchedDownload.suggestedFilename()).toBe(searchedFilename);await expect(page.locator('#status')).toHaveText(`Download preparado: 1 serviço em ${searchedFilename}.`);const searchedStream=await searchedDownload.createReadStream(),searchedChunks=[];for await(const chunk of searchedStream)searchedChunks.push(chunk);const searchedCsv=Buffer.concat(searchedChunks).toString('utf8');expect(searchedCsv.split('\r\n')).toHaveLength(2);expect(searchedCsv).toContain('"export-completed-two"');expect(searchedCsv).not.toContain('"export-completed-one"');expect(await page.evaluate(()=>JSON.stringify({requests:window.testState.requests,messages:window.testState.messages}))).toBe(original);
-  await page.locator('#requestSearch').fill('sem resultado');await page.locator('#searchRequests').click();await expect(page.locator('#copyRequestCodes')).toBeDisabled();await expect(page.locator('#exportRequests')).toBeDisabled();await expect(page.locator('#exportRequestsJson')).toBeDisabled();
+  await page.locator('#requestSearch').fill('sem resultado');await page.locator('#searchRequests').click();await expect(page.locator('#copyRequestCodes')).toBeDisabled();await expect(page.locator('#downloadRequestSummaries')).toBeDisabled();await expect(page.locator('#exportRequests')).toBeDisabled();await expect(page.locator('#exportRequestsJson')).toBeDisabled();
 });
 
 test('provider export identifies their role without changing the service',async({page})=>{

@@ -98,6 +98,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 92. [Compartilhamento do resumo seguro como arquivo](ENTREGA-2026-10-25-COMPARTILHAMENTO-RESUMO-ARQUIVO.md). Em aparelhos compatíveis, cliente e prestador podem enviar o resumo autorizado como arquivo `.txt`; a interface mantém o compartilhamento em texto e a cópia automática como alternativas, sem descrição livre, dados dos participantes, nova consulta ou alteração do pedido.
 93. [Recuperação do compartilhamento após rejeição de arquivo](ENTREGA-2026-10-25-RECUPERACAO-COMPARTILHAMENTO-ARQUIVO.md). Quando o aparelho anuncia suporte a arquivos, mas rejeita o `.txt`, a interface tenta o mesmo resumo seguro em texto; cancelamentos voluntários permanecem respeitados, sem nova consulta ou alteração do pedido.
 94. [Cópia segura após rejeição do compartilhamento](ENTREGA-2026-10-25-COPIA-APOS-REJEICAO-COMPARTILHAMENTO.md). Quando o compartilhamento nativo em texto é recusado por incompatibilidade ou indisponibilidade do destino, a interface copia automaticamente o mesmo resumo seguro; cancelamentos voluntários não acionam a cópia, sem nova consulta ou alteração do pedido.
+95. [Download em lote dos resumos seguros filtrados](ENTREGA-2026-10-25-RESUMOS-SEGUROS-FILTRADOS.md). Cliente e prestador podem baixar em um único arquivo de texto todos os resumos correspondentes à busca, filtro e ordem atuais, inclusive além da paginação visível, sem descrição livre, dados dos participantes, nova consulta ou alteração dos pedidos.
 
 ## Próximas entregas prioritárias
 
