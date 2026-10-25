@@ -2,4 +2,5 @@
 
 .contract-stage{border:1px solid #bdcfe0;border-radius:10px;margin:16px 0;padding:14px;min-width:0}.contract-stage legend{font-weight:650}.contract-stage label{font-size:14px}#contracts li{margin:10px 0;line-height:1.5}#contracts .check{font-size:14px;line-height:1.5;align-items:flex-start}#contracts .check input{flex-shrink:0}#contracts h4{font-size:18px;margin:8px 0}
 .search-controls{display:grid;grid-template-columns:minmax(0,1fr) repeat(4,auto);align-items:end;gap:12px;margin:8px 0 18px}.search-controls label{margin-top:0}.search-controls button{width:auto;margin:0}@media(max-width:650px){.search-controls{grid-template-columns:1fr}.search-controls button{width:100%}}
+#requestSummariesPreview{max-height:420px;overflow:auto}
 @media(max-width:650px){#requestsPanel>.account{display:grid;grid-template-columns:1fr 1fr;align-items:end}#requestsPanel>.account h2{grid-column:1/-1}#requestsPanel>.account button{width:100%}}
