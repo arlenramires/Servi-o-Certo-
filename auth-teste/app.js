@@ -84,8 +84,9 @@ function downloadRequestSummary(request) {
   link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);return filename;
 }
 function requestSummariesPayload(requests) {
-  const now=new Date(),day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
-  return {filename:`servico-certo-resumos-seguros-${day}.txt`,content:requests.map(requestSummaryText).join('\n\n---\n\n')};
+  const fileSlug=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''),
+    now=new Date(),day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-'),filterName=el('requestFilter').selectedOptions[0]?.textContent.replace(/\s+\(\d+\)$/,'')||'filtrados',filterSlug=fileSlug(filterName)||'filtrados',searchSlug=fileSlug(el('requestSearch').value.trim()).slice(0,40).replace(/-$/,''),sortSlug=el('requestSort').value==='recent'?'':fileSlug(el('requestSort').selectedOptions[0]?.textContent),contextSlug=[filterSlug,searchSlug,sortSlug].filter(Boolean).join('-');
+  return {filename:`servico-certo-resumos-seguros-${contextSlug}-${day}.txt`,content:requests.map(requestSummaryText).join('\n\n---\n\n')};
 }
 function downloadRequestSummaries(requests) {
   const {filename,content}=requestSummariesPayload(requests),blob=new Blob([content],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
