@@ -83,9 +83,20 @@ function downloadRequestSummary(request) {
   const filename=requestSummaryFilename(request),blob=new Blob([requestSummaryText(request)],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);return filename;
 }
+function requestSummariesPayload(requests) {
+  const now=new Date(),day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
+  return {filename:`servico-certo-resumos-seguros-${day}.txt`,content:requests.map(requestSummaryText).join('\n\n---\n\n')};
+}
 function downloadRequestSummaries(requests) {
-  const now=new Date(),day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-'),filename=`servico-certo-resumos-seguros-${day}.txt`,content=requests.map(requestSummaryText).join('\n\n---\n\n'),blob=new Blob([content],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  const {filename,content}=requestSummariesPayload(requests),blob=new Blob([content],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);return filename;
+}
+async function shareRequestSummaries(requests) {
+  const {filename,content}=requestSummariesPayload(requests),title='Serviço Certo — resumos seguros';let file,canShareFile=false;
+  try{file=new File([content],filename,{type:'text/plain;charset=utf-8'});canShareFile=Boolean(navigator.share&&navigator.canShare?.({files:[file]}));}catch{}
+  if(canShareFile)try{await navigator.share({title,text:`${requests.length} resumos seguros em arquivo de texto.`,files:[file]});return {mode:'file',filename};}catch(error){if(error?.name==='AbortError')throw error;}
+  if(navigator.share)try{await navigator.share({title,text:content});return {mode:'shared',filename};}catch(error){if(error?.name==='AbortError')throw error;await copyText(content);return {mode:'copiedAfterError',filename};}
+  await copyText(content);return {mode:'copied',filename};
 }
 async function shareRequestSummary(request) {
   const summary=requestSummaryText(request),title='Serviço Certo — '+request.profession;let file,canShareFile=false;
@@ -226,7 +237,7 @@ async function refresh(ticket=generation) {
   const remaining=visibleRequests.length-displayedRequests.length;
   el('requestMore').hidden=remaining<=0;el('requestMore').textContent=remaining>0?`Mostrar mais (${remaining} restante${remaining===1?'':'s'})`:'Mostrar mais';
   el('requestCollapse').hidden=requestDisplayLimit<=requestPageSize||visibleRequests.length<=requestPageSize;
-  el('copyRequestCodes').disabled=!visibleRequests.length;el('copyRequestSummaries').disabled=!visibleRequests.length;el('downloadRequestSummaries').disabled=!visibleRequests.length;el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
+  el('copyRequestCodes').disabled=!visibleRequests.length;el('copyRequestSummaries').disabled=!visibleRequests.length;el('downloadRequestSummaries').disabled=!visibleRequests.length;el('shareRequestSummaries').disabled=!visibleRequests.length;el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
   el('requests').replaceChildren();
   if(!visibleRequests.length)el('requests').append(text('p',linkedRequestId?'Serviço não encontrado nesta conta. Confira o link ou entre com a conta participante.':requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of displayedRequests) {
@@ -483,6 +494,12 @@ el('downloadRequestSummaries').onclick=()=>{
   const button=el('downloadRequestSummaries');button.disabled=true;
   try {const filename=downloadRequestSummaries(exportableRequests);message(`${exportableRequests.length} ${exportableRequests.length===1?'resumo seguro preparado':'resumos seguros preparados'} em ${filename}.`);}
   catch {message('Não foi possível baixar os resumos automaticamente.');}
+  finally {button.disabled=!exportableRequests.length;}
+};
+el('shareRequestSummaries').onclick=async()=>{
+  const button=el('shareRequestSummaries'),count=exportableRequests.length,label=count===1?'resumo seguro':'resumos seguros',shared=count===1?'compartilhado':'compartilhados',sent=count===1?'enviado':'enviados',copied=count===1?'copiado':'copiados';button.disabled=true;
+  try {const result=await shareRequestSummaries(exportableRequests);message(result.mode==='file'?`${count} ${label} ${shared} em ${result.filename}.`:result.mode==='shared'?`${count} ${label} ${sent} para compartilhamento.`:result.mode==='copiedAfterError'?`${count} ${label} ${copied} após falha no compartilhamento.`:`${count} ${label} ${copied} porque o compartilhamento não está disponível.`);}
+  catch(error) {message(error?.name==='AbortError'?'Compartilhamento cancelado.':'Não foi possível compartilhar os resumos.');}
   finally {button.disabled=!exportableRequests.length;}
 };
 el('exportRequests').onclick=()=>{
