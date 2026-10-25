@@ -81,6 +81,13 @@ function downloadRequestLinks(requests) {
   const {filename,content}=requestLinksPayload(requests),blob=new Blob([content],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);return filename;
 }
+async function shareRequestLinks(requests) {
+  const {filename,content}=requestLinksPayload(requests),title='Serviço Certo — links autenticados';let file,canShareFile=false,fileRejected=false;
+  try{file=new File([content],filename,{type:'text/plain;charset=utf-8'});canShareFile=Boolean(navigator.share&&navigator.canShare?.({files:[file]}));}catch{}
+  if(canShareFile)try{await navigator.share({title,text:`${requests.length} links autenticados em arquivo de texto.`,files:[file]});return {mode:'file',filename};}catch(error){if(error?.name==='AbortError')throw error;fileRejected=true;}
+  if(navigator.share)try{await navigator.share({title,text:content});return {mode:fileRejected?'sharedAfterFileError':'shared',filename};}catch(error){if(error?.name==='AbortError')throw error;await copyText(content);return {mode:fileRejected?'copiedAfterFileAndTextError':'copiedAfterError',filename};}
+  await copyText(content);return {mode:'copied',filename};
+}
 function requestSummaryText(request) {
   const createdAt=new Date(request.created_at),scheduledFor=new Date(request.scheduled_for),lines=['Serviço Certo','Código: '+request.id,'Profissão: '+request.profession,'Situação: '+(labels[request.status]||request.status),'Região: '+request.city+' / '+request.state,'Urgente: '+(request.is_urgent?'Sim':'Não')];
   if(!Number.isNaN(createdAt.getTime()))lines.push('Solicitado em: '+createdAt.toLocaleString('pt-BR'));
@@ -252,7 +259,7 @@ async function refresh(ticket=generation) {
   const remaining=visibleRequests.length-displayedRequests.length;
   el('requestMore').hidden=remaining<=0;el('requestMore').textContent=remaining>0?`Mostrar mais (${remaining} restante${remaining===1?'':'s'})`:'Mostrar mais';
   el('requestCollapse').hidden=requestDisplayLimit<=requestPageSize||visibleRequests.length<=requestPageSize;
-  el('copyRequestCodes').disabled=!visibleRequests.length;el('copyRequestLinks').disabled=!visibleRequests.length;el('downloadRequestLinks').disabled=!visibleRequests.length;el('previewRequestSummaries').disabled=!visibleRequests.length;el('copyRequestSummaries').disabled=!visibleRequests.length;el('downloadRequestSummaries').disabled=!visibleRequests.length;el('shareRequestSummaries').disabled=!visibleRequests.length;el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
+  el('copyRequestCodes').disabled=!visibleRequests.length;el('copyRequestLinks').disabled=!visibleRequests.length;el('downloadRequestLinks').disabled=!visibleRequests.length;el('shareRequestLinks').disabled=!visibleRequests.length;el('previewRequestSummaries').disabled=!visibleRequests.length;el('copyRequestSummaries').disabled=!visibleRequests.length;el('downloadRequestSummaries').disabled=!visibleRequests.length;el('shareRequestSummaries').disabled=!visibleRequests.length;el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
   el('requests').replaceChildren();
   if(!visibleRequests.length)el('requests').append(text('p',linkedRequestId?'Serviço não encontrado nesta conta. Confira o link ou entre com a conta participante.':requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of displayedRequests) {
@@ -509,6 +516,12 @@ el('downloadRequestLinks').onclick=()=>{
   const button=el('downloadRequestLinks');button.disabled=true;
   try {const filename=downloadRequestLinks(exportableRequests);message(`${exportableRequests.length} ${exportableRequests.length===1?'link autenticado preparado':'links autenticados preparados'} em ${filename}.`);}
   catch {message('Não foi possível baixar os links automaticamente.');}
+  finally {button.disabled=!exportableRequests.length;}
+};
+el('shareRequestLinks').onclick=async()=>{
+  const button=el('shareRequestLinks'),count=exportableRequests.length,label=count===1?'link autenticado':'links autenticados',shared=count===1?'compartilhado':'compartilhados',sent=count===1?'enviado':'enviados',copied=count===1?'copiado':'copiados';button.disabled=true;
+  try {const result=await shareRequestLinks(exportableRequests);message(result.mode==='file'?`${count} ${label} ${shared} em ${result.filename}.`:result.mode==='sharedAfterFileError'?`Arquivo recusado. ${count} ${label} ${sent} como texto.`:result.mode==='shared'?`${count} ${label} ${sent} para compartilhamento.`:result.mode==='copiedAfterFileAndTextError'?`Arquivo e texto recusados. ${count} ${label} ${copied}.`:result.mode==='copiedAfterError'?`${count} ${label} ${copied} após falha no compartilhamento.`:`${count} ${label} ${copied} porque o compartilhamento não está disponível.`);}
+  catch(error) {message(error?.name==='AbortError'?'Compartilhamento cancelado.':'Não foi possível compartilhar os links.');}
   finally {button.disabled=!exportableRequests.length;}
 };
 el('previewRequestSummaries').onclick=()=>{
