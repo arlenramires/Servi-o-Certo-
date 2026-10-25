@@ -72,6 +72,15 @@ const inspections=createInspectionsPanel({api,getContext:()=>({user,profile,sele
 function text(tag, value, className) { const node=document.createElement(tag); node.textContent=value; if(className)node.className=className; return node; }
 function requestDateSearchValue(value) { const date=new Date(value); return Number.isNaN(date.getTime())?'':value+' '+date.toLocaleDateString('pt-BR'); }
 function requestLink(requestId) { const link=new URL(location.pathname,location.origin);link.searchParams.set('servico',requestId);return link.href; }
+function requestLinksPayload(requests) {
+  const fileSlug=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''),
+    now=new Date(),day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-'),filterName=el('requestFilter').selectedOptions[0]?.textContent.replace(/\s+\(\d+\)$/,'')||'filtrados',filterSlug=fileSlug(filterName)||'filtrados',searchSlug=fileSlug(el('requestSearch').value.trim()).slice(0,40).replace(/-$/,''),sortSlug=el('requestSort').value==='recent'?'':fileSlug(el('requestSort').selectedOptions[0]?.textContent),contextSlug=[filterSlug,searchSlug,sortSlug].filter(Boolean).join('-');
+  return {filename:`servico-certo-links-autenticados-${contextSlug}-${day}.txt`,content:requests.map(request=>requestLink(request.id)).join('\n')};
+}
+function downloadRequestLinks(requests) {
+  const {filename,content}=requestLinksPayload(requests),blob=new Blob([content],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);return filename;
+}
 function requestSummaryText(request) {
   const createdAt=new Date(request.created_at),scheduledFor=new Date(request.scheduled_for),lines=['Serviço Certo','Código: '+request.id,'Profissão: '+request.profession,'Situação: '+(labels[request.status]||request.status),'Região: '+request.city+' / '+request.state,'Urgente: '+(request.is_urgent?'Sim':'Não')];
   if(!Number.isNaN(createdAt.getTime()))lines.push('Solicitado em: '+createdAt.toLocaleString('pt-BR'));
@@ -243,7 +252,7 @@ async function refresh(ticket=generation) {
   const remaining=visibleRequests.length-displayedRequests.length;
   el('requestMore').hidden=remaining<=0;el('requestMore').textContent=remaining>0?`Mostrar mais (${remaining} restante${remaining===1?'':'s'})`:'Mostrar mais';
   el('requestCollapse').hidden=requestDisplayLimit<=requestPageSize||visibleRequests.length<=requestPageSize;
-  el('copyRequestCodes').disabled=!visibleRequests.length;el('copyRequestLinks').disabled=!visibleRequests.length;el('previewRequestSummaries').disabled=!visibleRequests.length;el('copyRequestSummaries').disabled=!visibleRequests.length;el('downloadRequestSummaries').disabled=!visibleRequests.length;el('shareRequestSummaries').disabled=!visibleRequests.length;el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
+  el('copyRequestCodes').disabled=!visibleRequests.length;el('copyRequestLinks').disabled=!visibleRequests.length;el('downloadRequestLinks').disabled=!visibleRequests.length;el('previewRequestSummaries').disabled=!visibleRequests.length;el('copyRequestSummaries').disabled=!visibleRequests.length;el('downloadRequestSummaries').disabled=!visibleRequests.length;el('shareRequestSummaries').disabled=!visibleRequests.length;el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
   el('requests').replaceChildren();
   if(!visibleRequests.length)el('requests').append(text('p',linkedRequestId?'Serviço não encontrado nesta conta. Confira o link ou entre com a conta participante.':requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of displayedRequests) {
@@ -494,6 +503,12 @@ el('copyRequestLinks').onclick=async()=>{
   const button=el('copyRequestLinks');button.disabled=true;
   try {await copyText(exportableRequests.map(request=>requestLink(request.id)).join('\n'));message(`${exportableRequests.length} ${exportableRequests.length===1?'link autenticado copiado':'links autenticados copiados'} da lista filtrada.`);}
   catch {message('Não foi possível copiar automaticamente os links. Tente novamente.');}
+  finally {button.disabled=!exportableRequests.length;}
+};
+el('downloadRequestLinks').onclick=()=>{
+  const button=el('downloadRequestLinks');button.disabled=true;
+  try {const filename=downloadRequestLinks(exportableRequests);message(`${exportableRequests.length} ${exportableRequests.length===1?'link autenticado preparado':'links autenticados preparados'} em ${filename}.`);}
+  catch {message('Não foi possível baixar os links automaticamente.');}
   finally {button.disabled=!exportableRequests.length;}
 };
 el('previewRequestSummaries').onclick=()=>{
