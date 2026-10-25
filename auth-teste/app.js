@@ -71,6 +71,13 @@ const disputes=createDisputesPanel({api,getContext:()=>({user,profile,selected,g
 const inspections=createInspectionsPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 function text(tag, value, className) { const node=document.createElement(tag); node.textContent=value; if(className)node.className=className; return node; }
 function requestDateSearchValue(value) { const date=new Date(value); return Number.isNaN(date.getTime())?'':value+' '+date.toLocaleDateString('pt-BR'); }
+function requestLink(requestId) { const link=new URL(location.pathname,location.origin);link.searchParams.set('servico',requestId);return link.href; }
+function requestSummaryText(request) {
+  const createdAt=new Date(request.created_at),scheduledFor=new Date(request.scheduled_for),lines=['Serviço Certo','Código: '+request.id,'Profissão: '+request.profession,'Situação: '+(labels[request.status]||request.status),'Região: '+request.city+' / '+request.state,'Urgente: '+(request.is_urgent?'Sim':'Não')];
+  if(!Number.isNaN(createdAt.getTime()))lines.push('Solicitado em: '+createdAt.toLocaleString('pt-BR'));
+  if(request.scheduled_for&&!Number.isNaN(scheduledFor.getTime()))lines.push('Horário preferido: '+scheduledFor.toLocaleString('pt-BR'));
+  lines.push('Link autenticado: '+requestLink(request.id));return lines.join('\n');
+}
 function clearLinkedRequest() {
   if(!linkedRequestId)return;
   linkedRequestId='';const url=new URL(location.href);url.searchParams.delete('servico');history.replaceState(null,'',url.pathname+url.search+url.hash);
@@ -212,10 +219,11 @@ async function refresh(ticket=generation) {
     const createdAt=new Date(r.created_at),summary=[text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state)];
     if(!Number.isNaN(createdAt.getTime())) {const requestedAt=text('time','Solicitado em '+createdAt.toLocaleString('pt-BR'),'muted request-created');requestedAt.dateTime=createdAt.toISOString();summary.push(requestedAt);}
     card.append(...summary,text('p',r.description));
-    const requestCode=text('small','Código: '+r.id,'service-code'),copyCode=text('button','Copiar código','secondary'),copyLink=text('button','Copiar link','secondary');copyCode.type='button';copyLink.type='button';
+    const requestCode=text('small','Código: '+r.id,'service-code'),copyCode=text('button','Copiar código','secondary'),copyLink=text('button','Copiar link','secondary'),copySummary=text('button','Copiar resumo','secondary');copyCode.type='button';copyLink.type='button';copySummary.type='button';
     copyCode.onclick=async()=>{copyCode.disabled=true;try{await copyText(r.id);message('Código do serviço copiado: '+r.id);}catch{message('Não foi possível copiar automaticamente. O código continua visível no cartão.');}finally{copyCode.disabled=false;}};
-    copyLink.onclick=async()=>{copyLink.disabled=true;try{const link=new URL(location.pathname,location.origin);link.searchParams.set('servico',r.id);await copyText(link.href);message('Link do serviço copiado. O acesso continua protegido pela conta.');}catch{message('Não foi possível copiar o link automaticamente.');}finally{copyLink.disabled=false;}};
-    card.append(requestCode,copyCode,copyLink);
+    copyLink.onclick=async()=>{copyLink.disabled=true;try{await copyText(requestLink(r.id));message('Link do serviço copiado. O acesso continua protegido pela conta.');}catch{message('Não foi possível copiar o link automaticamente.');}finally{copyLink.disabled=false;}};
+    copySummary.onclick=async()=>{copySummary.disabled=true;try{await copyText(requestSummaryText(r));message('Resumo do serviço copiado sem descrição ou dados dos participantes.');}catch{message('Não foi possível copiar o resumo automaticamente.');}finally{copySummary.disabled=false;}};
+    card.append(requestCode,copyCode,copyLink,copySummary);
     if(r.is_urgent)card.append(text('strong','Atendimento urgente'));
     if(profile.role==='cliente'&&r.status==='aberto'&&!r.provider_id) {
       const professionLabel=text('label','Profissão do pedido');professionLabel.htmlFor='request-profession-'+r.id;

@@ -91,6 +91,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 85. [Recuperação da cópia após negação de permissão](ENTREGA-2026-10-24-COPIA-FALLBACK-PERMISSAO.md). A cópia de um código ou da lista filtrada agora tenta automaticamente o mecanismo compatível quando o navegador oferece a API moderna, mas nega seu uso, mantendo o fluxo disponível sem consulta ou alteração dos serviços.
 86. [Link autenticado para localizar serviço](ENTREGA-2026-10-24-LINK-SERVICO-AUTENTICADO.md). Cliente e prestador podem copiar uma referência que leva à busca do serviço após o login; a URL contém somente o código e a lista continua limitada aos registros autorizados da conta, sem acesso público, consulta privilegiada ou alteração do pedido.
 87. [Referência exata no link autenticado do serviço](ENTREGA-2026-10-24-LINK-SERVICO-EXATO.md). O link passa a aceitar apenas o código completo do pedido, evita coincidências acidentais com outros campos, apresenta resposta neutra quando a conta não recebe o registro e permite limpar a referência para voltar à lista autorizada normal.
+88. [Resumo copiável do serviço autorizado](ENTREGA-2026-10-24-RESUMO-COPIAVEL-SERVICO.md). Cliente e prestador podem copiar de um cartão uma referência curta com código, profissão, situação, região, urgência, datas e link autenticado, excluindo descrição livre, participantes, mensagens, propostas e valores e sem nova consulta ou alteração do pedido.
 
 ## Próximas entregas prioritárias
 
