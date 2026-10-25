@@ -96,10 +96,10 @@ function downloadRequestSummaries(requests) {
   link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);return filename;
 }
 async function shareRequestSummaries(requests) {
-  const {filename,content}=requestSummariesPayload(requests),title='Serviço Certo — resumos seguros';let file,canShareFile=false;
+  const {filename,content}=requestSummariesPayload(requests),title='Serviço Certo — resumos seguros';let file,canShareFile=false,fileRejected=false;
   try{file=new File([content],filename,{type:'text/plain;charset=utf-8'});canShareFile=Boolean(navigator.share&&navigator.canShare?.({files:[file]}));}catch{}
-  if(canShareFile)try{await navigator.share({title,text:`${requests.length} resumos seguros em arquivo de texto.`,files:[file]});return {mode:'file',filename};}catch(error){if(error?.name==='AbortError')throw error;}
-  if(navigator.share)try{await navigator.share({title,text:content});return {mode:'shared',filename};}catch(error){if(error?.name==='AbortError')throw error;await copyText(content);return {mode:'copiedAfterError',filename};}
+  if(canShareFile)try{await navigator.share({title,text:`${requests.length} resumos seguros em arquivo de texto.`,files:[file]});return {mode:'file',filename};}catch(error){if(error?.name==='AbortError')throw error;fileRejected=true;}
+  if(navigator.share)try{await navigator.share({title,text:content});return {mode:fileRejected?'sharedAfterFileError':'shared',filename};}catch(error){if(error?.name==='AbortError')throw error;await copyText(content);return {mode:'copiedAfterError',filename};}
   await copyText(content);return {mode:'copied',filename};
 }
 async function shareRequestSummary(request) {
@@ -509,7 +509,7 @@ el('downloadRequestSummaries').onclick=()=>{
 };
 el('shareRequestSummaries').onclick=async()=>{
   const button=el('shareRequestSummaries'),count=exportableRequests.length,label=count===1?'resumo seguro':'resumos seguros',shared=count===1?'compartilhado':'compartilhados',sent=count===1?'enviado':'enviados',copied=count===1?'copiado':'copiados';button.disabled=true;
-  try {const result=await shareRequestSummaries(exportableRequests);message(result.mode==='file'?`${count} ${label} ${shared} em ${result.filename}.`:result.mode==='shared'?`${count} ${label} ${sent} para compartilhamento.`:result.mode==='copiedAfterError'?`${count} ${label} ${copied} após falha no compartilhamento.`:`${count} ${label} ${copied} porque o compartilhamento não está disponível.`);}
+  try {const result=await shareRequestSummaries(exportableRequests);message(result.mode==='file'?`${count} ${label} ${shared} em ${result.filename}.`:result.mode==='sharedAfterFileError'?`Arquivo recusado. ${count} ${label} ${sent} como texto.`:result.mode==='shared'?`${count} ${label} ${sent} para compartilhamento.`:result.mode==='copiedAfterError'?`${count} ${label} ${copied} após falha no compartilhamento.`:`${count} ${label} ${copied} porque o compartilhamento não está disponível.`);}
   catch(error) {message(error?.name==='AbortError'?'Compartilhamento cancelado.':'Não foi possível compartilhar os resumos.');}
   finally {button.disabled=!exportableRequests.length;}
 };
