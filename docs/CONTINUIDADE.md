@@ -97,6 +97,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 91. [Prévia do resumo seguro do serviço](ENTREGA-2026-10-25-PREVIA-RESUMO-SEGURO.md). Cliente e prestador podem conferir no próprio cartão o conteúdo exato que será copiado, baixado ou compartilhado, abrir e ocultar a prévia com estado acessível e manter descrição livre e dados dos participantes fora do resumo, sem nova consulta ou alteração do pedido.
 92. [Compartilhamento do resumo seguro como arquivo](ENTREGA-2026-10-25-COMPARTILHAMENTO-RESUMO-ARQUIVO.md). Em aparelhos compatíveis, cliente e prestador podem enviar o resumo autorizado como arquivo `.txt`; a interface mantém o compartilhamento em texto e a cópia automática como alternativas, sem descrição livre, dados dos participantes, nova consulta ou alteração do pedido.
 93. [Recuperação do compartilhamento após rejeição de arquivo](ENTREGA-2026-10-25-RECUPERACAO-COMPARTILHAMENTO-ARQUIVO.md). Quando o aparelho anuncia suporte a arquivos, mas rejeita o `.txt`, a interface tenta o mesmo resumo seguro em texto; cancelamentos voluntários permanecem respeitados, sem nova consulta ou alteração do pedido.
+94. [Cópia segura após rejeição do compartilhamento](ENTREGA-2026-10-25-COPIA-APOS-REJEICAO-COMPARTILHAMENTO.md). Quando o compartilhamento nativo em texto é recusado por incompatibilidade ou indisponibilidade do destino, a interface copia automaticamente o mesmo resumo seguro; cancelamentos voluntários não acionam a cópia, sem nova consulta ou alteração do pedido.
 
 ## Próximas entregas prioritárias
 
