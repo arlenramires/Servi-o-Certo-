@@ -93,6 +93,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 87. [Referência exata no link autenticado do serviço](ENTREGA-2026-10-24-LINK-SERVICO-EXATO.md). O link passa a aceitar apenas o código completo do pedido, evita coincidências acidentais com outros campos, apresenta resposta neutra quando a conta não recebe o registro e permite limpar a referência para voltar à lista autorizada normal.
 88. [Resumo copiável do serviço autorizado](ENTREGA-2026-10-24-RESUMO-COPIAVEL-SERVICO.md). Cliente e prestador podem copiar de um cartão uma referência curta com código, profissão, situação, região, urgência, datas e link autenticado, excluindo descrição livre, participantes, mensagens, propostas e valores e sem nova consulta ou alteração do pedido.
 89. [Resumo seguro do serviço em arquivo de texto](ENTREGA-2026-10-24-RESUMO-SERVICO-TXT.md). Cliente e prestador podem baixar de um cartão o mesmo resumo seguro em `.txt`, com nome contextual e sem descrição livre, participantes, mensagens, propostas ou valores, reutilizando somente dados autorizados já carregados.
+90. [Compartilhamento seguro do resumo do serviço](ENTREGA-2026-10-24-COMPARTILHAMENTO-RESUMO-SERVICO.md). Cliente e prestador podem enviar o resumo pelo compartilhamento nativo do aparelho; quando esse recurso não existe, a interface copia o mesmo conteúdo seguro, sem campos livres ou dados dos participantes e sem nova consulta ou alteração do pedido.
 
 ## Próximas entregas prioritárias
 

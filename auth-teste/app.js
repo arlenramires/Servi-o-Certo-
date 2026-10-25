@@ -82,6 +82,11 @@ function downloadRequestSummary(request) {
   const safeId=String(request.id).replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/(^-|-$)/g,'')||'servico',filename=`servico-${safeId}-resumo.txt`,blob=new Blob([requestSummaryText(request)],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);return filename;
 }
+async function shareRequestSummary(request) {
+  const summary=requestSummaryText(request);
+  if(navigator.share){await navigator.share({title:'Serviço Certo — '+request.profession,text:summary});return 'shared';}
+  await copyText(summary);return 'copied';
+}
 function clearLinkedRequest() {
   if(!linkedRequestId)return;
   linkedRequestId='';const url=new URL(location.href);url.searchParams.delete('servico');history.replaceState(null,'',url.pathname+url.search+url.hash);
@@ -223,12 +228,13 @@ async function refresh(ticket=generation) {
     const createdAt=new Date(r.created_at),summary=[text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state)];
     if(!Number.isNaN(createdAt.getTime())) {const requestedAt=text('time','Solicitado em '+createdAt.toLocaleString('pt-BR'),'muted request-created');requestedAt.dateTime=createdAt.toISOString();summary.push(requestedAt);}
     card.append(...summary,text('p',r.description));
-    const requestCode=text('small','Código: '+r.id,'service-code'),copyCode=text('button','Copiar código','secondary'),copyLink=text('button','Copiar link','secondary'),copySummary=text('button','Copiar resumo','secondary'),downloadSummary=text('button','Baixar resumo','secondary');copyCode.type='button';copyLink.type='button';copySummary.type='button';downloadSummary.type='button';
+    const requestCode=text('small','Código: '+r.id,'service-code'),copyCode=text('button','Copiar código','secondary'),copyLink=text('button','Copiar link','secondary'),copySummary=text('button','Copiar resumo','secondary'),downloadSummary=text('button','Baixar resumo','secondary'),shareSummary=text('button','Compartilhar resumo','secondary');copyCode.type='button';copyLink.type='button';copySummary.type='button';downloadSummary.type='button';shareSummary.type='button';
     copyCode.onclick=async()=>{copyCode.disabled=true;try{await copyText(r.id);message('Código do serviço copiado: '+r.id);}catch{message('Não foi possível copiar automaticamente. O código continua visível no cartão.');}finally{copyCode.disabled=false;}};
     copyLink.onclick=async()=>{copyLink.disabled=true;try{await copyText(requestLink(r.id));message('Link do serviço copiado. O acesso continua protegido pela conta.');}catch{message('Não foi possível copiar o link automaticamente.');}finally{copyLink.disabled=false;}};
     copySummary.onclick=async()=>{copySummary.disabled=true;try{await copyText(requestSummaryText(r));message('Resumo do serviço copiado sem descrição ou dados dos participantes.');}catch{message('Não foi possível copiar o resumo automaticamente.');}finally{copySummary.disabled=false;}};
     downloadSummary.onclick=()=>{downloadSummary.disabled=true;try{const filename=downloadRequestSummary(r);message('Resumo seguro preparado em '+filename+'.');}catch{message('Não foi possível baixar o resumo automaticamente.');}finally{downloadSummary.disabled=false;}};
-    card.append(requestCode,copyCode,copyLink,copySummary,downloadSummary);
+    shareSummary.onclick=async()=>{shareSummary.disabled=true;try{const result=await shareRequestSummary(r);message(result==='shared'?'Resumo seguro enviado ao compartilhamento do aparelho.':'Compartilhamento indisponível. Resumo seguro copiado.');}catch(error){message(error?.name==='AbortError'?'Compartilhamento cancelado.':'Não foi possível compartilhar o resumo.');}finally{shareSummary.disabled=false;}};
+    card.append(requestCode,copyCode,copyLink,copySummary,downloadSummary,shareSummary);
     if(r.is_urgent)card.append(text('strong','Atendimento urgente'));
     if(profile.role==='cliente'&&r.status==='aberto'&&!r.provider_id) {
       const professionLabel=text('label','Profissão do pedido');professionLabel.htmlFor='request-profession-'+r.id;
