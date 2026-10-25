@@ -86,7 +86,7 @@ function downloadRequestSummary(request) {
 async function shareRequestSummary(request) {
   const summary=requestSummaryText(request),title='Serviço Certo — '+request.profession;let file,canShareFile=false;
   try{file=new File([summary],requestSummaryFilename(request),{type:'text/plain;charset=utf-8'});canShareFile=Boolean(navigator.share&&navigator.canShare?.({files:[file]}));}catch{}
-  if(canShareFile){await navigator.share({title,text:'Resumo seguro do serviço em arquivo de texto.',files:[file]});return 'file';}
+  if(canShareFile)try{await navigator.share({title,text:'Resumo seguro do serviço em arquivo de texto.',files:[file]});return 'file';}catch(error){if(error?.name==='AbortError')throw error;}
   if(navigator.share){await navigator.share({title,text:summary});return 'shared';}
   await copyText(summary);return 'copied';
 }
