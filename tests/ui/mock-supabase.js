@@ -129,7 +129,7 @@ export function createClient(){return {
     signInWithPassword:async values=>{state.calls.push({auth:'login',values});if(values.password==='wrongpass')return {error:{code:'invalid_credentials'},data:{}};state.user=account;return {data:{user:account},error:null};},
     signUp:values=>{state.calls.push({auth:'signup',values});return response({user:account,session:null});},
     resetPasswordForEmail:(email,options)=>{state.calls.push({auth:'reset',email,options});return response({});},
-    updateUser:values=>{state.calls.push({auth:'update',values});return response({user:account});},
+    updateUser:values=>{state.calls.push({auth:'update',values});if(values.password==='rejected-password123')return Promise.resolve({data:{},error:{code:'password_rejected'}});return response({user:account});},
     signOut:()=>{state.user=null;listener('SIGNED_OUT',null);return response({});}
   }
 };}

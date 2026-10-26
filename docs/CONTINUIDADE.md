@@ -127,6 +127,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 121. [Validação do link protegido](ENTREGA-2026-10-26-VALIDACAO-LINK-PROTEGIDO.md). Referências vazias, extensas ou com caracteres inválidos são removidas do endereço antes do acesso, mantendo o login normal disponível sem autenticação, consulta, exposição do valor recebido ou alteração de serviços.
 122. [Referência única no link protegido](ENTREGA-2026-10-26-REFERENCIA-UNICA-LINK-PROTEGIDO.md). Endereços com mais de um parâmetro `servico` são neutralizados antes do acesso, sem escolher silenciosamente uma referência, autenticar, consultar pedidos, expor os valores recebidos ou alterar serviços.
 123. [Limpeza da senha após tentativa de acesso](ENTREGA-2026-10-26-LIMPEZA-SENHA-TENTATIVA-ACESSO.md). O campo de senha é apagado depois de toda tentativa enviada de login ou cadastro, inclusive quando a autenticação é recusada, reduzindo a permanência do segredo na interface sem alterar sessão, perfil ou regras de acesso.
+124. [Limpeza da nova senha após falha na redefinição](ENTREGA-2026-10-26-LIMPEZA-NOVA-SENHA-FALHA-REDEFINICAO.md). O campo da nova senha é apagado quando o Supabase recusa a redefinição, mantendo o painel de recuperação aberto, o espaço privado fechado e a sessão inalterada para uma nova tentativa segura.
 
 ## Próximas entregas prioritárias
 

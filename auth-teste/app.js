@@ -509,9 +509,12 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
   }finally{if(action!=='reset')el('password').value='';}
 });};
 el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
-  const password=el('newPassword').value;if(password.length<8)throw new InputError('A nova senha precisa de pelo menos 8 caracteres.');
-  check(await api.auth.updateUser({password}));check(await api.auth.signOut());recovery=false;
-  history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Senha atualizada. Entre com sua nova senha.');
+  const password=el('newPassword').value;
+  try {
+    if(password.length<8)throw new InputError('A nova senha precisa de pelo menos 8 caracteres.');
+    check(await api.auth.updateUser({password}));check(await api.auth.signOut());recovery=false;
+    history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Senha atualizada. Entre com sua nova senha.');
+  }finally{el('newPassword').value='';}
 });};
 el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut());recovery=false;await loadAccount(null);message('Sessão encerrada.');});
 el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{
