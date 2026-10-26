@@ -113,7 +113,7 @@ function closeRequestLinksPreview() {
   const preview=el('requestLinksPreview'),button=el('previewRequestLinks');preview.hidden=true;preview.replaceChildren();button.textContent='Ver links';button.setAttribute('aria-expanded','false');
 }
 function requestLinkPreview(requests) {
-  return requests.map(request=>{const link=text('a',requestLink(request.id),'request-preview-link');link.href=requestLink(request.id);link.target='_blank';link.rel='noopener noreferrer';return link;});
+  return requests.map(request=>{const item=text('span','','request-preview-item'),link=text('a',requestLink(request.id),'request-preview-link'),copy=text('button','Copiar','secondary request-preview-copy');link.href=requestLink(request.id);link.target='_blank';link.rel='noopener noreferrer';copy.type='button';copy.setAttribute('aria-label','Copiar link do serviço '+request.id);copy.onclick=async()=>{copy.disabled=true;try{await copyText(link.href);message('Link do serviço copiado. O acesso continua protegido pela conta.');}catch{message('Não foi possível copiar o link automaticamente.');}finally{copy.disabled=false;}};item.append(link,copy);return item;});
 }
 function closeRequestSummariesPreview() {
   const preview=el('requestSummariesPreview'),button=el('previewRequestSummaries');preview.hidden=true;preview.textContent='';button.textContent='Ver resumos';button.setAttribute('aria-expanded','false');
