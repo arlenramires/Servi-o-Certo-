@@ -81,6 +81,10 @@ function downloadRequestLinks(requests) {
   const {filename,content}=requestLinksPayload(requests),blob=new Blob([content],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);return filename;
 }
+function downloadRequestLink(request) {
+  const safeId=String(request.id).replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/(^-|-$)/g,'')||'servico',filename=`servico-${safeId}-link.txt`,blob=new Blob([requestLink(request.id)],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);return filename;
+}
 async function shareRequestLink(request) {
   const link=requestLink(request.id),data={title:'Serviço Certo — '+request.profession,text:'Acesse este serviço com uma conta participante.',url:link};
   if(navigator.share)try{await navigator.share(data);return 'shared';}catch(error){if(error?.name==='AbortError')throw error;await copyText(link);return 'copiedAfterError';}
@@ -116,7 +120,7 @@ function closeRequestLinksPreview() {
   const preview=el('requestLinksPreview'),button=el('previewRequestLinks');preview.hidden=true;preview.replaceChildren();button.textContent='Ver links';button.setAttribute('aria-expanded','false');
 }
 function requestLinkPreview(requests) {
-  return requests.map(request=>{const item=text('span','','request-preview-item'),link=text('a',requestLink(request.id),'request-preview-link'),copy=text('button','Copiar','secondary request-preview-action'),share=text('button','Compartilhar','secondary request-preview-action');link.href=requestLink(request.id);link.target='_blank';link.rel='noopener noreferrer';copy.type='button';copy.setAttribute('aria-label','Copiar link do serviço '+request.id);copy.onclick=async()=>{copy.disabled=true;try{await copyText(link.href);message('Link do serviço copiado. O acesso continua protegido pela conta.');}catch{message('Não foi possível copiar o link automaticamente.');}finally{copy.disabled=false;}};share.type='button';share.setAttribute('aria-label','Compartilhar link do serviço '+request.id);share.onclick=()=>shareRequestLinkAction(share,request);item.append(link,copy,share);return item;});
+  return requests.map(request=>{const item=text('span','','request-preview-item'),link=text('a',requestLink(request.id),'request-preview-link'),copy=text('button','Copiar','secondary request-preview-action'),download=text('button','Baixar','secondary request-preview-action'),share=text('button','Compartilhar','secondary request-preview-action');link.href=requestLink(request.id);link.target='_blank';link.rel='noopener noreferrer';copy.type='button';copy.setAttribute('aria-label','Copiar link do serviço '+request.id);copy.onclick=async()=>{copy.disabled=true;try{await copyText(link.href);message('Link do serviço copiado. O acesso continua protegido pela conta.');}catch{message('Não foi possível copiar o link automaticamente.');}finally{copy.disabled=false;}};download.type='button';download.setAttribute('aria-label','Baixar link do serviço '+request.id);download.onclick=()=>{download.disabled=true;try{const filename=downloadRequestLink(request);message('Link autenticado preparado em '+filename+'.');}catch{message('Não foi possível baixar o link automaticamente.');}finally{download.disabled=false;}};share.type='button';share.setAttribute('aria-label','Compartilhar link do serviço '+request.id);share.onclick=()=>shareRequestLinkAction(share,request);item.append(link,copy,download,share);return item;});
 }
 function closeRequestSummariesPreview() {
   const preview=el('requestSummariesPreview'),button=el('previewRequestSummaries');preview.hidden=true;preview.textContent='';button.textContent='Ver resumos';button.setAttribute('aria-expanded','false');
