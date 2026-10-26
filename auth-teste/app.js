@@ -10,7 +10,6 @@ import { createInspectionsPanel } from './inspections.js';
 
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-const callbackUrl = new URL(location.pathname, location.origin).href;
 let linkedRequestId = new URLSearchParams(location.search).get('servico')?.trim().slice(0,100) || '';
 let linkedRequestNeedsFocus = Boolean(linkedRequestId);
 let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map();
@@ -147,6 +146,11 @@ async function shareRequestSummary(request) {
 function clearLinkedRequest() {
   if(!linkedRequestId)return;
   linkedRequestId='';linkedRequestNeedsFocus=false;const url=new URL(location.href);url.searchParams.delete('servico');history.replaceState(null,'',url.pathname+url.search+url.hash);
+}
+function authCallbackUrl() {
+  const url=new URL(location.pathname,location.origin);
+  if(linkedRequestId)url.searchParams.set('servico',linkedRequestId);
+  return url.href;
 }
 function showAllRequestsButton() {
   const button=text('button','Ver todos os serviços','secondary');button.type='button';
@@ -488,11 +492,11 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
   if(action!=='reset'&&password.length<8)throw new InputError('Senha deve ter pelo menos 8 caracteres.');
   if(action==='signup') {
     const full_name=el('name').value.trim();if(!full_name)throw new InputError('Informe seu nome.');
-    const data=check(await api.auth.signUp({email,password,options:{emailRedirectTo:callbackUrl,data:{full_name,requested_role:el('role').value}}}));
+    const data=check(await api.auth.signUp({email,password,options:{emailRedirectTo:authCallbackUrl(),data:{full_name,requested_role:el('role').value}}}));
     el('password').value='';message('Cadastro solicitado. Verifique seu e-mail para confirmar a conta. O perfil de prestador depende de análise.');
     if(data.session)await loadAccount(data.user);
   }else if(action==='reset') {
-    check(await api.auth.resetPasswordForEmail(email,{redirectTo:callbackUrl}));message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');
+    check(await api.auth.resetPasswordForEmail(email,{redirectTo:authCallbackUrl()}));message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');
   }else {
     const data=check(await api.auth.signInWithPassword({email,password}));el('password').value='';message('');await loadAccount(data.user);
   }
@@ -500,7 +504,7 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
 el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
   const password=el('newPassword').value;if(password.length<8)throw new InputError('A nova senha precisa de pelo menos 8 caracteres.');
   check(await api.auth.updateUser({password}));check(await api.auth.signOut());recovery=false;
-  history.replaceState(null,'',callbackUrl);await loadAccount(null);message('Senha atualizada. Entre com sua nova senha.');
+  history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Senha atualizada. Entre com sua nova senha.');
 });};
 el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut());recovery=false;await loadAccount(null);message('Sessão encerrada.');});
 el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{

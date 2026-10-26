@@ -106,3 +106,35 @@ test('protected link can be cancelled from login without authentication or discl
   await expect(page.locator('#status')).toHaveText('Abertura pelo link cancelada. Entre para acessar seus serviços normalmente.');
   expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeCancel);
 });
+
+test('protected link is preserved through email signup confirmation',async({page})=>{
+  await page.goto('/auth-teste/?servico=signup-link-service');
+  await page.locator('#action').selectOption('signup');
+  await page.locator('#name').fill('Pessoa pelo link');
+  await page.locator('#email').fill('novo@example.invalid');
+  await page.locator('#password').fill('validpass123');
+  await page.locator('#submit').click();
+  const call=await page.evaluate(()=>window.testState.calls.find(item=>item.auth==='signup'));
+  expect(call.values.options.emailRedirectTo).toBe('http://127.0.0.1:4173/auth-teste/?servico=signup-link-service');
+  await expect(page.locator('#linkedRequestHint')).toBeVisible();
+  await expect(page.locator('#linkedRequestHint')).not.toContainText('signup-link-service');
+  await expect(page.locator('#status')).toContainText('Verifique seu e-mail');
+});
+
+test('protected link is preserved through password recovery',async({page})=>{
+  await page.goto('/auth-teste/?servico=recovery-link-service');
+  await page.locator('#action').selectOption('reset');
+  await page.locator('#email').fill('pessoa@example.invalid');
+  await page.locator('#submit').click();
+  const call=await page.evaluate(()=>window.testState.calls.find(item=>item.auth==='reset'));
+  expect(call.options.redirectTo).toBe('http://127.0.0.1:4173/auth-teste/?servico=recovery-link-service');
+  await page.goto('/auth-teste/?servico=recovery-link-service&callback=test#type=recovery');
+  await expect(page.locator('#recoveryPanel')).toBeVisible();
+  await page.locator('#newPassword').fill('new-password123');
+  await page.locator('#savePassword').click();
+  await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=recovery-link-service');
+  await expect(page.locator('#authPanel')).toBeVisible();
+  await expect(page.locator('#linkedRequestHint')).toBeVisible();
+  await expect(page.locator('#linkedRequestHint')).not.toContainText('recovery-link-service');
+  await expect(page.locator('#status')).toHaveText('Senha atualizada. Entre com sua nova senha.');
+});
