@@ -121,6 +121,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 115. [Foco no serviço aberto por link autenticado](ENTREGA-2026-10-26-FOCO-SERVICO-LINK-AUTENTICADO.md). Após o login, o cartão autorizado localizado pelo link recebe foco visual e de teclado uma única vez, facilitando a conferência imediata sem repetir o foco nas atualizações, consultar novamente ou alterar o pedido.
 116. [Retorno à lista após abrir link autenticado](ENTREGA-2026-10-26-RETORNO-LISTA-LINK-AUTENTICADO.md). O cartão localizado pelo link oferece **Ver todos os serviços**, removendo o recorte do URL e restaurando a lista autorizada completa com uma ação contextual, sem nova mutação ou exposição de dados privados.
 117. [Recuperação de link autenticado indisponível](ENTREGA-2026-10-26-RECUPERACAO-LINK-AUTENTICADO-INDISPONIVEL.md). Quando o código do link não está disponível para a conta, a mensagem neutra oferece **Ver todos os serviços** e restaura somente a lista autorizada, sem revelar se o código existe para outra pessoa ou alterar pedidos.
+118. [Troca de conta no link autenticado indisponível](ENTREGA-2026-10-26-TROCA-CONTA-LINK-AUTENTICADO.md). Quando a conta atual não participa do serviço indicado pelo link, a mensagem neutra oferece **Entrar com outra conta**, encerra a sessão sem apagar o código do endereço e devolve o usuário ao login, sem revelar a existência do pedido nem alterar registros.
 
 ## Próximas entregas prioritárias
 

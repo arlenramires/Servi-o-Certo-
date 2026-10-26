@@ -153,6 +153,11 @@ function showAllRequestsButton() {
   button.onclick=async()=>{button.disabled=true;try{clearLinkedRequest();el('requestSearch').value='';requestDisplayLimit=requestPageSize;await refresh();message('Lista completa de serviços autorizados exibida.');}catch(error){message(friendly(error));}finally{button.disabled=false;}};
   return button;
 }
+function switchLinkedRequestAccountButton() {
+  const button=text('button','Entrar com outra conta','secondary');button.type='button';
+  button.onclick=async()=>{button.disabled=true;try{check(await api.auth.signOut());recovery=false;await loadAccount(null);message('Sessão encerrada. Entre com outra conta participante para abrir este link.');}catch(error){message(friendly(error));}finally{button.disabled=false;}};
+  return button;
+}
 async function copyText(value) {
   if(navigator.clipboard?.writeText)try {await navigator.clipboard.writeText(value);return;} catch {}
   const field=document.createElement('textarea');field.value=value;field.setAttribute('readonly','');field.style.position='fixed';field.style.opacity='0';
@@ -287,7 +292,7 @@ async function refresh(ticket=generation) {
   el('requests').replaceChildren();
   if(!visibleRequests.length) {
     el('requests').append(text('p',linkedRequestId?'Serviço não encontrado nesta conta. Confira o link ou entre com a conta participante.':requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
-    if(linkedRequestId)el('requests').append(showAllRequestsButton());
+    if(linkedRequestId)el('requests').append(showAllRequestsButton(),switchLinkedRequestAccountButton());
   }
   for(const r of displayedRequests) {
     const card=text('article','','service');

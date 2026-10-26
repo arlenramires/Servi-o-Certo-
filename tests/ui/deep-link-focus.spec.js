@@ -71,3 +71,22 @@ test('unavailable authenticated link returns to authorized services without reve
   expect(await page.evaluate(()=>window.testState.calls.length)).toBeGreaterThan(callsBeforeReturn);
   expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
+
+test('unavailable authenticated link keeps its code while changing account',async({page})=>{
+  await page.goto('/auth-teste/?servico=account-switch-service');
+  await page.locator('#email').fill('teste@example.invalid');
+  await page.locator('#password').fill('validpass123');
+  await page.locator('#submit').click();
+  await expect(page.locator('#workspace')).toBeVisible();
+  await page.evaluate(()=>window.testState.requests.push({id:'authorized-service',profession:'Pintor',description:'Serviço autorizado da conta atual',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));
+  await page.locator('#refresh').click();
+  await expect(page.locator('#requests')).not.toContainText('account-switch-service');
+  await page.getByRole('button',{name:'Entrar com outra conta'}).click();
+  await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=account-switch-service');
+  await expect(page.locator('#authPanel')).toBeVisible();
+  await expect(page.locator('#workspace')).toBeHidden();
+  await expect(page.locator('#requests')).toBeEmpty();
+  await expect(page.locator('#status')).toHaveText('Sessão encerrada. Entre com outra conta participante para abrir este link.');
+  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
