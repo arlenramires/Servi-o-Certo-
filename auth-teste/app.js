@@ -10,9 +10,10 @@ import { createInspectionsPanel } from './inspections.js';
 
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-const linkedRequestParam = new URLSearchParams(location.search).get('servico');
+const linkedRequestParams = new URLSearchParams(location.search).getAll('servico');
+const linkedRequestParam = linkedRequestParams[0] ?? null;
 const normalizedLinkedRequest = linkedRequestParam?.trim() || '';
-const invalidLinkedRequest = linkedRequestParam !== null && !/^[A-Za-z0-9-]{1,100}$/.test(normalizedLinkedRequest);
+const invalidLinkedRequest = linkedRequestParams.length > 1 || (linkedRequestParam !== null && !/^[A-Za-z0-9-]{1,100}$/.test(normalizedLinkedRequest));
 let linkedRequestId = invalidLinkedRequest ? '' : normalizedLinkedRequest;
 if(invalidLinkedRequest){const url=new URL(location.href);url.searchParams.delete('servico');history.replaceState(null,'',url.pathname+url.search+url.hash);}
 let linkedRequestNeedsFocus = Boolean(linkedRequestId);

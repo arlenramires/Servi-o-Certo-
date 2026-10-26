@@ -19,6 +19,17 @@ test('malformed protected links return to normal login without authentication or
   }
 });
 
+test('duplicate protected link references return to normal login without choosing one',async({page})=>{
+  await page.goto('/auth-teste/?servico=first-service&servico=second-service');
+  await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/');
+  await expect(page.locator('#authPanel')).toBeVisible();
+  await expect(page.locator('#linkedRequestHint')).toBeHidden();
+  await expect(page.locator('#status')).toHaveText('Link de serviço inválido. Entre para acessar seus serviços normalmente.');
+  expect(await page.evaluate(()=>window.testState.calls.length)).toBe(0);
+  await expect(page.locator('body')).not.toContainText('first-service');
+  await expect(page.locator('body')).not.toContainText('second-service');
+});
+
 test('authenticated link focuses the authorized service once without changing it',async({page})=>{
   await page.goto('/auth-teste/?servico=focused-service');
   await page.locator('#email').fill('teste@example.invalid');
