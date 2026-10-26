@@ -186,6 +186,7 @@ function authView() {
   el('authPanel').hidden=!!user||recovery;
   el('accountPanel').hidden=!user||recovery;
   el('recoveryPanel').hidden=!recovery;
+  el('linkedRequestHint').hidden=!linkedRequestId||!!user||recovery;
 }
 async function loadAccount(nextUser) {
   const ticket=++generation;
@@ -534,6 +535,7 @@ el('requestFilter').onchange=()=>{requestDisplayLimit=requestPageSize;busy('refr
 el('requestSort').onchange=()=>{requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
 el('requestPageSize').onchange=()=>{requestPageSize=Number(el('requestPageSize').value);requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
 el('requestSearchForm').onsubmit=event=>{event.preventDefault();clearLinkedRequest();requestDisplayLimit=requestPageSize;busy('searchRequests',()=>refresh());};
+el('cancelLinkedRequest').onclick=()=>{clearLinkedRequest();el('requestSearch').value='';authView();message('Abertura pelo link cancelada. Entre para acessar seus serviços normalmente.');};
 el('clearRequestSearch').onclick=()=>{clearLinkedRequest();el('requestSearch').value='';requestDisplayLimit=requestPageSize;busy('clearRequestSearch',()=>refresh());};
 el('clearRequestFilters').onclick=()=>{
   clearLinkedRequest();el('requestSearch').value='';el('requestFilter').value='all';el('requestSort').value='recent';requestDisplayLimit=requestPageSize;busy('clearRequestFilters',()=>refresh());

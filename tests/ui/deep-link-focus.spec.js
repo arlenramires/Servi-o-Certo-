@@ -87,6 +87,22 @@ test('unavailable authenticated link keeps its code while changing account',asyn
   await expect(page.locator('#authPanel')).toBeVisible();
   await expect(page.locator('#workspace')).toBeHidden();
   await expect(page.locator('#requests')).toBeEmpty();
+  await expect(page.locator('#linkedRequestHint')).toBeVisible();
+  await expect(page.locator('#linkedRequestHint')).not.toContainText('account-switch-service');
   await expect(page.locator('#status')).toHaveText('Sessão encerrada. Entre com outra conta participante para abrir este link.');
   expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});
+
+test('protected link can be cancelled from login without authentication or disclosure',async({page})=>{
+  await page.goto('/auth-teste/?servico=cancel-link-service');
+  await expect(page.locator('#authPanel')).toBeVisible();
+  await expect(page.locator('#linkedRequestHint')).toBeVisible();
+  await expect(page.locator('#linkedRequestHint')).not.toContainText('cancel-link-service');
+  const callsBeforeCancel=await page.evaluate(()=>window.testState.calls.length);
+  await page.getByRole('button',{name:'cancele a abertura do link'}).click();
+  await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/');
+  await expect(page.locator('#authPanel')).toBeVisible();
+  await expect(page.locator('#linkedRequestHint')).toBeHidden();
+  await expect(page.locator('#status')).toHaveText('Abertura pelo link cancelada. Entre para acessar seus serviços normalmente.');
+  expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeCancel);
 });
