@@ -124,6 +124,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 118. [Troca de conta no link autenticado indisponível](ENTREGA-2026-10-26-TROCA-CONTA-LINK-AUTENTICADO.md). Quando a conta atual não participa do serviço indicado pelo link, a mensagem neutra oferece **Entrar com outra conta**, encerra a sessão sem apagar o código do endereço e devolve o usuário ao login, sem revelar a existência do pedido nem alterar registros.
 119. [Cancelamento da abertura de link protegido](ENTREGA-2026-10-26-CANCELAMENTO-LINK-PROTEGIDO.md). No formulário de acesso aberto por um link protegido, a pessoa pode cancelar essa abertura, remover o código do endereço e permanecer no login normal, sem autenticação, consulta, exposição do identificador ou alteração de serviços.
 120. [Continuidade do link protegido nos e-mails de acesso](ENTREGA-2026-10-26-CONTINUIDADE-LINK-EMAIL-ACESSO.md). Ao criar uma conta ou recuperar a senha a partir de um link protegido, o retorno confirmado pelo Supabase preserva a referência ao serviço para a próxima autenticação, sem exibir o código no formulário, consultar pedidos ou alterar registros.
+121. [Validação do link protegido](ENTREGA-2026-10-26-VALIDACAO-LINK-PROTEGIDO.md). Referências vazias, extensas ou com caracteres inválidos são removidas do endereço antes do acesso, mantendo o login normal disponível sem autenticação, consulta, exposição do valor recebido ou alteração de serviços.
 
 ## Próximas entregas prioritárias
 

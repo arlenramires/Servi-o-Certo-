@@ -10,7 +10,11 @@ import { createInspectionsPanel } from './inspections.js';
 
 const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-let linkedRequestId = new URLSearchParams(location.search).get('servico')?.trim().slice(0,100) || '';
+const linkedRequestParam = new URLSearchParams(location.search).get('servico');
+const normalizedLinkedRequest = linkedRequestParam?.trim() || '';
+const invalidLinkedRequest = linkedRequestParam !== null && !/^[A-Za-z0-9-]{1,100}$/.test(normalizedLinkedRequest);
+let linkedRequestId = invalidLinkedRequest ? '' : normalizedLinkedRequest;
+if(invalidLinkedRequest){const url=new URL(location.href);url.searchParams.delete('servico');history.replaceState(null,'',url.pathname+url.search+url.hash);}
 let linkedRequestNeedsFocus = Boolean(linkedRequestId);
 let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map();
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
@@ -636,5 +640,6 @@ api.auth.onAuthStateChange((event,session)=>{
   if(event==='SIGNED_IN'&&!recovery)setTimeout(()=>loadAccount(session.user).catch(e=>message(friendly(e))),0);
 });
 authView();
+if(invalidLinkedRequest)message('Link de serviço inválido. Entre para acessar seus serviços normalmente.');
 try { const {user:current}=check(await api.auth.getUser());await loadAccount(current); }
 catch(error){if(error?.name!=='AuthSessionMissingError')message(friendly(error));}

@@ -7,6 +7,18 @@ test.beforeEach(async({page})=>{
   await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm',route=>route.fulfill({contentType:'text/javascript',body:mock}));
 });
 
+test('malformed protected links return to normal login without authentication or disclosure',async({page})=>{
+  for(const value of ['<script>','a'.repeat(101)]){
+    await page.goto('/auth-teste/?servico='+encodeURIComponent(value));
+    await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/');
+    await expect(page.locator('#authPanel')).toBeVisible();
+    await expect(page.locator('#linkedRequestHint')).toBeHidden();
+    await expect(page.locator('#status')).toHaveText('Link de serviço inválido. Entre para acessar seus serviços normalmente.');
+    expect(await page.evaluate(()=>window.testState.calls.length)).toBe(0);
+    await expect(page.locator('body')).not.toContainText(value);
+  }
+});
+
 test('authenticated link focuses the authorized service once without changing it',async({page})=>{
   await page.goto('/auth-teste/?servico=focused-service');
   await page.locator('#email').fill('teste@example.invalid');
