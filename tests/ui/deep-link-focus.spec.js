@@ -26,3 +26,26 @@ test('authenticated link focuses the authorized service once without changing it
   expect(await page.evaluate(()=>window.testState.calls.length)).toBeGreaterThan(callsAfterFocus);
   expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
+
+test('authenticated link returns to every authorized service without changing them',async({page})=>{
+  await page.goto('/auth-teste/?servico=linked-service');
+  await page.locator('#email').fill('teste@example.invalid');
+  await page.locator('#password').fill('validpass123');
+  await page.locator('#submit').click();
+  await expect(page.locator('#workspace')).toBeVisible();
+  await page.evaluate(()=>window.testState.requests.push(
+    {id:'linked-service',profession:'Eletricista',description:'Serviço vindo do link',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
+    {id:'another-service',profession:'Pintor',description:'Outro serviço autorizado',status:'aberto',city:'Boa Vista',state:'RR',created_at:new Date().toISOString()}
+  ));
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));
+  await page.locator('#refresh').click();
+  await expect(page.locator('#requests .service')).toHaveCount(1);
+  const callsBeforeReturn=await page.evaluate(()=>window.testState.calls.length);
+  await page.getByRole('button',{name:'Ver todos os serviços'}).click();
+  await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/');
+  await expect(page.locator('#requestSearch')).toHaveValue('');
+  await expect(page.locator('#requests .service')).toHaveCount(2);
+  await expect(page.locator('#status')).toHaveText('Lista completa de serviços autorizados exibida.');
+  expect(await page.evaluate(()=>window.testState.calls.length)).toBeGreaterThan(callsBeforeReturn);
+  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});

@@ -298,6 +298,11 @@ async function refresh(ticket=generation) {
     downloadSummary.onclick=()=>{downloadSummary.disabled=true;try{const filename=downloadRequestSummary(r);message('Resumo seguro preparado em '+filename+'.');}catch{message('Não foi possível baixar o resumo automaticamente.');}finally{downloadSummary.disabled=false;}};
     shareSummary.onclick=async()=>{shareSummary.disabled=true;try{const result=await shareRequestSummary(r);message(result==='file'?'Arquivo de resumo seguro enviado ao compartilhamento do aparelho.':result==='shared'?'Resumo seguro enviado ao compartilhamento do aparelho.':result==='copiedAfterFileAndTextError'?'Arquivo e texto recusados. Resumo seguro copiado.':result==='copiedAfterError'?'Compartilhamento recusado. Resumo seguro copiado.':'Compartilhamento indisponível. Resumo seguro copiado.');}catch(error){message(error?.name==='AbortError'?'Compartilhamento cancelado.':'Não foi possível compartilhar o resumo.');}finally{shareSummary.disabled=false;}};
     card.append(requestCode,previewSummary,copyCode,openLink,copyLink,downloadLink,shareLink,copySummary,downloadSummary,shareSummary,summaryPreview);
+    if(r.id===linkedRequestId) {
+      const showAll=text('button','Ver todos os serviços','secondary');showAll.type='button';
+      showAll.onclick=async()=>{showAll.disabled=true;try{clearLinkedRequest();el('requestSearch').value='';requestDisplayLimit=requestPageSize;await refresh();message('Lista completa de serviços autorizados exibida.');}catch(error){message(friendly(error));}finally{showAll.disabled=false;}};
+      card.append(showAll);
+    }
     if(r.is_urgent)card.append(text('strong','Atendimento urgente'));
     if(profile.role==='cliente'&&r.status==='aberto'&&!r.provider_id) {
       const professionLabel=text('label','Profissão do pedido');professionLabel.htmlFor='request-profession-'+r.id;
