@@ -104,6 +104,9 @@ function requestSummariesPayload(requests) {
     now=new Date(),day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-'),filterName=el('requestFilter').selectedOptions[0]?.textContent.replace(/\s+\(\d+\)$/,'')||'filtrados',filterSlug=fileSlug(filterName)||'filtrados',search=el('requestSearch').value.trim(),searchSlug=fileSlug(search).slice(0,40).replace(/-$/,''),sortName=el('requestSort').selectedOptions[0]?.textContent||'Mais recentes',sortSlug=el('requestSort').value==='recent'?'':fileSlug(sortName),contextSlug=[filterSlug,searchSlug,sortSlug].filter(Boolean).join('-'),context=['Contexto dos resumos seguros',`Filtro: ${filterName}`,`Busca aplicada: ${search?'Sim':'Não'}`,`Ordenação: ${sortName}`,`Quantidade: ${requests.length}`].join('\n');
   return {filename:`servico-certo-resumos-seguros-${contextSlug}-${day}.txt`,content:context+'\n\n---\n\n'+requests.map(requestSummaryText).join('\n\n---\n\n')};
 }
+function closeRequestLinksPreview() {
+  const preview=el('requestLinksPreview'),button=el('previewRequestLinks');preview.hidden=true;preview.textContent='';button.textContent='Ver links';button.setAttribute('aria-expanded','false');
+}
 function closeRequestSummariesPreview() {
   const preview=el('requestSummariesPreview'),button=el('previewRequestSummaries');preview.hidden=true;preview.textContent='';button.textContent='Ver resumos';button.setAttribute('aria-expanded','false');
 }
@@ -141,7 +144,7 @@ async function busy(id, task) {
 }
 function clearWorkspace() {
   profile=null; selected=null; exportableRequests=[]; exportableUnread=new Map(); requestPageSize=10; requestDisplayLimit=requestPageSize; el('requestPageSize').value=String(requestPageSize); ++conversationGeneration;
-  closeRequestSummariesPreview();
+  closeRequestLinksPreview();closeRequestSummariesPreview();
   contracts.reset();
   execution.reset();
   cancellations.reset();
@@ -248,7 +251,7 @@ async function refresh(ticket=generation) {
     withoutUnreadCount=requests.filter(r=>(unread.get(r.id)||0)===0).length,
     displayedRequests=visibleRequests.slice(0,requestDisplayLimit);
   if(ticket!==generation)return;
-  closeRequestSummariesPreview();
+  closeRequestLinksPreview();closeRequestSummariesPreview();
   exportableRequests=visibleRequests;
   exportableUnread=new Map(visibleRequests.map(r=>[r.id,unread.get(r.id)||0]));
   const filterLabels={all:`Todos (${requests.length})`,today:`Solicitados hoje (${todayCount})`,recent:`Solicitados nos últimos 7 dias (${recentCount})`,month:`Solicitados nos últimos 30 dias (${monthCount})`,older:`Solicitados há mais de 30 dias (${olderCount})`,active:`Ativos (${activeCount})`,waiting:`Aguardando profissional (${waitingCount})`,servicing:`Em atendimento (${servicingCount})`,accepted:`Aceitos (${acceptedCount})`,inProgress:`Em andamento (${inProgressCount})`,completed:`Concluídos (${completedCount})`,cancelled:`Cancelados (${cancelledCount})`,history:`Histórico (${historyCount})`,urgent:`Urgentes (${urgentCount})`,scheduled:`Com horário preferido (${scheduledCount})`,preferredToday:`Horário preferido hoje (${preferredTodayCount})`,preferredTomorrow:`Horário preferido amanhã (${preferredTomorrowCount})`,preferredWeek:`Horário preferido nos próximos 7 dias (${preferredWeekCount})`,preferredLater:`Horário preferido após 7 dias (${preferredLaterCount})`,upcoming:`Horário preferido futuro (${upcomingCount})`,pastPreferred:`Horário preferido passado (${pastPreferredCount})`,withoutPreferred:`Sem horário preferido (${withoutPreferredCount})`,unread:`Mensagens novas (${unreadCount})`,withoutUnread:`Sem mensagens novas (${withoutUnreadCount})`};
@@ -259,7 +262,7 @@ async function refresh(ticket=generation) {
   const remaining=visibleRequests.length-displayedRequests.length;
   el('requestMore').hidden=remaining<=0;el('requestMore').textContent=remaining>0?`Mostrar mais (${remaining} restante${remaining===1?'':'s'})`:'Mostrar mais';
   el('requestCollapse').hidden=requestDisplayLimit<=requestPageSize||visibleRequests.length<=requestPageSize;
-  el('copyRequestCodes').disabled=!visibleRequests.length;el('copyRequestLinks').disabled=!visibleRequests.length;el('downloadRequestLinks').disabled=!visibleRequests.length;el('shareRequestLinks').disabled=!visibleRequests.length;el('previewRequestSummaries').disabled=!visibleRequests.length;el('copyRequestSummaries').disabled=!visibleRequests.length;el('downloadRequestSummaries').disabled=!visibleRequests.length;el('shareRequestSummaries').disabled=!visibleRequests.length;el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
+  el('copyRequestCodes').disabled=!visibleRequests.length;el('previewRequestLinks').disabled=!visibleRequests.length;el('copyRequestLinks').disabled=!visibleRequests.length;el('downloadRequestLinks').disabled=!visibleRequests.length;el('shareRequestLinks').disabled=!visibleRequests.length;el('previewRequestSummaries').disabled=!visibleRequests.length;el('copyRequestSummaries').disabled=!visibleRequests.length;el('downloadRequestSummaries').disabled=!visibleRequests.length;el('shareRequestSummaries').disabled=!visibleRequests.length;el('exportRequests').disabled=!visibleRequests.length;el('exportRequestsJson').disabled=!visibleRequests.length;
   el('requests').replaceChildren();
   if(!visibleRequests.length)el('requests').append(text('p',linkedRequestId?'Serviço não encontrado nesta conta. Confira o link ou entre com a conta participante.':requests.length?(query?'Nenhum serviço corresponde à busca e ao filtro selecionado.':'Nenhum serviço nesta categoria.'):'Nenhum serviço registrado.'));
   for(const r of displayedRequests) {
@@ -512,6 +515,11 @@ el('copyRequestLinks').onclick=async()=>{
   catch {message('Não foi possível copiar automaticamente os links. Tente novamente.');}
   finally {button.disabled=!exportableRequests.length;}
 };
+el('previewRequestLinks').onclick=()=>{
+  const button=el('previewRequestLinks'),preview=el('requestLinksPreview'),opening=preview.hidden;
+  if(opening){closeRequestSummariesPreview();preview.textContent=requestLinksPayload(exportableRequests).content;}else preview.textContent='';
+  preview.hidden=!opening;button.textContent=opening?'Ocultar links':'Ver links';button.setAttribute('aria-expanded',String(opening));
+};
 el('downloadRequestLinks').onclick=()=>{
   const button=el('downloadRequestLinks');button.disabled=true;
   try {const filename=downloadRequestLinks(exportableRequests);message(`${exportableRequests.length} ${exportableRequests.length===1?'link autenticado preparado':'links autenticados preparados'} em ${filename}.`);}
@@ -526,7 +534,7 @@ el('shareRequestLinks').onclick=async()=>{
 };
 el('previewRequestSummaries').onclick=()=>{
   const button=el('previewRequestSummaries'),preview=el('requestSummariesPreview'),opening=preview.hidden;
-  if(opening)preview.textContent=requestSummariesPayload(exportableRequests).content;else preview.textContent='';
+  if(opening){closeRequestLinksPreview();preview.textContent=requestSummariesPayload(exportableRequests).content;}else preview.textContent='';
   preview.hidden=!opening;button.textContent=opening?'Ocultar resumos':'Ver resumos';button.setAttribute('aria-expanded',String(opening));
 };
 el('copyRequestSummaries').onclick=async()=>{
