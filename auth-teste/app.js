@@ -494,17 +494,19 @@ el('action').onchange=()=>{
 el('action').onchange();
 el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
   const email=el('email').value.trim(),password=el('password').value,action=el('action').value;
-  if(action!=='reset'&&password.length<8)throw new InputError('Senha deve ter pelo menos 8 caracteres.');
-  if(action==='signup') {
-    const full_name=el('name').value.trim();if(!full_name)throw new InputError('Informe seu nome.');
-    const data=check(await api.auth.signUp({email,password,options:{emailRedirectTo:authCallbackUrl(),data:{full_name,requested_role:el('role').value}}}));
-    el('password').value='';message('Cadastro solicitado. Verifique seu e-mail para confirmar a conta. O perfil de prestador depende de análise.');
-    if(data.session)await loadAccount(data.user);
-  }else if(action==='reset') {
-    check(await api.auth.resetPasswordForEmail(email,{redirectTo:authCallbackUrl()}));message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');
-  }else {
-    const data=check(await api.auth.signInWithPassword({email,password}));el('password').value='';message('');await loadAccount(data.user);
-  }
+  try {
+    if(action!=='reset'&&password.length<8)throw new InputError('Senha deve ter pelo menos 8 caracteres.');
+    if(action==='signup') {
+      const full_name=el('name').value.trim();if(!full_name)throw new InputError('Informe seu nome.');
+      const data=check(await api.auth.signUp({email,password,options:{emailRedirectTo:authCallbackUrl(),data:{full_name,requested_role:el('role').value}}}));
+      message('Cadastro solicitado. Verifique seu e-mail para confirmar a conta. O perfil de prestador depende de análise.');
+      if(data.session)await loadAccount(data.user);
+    }else if(action==='reset') {
+      check(await api.auth.resetPasswordForEmail(email,{redirectTo:authCallbackUrl()}));message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');
+    }else {
+      const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
+    }
+  }finally{if(action!=='reset')el('password').value='';}
 });};
 el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
   const password=el('newPassword').value;if(password.length<8)throw new InputError('A nova senha precisa de pelo menos 8 caracteres.');

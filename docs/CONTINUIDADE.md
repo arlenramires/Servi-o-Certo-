@@ -126,6 +126,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 120. [Continuidade do link protegido nos e-mails de acesso](ENTREGA-2026-10-26-CONTINUIDADE-LINK-EMAIL-ACESSO.md). Ao criar uma conta ou recuperar a senha a partir de um link protegido, o retorno confirmado pelo Supabase preserva a referência ao serviço para a próxima autenticação, sem exibir o código no formulário, consultar pedidos ou alterar registros.
 121. [Validação do link protegido](ENTREGA-2026-10-26-VALIDACAO-LINK-PROTEGIDO.md). Referências vazias, extensas ou com caracteres inválidos são removidas do endereço antes do acesso, mantendo o login normal disponível sem autenticação, consulta, exposição do valor recebido ou alteração de serviços.
 122. [Referência única no link protegido](ENTREGA-2026-10-26-REFERENCIA-UNICA-LINK-PROTEGIDO.md). Endereços com mais de um parâmetro `servico` são neutralizados antes do acesso, sem escolher silenciosamente uma referência, autenticar, consultar pedidos, expor os valores recebidos ou alterar serviços.
+123. [Limpeza da senha após tentativa de acesso](ENTREGA-2026-10-26-LIMPEZA-SENHA-TENTATIVA-ACESSO.md). O campo de senha é apagado depois de toda tentativa enviada de login ou cadastro, inclusive quando a autenticação é recusada, reduzindo a permanência do segredo na interface sem alterar sessão, perfil ou regras de acesso.
 
 ## Próximas entregas prioritárias
 
