@@ -110,7 +110,10 @@ function requestSummariesPayload(requests) {
   return {filename:`servico-certo-resumos-seguros-${contextSlug}-${day}.txt`,content:context+'\n\n---\n\n'+requests.map(requestSummaryText).join('\n\n---\n\n')};
 }
 function closeRequestLinksPreview() {
-  const preview=el('requestLinksPreview'),button=el('previewRequestLinks');preview.hidden=true;preview.textContent='';button.textContent='Ver links';button.setAttribute('aria-expanded','false');
+  const preview=el('requestLinksPreview'),button=el('previewRequestLinks');preview.hidden=true;preview.replaceChildren();button.textContent='Ver links';button.setAttribute('aria-expanded','false');
+}
+function requestLinkPreview(requests) {
+  return requests.map(request=>{const link=text('a',requestLink(request.id),'request-preview-link');link.href=requestLink(request.id);link.target='_blank';link.rel='noopener noreferrer';return link;});
 }
 function closeRequestSummariesPreview() {
   const preview=el('requestSummariesPreview'),button=el('previewRequestSummaries');preview.hidden=true;preview.textContent='';button.textContent='Ver resumos';button.setAttribute('aria-expanded','false');
@@ -523,7 +526,7 @@ el('copyRequestLinks').onclick=async()=>{
 };
 el('previewRequestLinks').onclick=()=>{
   const button=el('previewRequestLinks'),preview=el('requestLinksPreview'),opening=preview.hidden;
-  if(opening){closeRequestSummariesPreview();preview.textContent=requestLinksPayload(exportableRequests).content;}else preview.textContent='';
+  if(opening){closeRequestSummariesPreview();preview.replaceChildren(...requestLinkPreview(exportableRequests));}else preview.replaceChildren();
   preview.hidden=!opening;button.textContent=opening?'Ocultar links':'Ver links';button.setAttribute('aria-expanded',String(opening));
 };
 el('downloadRequestLinks').onclick=()=>{
