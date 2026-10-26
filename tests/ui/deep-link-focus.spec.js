@@ -49,3 +49,25 @@ test('authenticated link returns to every authorized service without changing th
   expect(await page.evaluate(()=>window.testState.calls.length)).toBeGreaterThan(callsBeforeReturn);
   expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
+
+test('unavailable authenticated link returns to authorized services without revealing existence',async({page})=>{
+  await page.goto('/auth-teste/?servico=unavailable-service');
+  await page.locator('#email').fill('teste@example.invalid');
+  await page.locator('#password').fill('validpass123');
+  await page.locator('#submit').click();
+  await expect(page.locator('#workspace')).toBeVisible();
+  await page.evaluate(()=>window.testState.requests.push({id:'authorized-service',profession:'Pintor',description:'Serviço visível somente após retornar',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
+  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));
+  await page.locator('#refresh').click();
+  await expect(page.locator('#requests')).toContainText('Serviço não encontrado nesta conta. Confira o link ou entre com a conta participante.');
+  await expect(page.locator('#requests')).not.toContainText('unavailable-service');
+  await expect(page.locator('#requests .service')).toHaveCount(0);
+  const callsBeforeReturn=await page.evaluate(()=>window.testState.calls.length);
+  await page.getByRole('button',{name:'Ver todos os serviços'}).click();
+  await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/');
+  await expect(page.locator('#requests .service')).toHaveCount(1);
+  await expect(page.locator('[data-request="authorized-service"]')).toBeVisible();
+  await expect(page.locator('#status')).toHaveText('Lista completa de serviços autorizados exibida.');
+  expect(await page.evaluate(()=>window.testState.calls.length)).toBeGreaterThan(callsBeforeReturn);
+  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
+});

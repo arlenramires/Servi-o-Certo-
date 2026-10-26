@@ -120,6 +120,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 114. [Download do link autenticado pelo cartão](ENTREGA-2026-10-26-DOWNLOAD-LINK-AUTENTICADO-INDIVIDUAL.md). Cliente e prestador podem baixar diretamente de cada cartão autorizado um arquivo `.txt` contendo somente o endereço com o código do serviço; o arquivo usa nome seguro e o acesso pelo link continua exigindo conta participante, sem descrição privada, nova consulta ou alteração do pedido.
 115. [Foco no serviço aberto por link autenticado](ENTREGA-2026-10-26-FOCO-SERVICO-LINK-AUTENTICADO.md). Após o login, o cartão autorizado localizado pelo link recebe foco visual e de teclado uma única vez, facilitando a conferência imediata sem repetir o foco nas atualizações, consultar novamente ou alterar o pedido.
 116. [Retorno à lista após abrir link autenticado](ENTREGA-2026-10-26-RETORNO-LISTA-LINK-AUTENTICADO.md). O cartão localizado pelo link oferece **Ver todos os serviços**, removendo o recorte do URL e restaurando a lista autorizada completa com uma ação contextual, sem nova mutação ou exposição de dados privados.
+117. [Recuperação de link autenticado indisponível](ENTREGA-2026-10-26-RECUPERACAO-LINK-AUTENTICADO-INDISPONIVEL.md). Quando o código do link não está disponível para a conta, a mensagem neutra oferece **Ver todos os serviços** e restaura somente a lista autorizada, sem revelar se o código existe para outra pessoa ou alterar pedidos.
 
 ## Próximas entregas prioritárias
 
