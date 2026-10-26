@@ -12,6 +12,7 @@ const el = id => document.getElementById(id);
 const api = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const callbackUrl = new URL(location.pathname, location.origin).href;
 let linkedRequestId = new URLSearchParams(location.search).get('servico')?.trim().slice(0,100) || '';
+let linkedRequestNeedsFocus = Boolean(linkedRequestId);
 let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map();
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
@@ -145,7 +146,7 @@ async function shareRequestSummary(request) {
 }
 function clearLinkedRequest() {
   if(!linkedRequestId)return;
-  linkedRequestId='';const url=new URL(location.href);url.searchParams.delete('servico');history.replaceState(null,'',url.pathname+url.search+url.hash);
+  linkedRequestId='';linkedRequestNeedsFocus=false;const url=new URL(location.href);url.searchParams.delete('servico');history.replaceState(null,'',url.pathname+url.search+url.hash);
 }
 async function copyText(value) {
   if(navigator.clipboard?.writeText)try {await navigator.clipboard.writeText(value);return;} catch {}
@@ -283,6 +284,7 @@ async function refresh(ticket=generation) {
   for(const r of displayedRequests) {
     const card=text('article','','service');
     card.dataset.request=r.id;
+    if(r.id===linkedRequestId){card.dataset.linked='true';card.tabIndex=-1;}
     const createdAt=new Date(r.created_at),summary=[text('h3',r.profession),text('small',(labels[r.status]||r.status)+' · '+r.city+' / '+r.state)];
     if(!Number.isNaN(createdAt.getTime())) {const requestedAt=text('time','Solicitado em '+createdAt.toLocaleString('pt-BR'),'muted request-created');requestedAt.dateTime=createdAt.toISOString();summary.push(requestedAt);}
     card.append(...summary,text('p',r.description));
@@ -362,6 +364,10 @@ async function refresh(ticket=generation) {
       const button=text('button','Abrir conversa','secondary');button.onclick=()=>busy('refresh',()=>openConversation(r));card.append(button);
     }
     el('requests').append(card);
+  }
+  if(linkedRequestNeedsFocus) {
+    const linkedCard=el('requests').querySelector(`[data-request="${CSS.escape(linkedRequestId)}"]`);
+    if(linkedCard){linkedRequestNeedsFocus=false;linkedCard.focus();message('Serviço aberto pelo link. Confira os dados e as ações disponíveis.');}
   }
   if(profile.role==='prestador') {
     const [availableResult,declinedResult]=await Promise.all([api.rpc('available_request_context'),api.rpc('declined_requests')]);
