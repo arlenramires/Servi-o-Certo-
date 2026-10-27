@@ -136,6 +136,7 @@ test('protected link is preserved through email signup confirmation',async({page
   await page.locator('#name').fill('Pessoa pelo link');
   await page.locator('#email').fill('novo@example.invalid');
   await page.locator('#password').fill('validpass123');
+  await page.locator('#passwordConfirmation').fill('validpass123');
   await page.locator('#submit').click();
   const call=await page.evaluate(()=>window.testState.calls.find(item=>item.auth==='signup'));
   expect(call.values.options.emailRedirectTo).toBe('http://127.0.0.1:4173/auth-teste/?servico=signup-link-service');
@@ -154,6 +155,7 @@ test('protected link is preserved through password recovery',async({page})=>{
   await page.goto('/auth-teste/?servico=recovery-link-service&callback=test#type=recovery');
   await expect(page.locator('#recoveryPanel')).toBeVisible();
   await page.locator('#newPassword').fill('new-password123');
+  await page.locator('#newPasswordConfirmation').fill('new-password123');
   await page.locator('#savePassword').click();
   await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=recovery-link-service');
   await expect(page.locator('#authPanel')).toBeVisible();

@@ -188,7 +188,7 @@ function clearWorkspace() {
   inspections.reset();
   for(const id of ['workspace','clientPanel','providerPanel','providerApply','adminPanel','conversation']) el(id).hidden=true;
   for(const id of ['requests','opportunities','messages','quotes','applications','identity','profile']) el(id).replaceChildren();
-  for(const id of ['password','newPassword','message','description','experience','quoteAmount','quoteDescription','scheduled']) el(id).value='';
+  for(const id of ['password','passwordConfirmation','newPassword','newPasswordConfirmation','message','description','experience','quoteAmount','quoteDescription','scheduled']) el(id).value='';
   el('urgent').checked=false;
 }
 function authView() {
@@ -489,14 +489,16 @@ el('action').onchange=()=>{
   const action=el('action').value;
   el('registration').hidden=action!=='signup';el('name').required=action==='signup';
   el('passwordArea').hidden=action==='reset';el('password').required=action!=='reset';
-  el('password').autocomplete=action==='signup'?'new-password':'current-password';el('password').value='';
+  el('passwordConfirmationArea').hidden=action!=='signup';el('passwordConfirmation').required=action==='signup';
+  el('password').autocomplete=action==='signup'?'new-password':'current-password';el('password').value='';el('passwordConfirmation').value='';
 };
 el('action').onchange();
 el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
-  const email=el('email').value.trim(),password=el('password').value,action=el('action').value;
+  const email=el('email').value.trim(),password=el('password').value,passwordConfirmation=el('passwordConfirmation').value,action=el('action').value;
   try {
     if(action!=='reset'&&password.length<8)throw new InputError('Senha deve ter pelo menos 8 caracteres.');
     if(action==='signup') {
+      if(password!==passwordConfirmation)throw new InputError('As senhas não coincidem.');
       const full_name=el('name').value.trim();if(!full_name)throw new InputError('Informe seu nome.');
       const data=check(await api.auth.signUp({email,password,options:{emailRedirectTo:authCallbackUrl(),data:{full_name,requested_role:el('role').value}}}));
       message('Cadastro solicitado. Verifique seu e-mail para confirmar a conta. O perfil de prestador depende de análise.');
@@ -506,15 +508,16 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
     }else {
       const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
     }
-  }finally{if(action!=='reset')el('password').value='';}
+  }finally{if(action!=='reset'){el('password').value='';el('passwordConfirmation').value='';}}
 });};
 el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
-  const password=el('newPassword').value;
+  const password=el('newPassword').value,passwordConfirmation=el('newPasswordConfirmation').value;
   try {
     if(password.length<8)throw new InputError('A nova senha precisa de pelo menos 8 caracteres.');
+    if(password!==passwordConfirmation)throw new InputError('As senhas não coincidem.');
     check(await api.auth.updateUser({password}));check(await api.auth.signOut());recovery=false;
     history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Senha atualizada. Entre com sua nova senha.');
-  }finally{el('newPassword').value='';}
+  }finally{el('newPassword').value='';el('newPasswordConfirmation').value='';}
 });};
 el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut());recovery=false;await loadAccount(null);message('Sessão encerrada.');});
 el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{
