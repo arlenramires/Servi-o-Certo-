@@ -18,6 +18,7 @@ let linkedRequestId = invalidLinkedRequest ? '' : normalizedLinkedRequest;
 if(invalidLinkedRequest){const url=new URL(location.href);url.searchParams.delete('servico');history.replaceState(null,'',url.pathname+url.search+url.hash);}
 let linkedRequestNeedsFocus = Boolean(linkedRequestId);
 let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map();
+let pendingConfirmationEmail = '';
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
 const requestBatchSize=100;
@@ -513,6 +514,7 @@ function renderQuotes(request,quotes,decisions) {
 }
 el('action').onchange=()=>{
   const action=el('action').value;
+  pendingConfirmationEmail='';el('resendConfirmation').hidden=true;
   el('registration').hidden=action!=='signup';el('name').required=action==='signup';
   el('passwordArea').hidden=action==='reset';el('password').required=action!=='reset';
   el('passwordConfirmationArea').hidden=action!=='signup';el('passwordConfirmation').required=action==='signup';
@@ -532,7 +534,7 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       const full_name=el('name').value.trim();if(!full_name)throw new InputError('Informe seu nome.');
       const data=check(await api.auth.signUp({email,password,options:{emailRedirectTo:authCallbackUrl(),data:{full_name,requested_role:el('role').value}}}));
       if(data.session)await loadAccount(data.user);
-      else {el('action').value='login';el('action').onchange();message('Cadastro solicitado. Verifique seu e-mail para confirmar a conta. O perfil de prestador depende de análise.');el('password').focus();}
+      else {el('action').value='login';el('action').onchange();pendingConfirmationEmail=email;el('resendConfirmation').hidden=false;message('Cadastro solicitado. Verifique seu e-mail para confirmar a conta. O perfil de prestador depende de análise.');el('password').focus();}
     }else if(action==='reset') {
       check(await api.auth.resetPasswordForEmail(email,{redirectTo:authCallbackUrl()}));message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');
     }else {
@@ -541,6 +543,11 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
   }catch(error){el(action==='reset'?'email':'password').focus();throw error;}
   finally{if(action!=='reset'){el('password').value='';el('passwordConfirmation').value='';resetPasswordVisibility();hideCapsLockWarnings();}}
 });};
+el('resendConfirmation').onclick=()=>busy('resendConfirmation',async()=>{
+  if(!pendingConfirmationEmail){el('resendConfirmation').hidden=true;return;}
+  check(await api.auth.resend({type:'signup',email:pendingConfirmationEmail,options:{emailRedirectTo:authCallbackUrl()}}));
+  pendingConfirmationEmail='';el('resendConfirmation').hidden=true;message('Novo e-mail de confirmação solicitado. Aguarde antes de tentar novamente.');
+});
 el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
   const password=el('newPassword').value,passwordConfirmation=el('newPasswordConfirmation').value;
   try {
