@@ -138,6 +138,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 132. [Retorno ao login após cadastro pendente](ENTREGA-2026-10-27-RETORNO-LOGIN-CADASTRO-PENDENTE.md). Após solicitar cadastro com confirmação por e-mail, o formulário volta ao modo de entrada, limpa nome, perfil e senhas e preserva somente o e-mail para o acesso posterior, sem nova chamada ao Supabase ou abertura do espaço privado.
 133. [Reenvio da confirmação de cadastro](ENTREGA-2026-10-27-REENVIO-CONFIRMACAO-CADASTRO.md). Depois de um cadastro pendente, a pessoa pode solicitar uma única nova confirmação pela interface; o reenvio usa o e-mail original e o mesmo retorno protegido, oculta a ação após o sucesso e não autentica, cria outro cadastro ou concede perfil.
 134. [Recuperação do acesso com e-mail não confirmado](ENTREGA-2026-10-27-RECUPERACAO-EMAIL-NAO-CONFIRMADO.md). Quando o Supabase recusa a entrada porque o e-mail ainda não foi confirmado, a interface oferece o reenvio para o endereço da tentativa original, preserva o retorno protegido, apaga a senha e mantém o espaço privado fechado.
+135. [Cancelamento seguro da recuperação de senha](ENTREGA-2026-10-27-CANCELAMENTO-RECUPERACAO-SENHA.md). A pessoa pode abandonar a definição de nova senha, encerrar somente a sessão de recuperação atual e voltar ao login; os dois campos são apagados, a URL é limpa e o espaço privado permanece fechado sem afetar sessões em outros aparelhos.
 
 ## Próximas entregas prioritárias
 

@@ -562,6 +562,10 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
   }catch(error){el('newPassword').focus();throw error;}
   finally{el('newPassword').value='';el('newPasswordConfirmation').value='';resetPasswordVisibility();hideCapsLockWarnings();}
 });};
+el('cancelRecovery').onclick=()=>busy('cancelRecovery',async()=>{
+  check(await api.auth.signOut({scope:'local'}));recovery=false;
+  history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Recuperação cancelada. Entre para continuar.');
+});
 el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut());recovery=false;await loadAccount(null);message('Sessão encerrada.');});
 el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');

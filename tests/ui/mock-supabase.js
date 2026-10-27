@@ -131,6 +131,6 @@ export function createClient(){return {
     resend:values=>{state.calls.push({auth:'resend',values});return response({});},
     resetPasswordForEmail:(email,options)=>{state.calls.push({auth:'reset',email,options});return response({});},
     updateUser:values=>{state.calls.push({auth:'update',values});if(values.password==='rejected-password123')return Promise.resolve({data:{},error:{code:'password_rejected'}});return response({user:account});},
-    signOut:()=>{state.user=null;listener('SIGNED_OUT',null);return response({});}
+    signOut:options=>{state.calls.push({auth:'signout',options});state.user=null;listener('SIGNED_OUT',null);return response({});}
   }
 };}
