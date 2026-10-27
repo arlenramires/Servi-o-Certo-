@@ -22,6 +22,19 @@ let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'reco
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
 const requestBatchSize=100;
 const message = value => { el('status').textContent = value; };
+const passwordControls = [
+  {input:'password',button:'togglePassword',label:'senha'},
+  {input:'passwordConfirmation',button:'togglePasswordConfirmation',label:'confirmação'},
+  {input:'newPassword',button:'toggleNewPassword',label:'nova senha'},
+  {input:'newPasswordConfirmation',button:'toggleNewPasswordConfirmation',label:'confirmação da nova senha'}
+];
+function setPasswordVisibility(control,visible) {
+  el(control.input).type=visible?'text':'password';
+  el(control.button).textContent=`${visible?'Ocultar':'Mostrar'} ${control.label}`;
+  el(control.button).setAttribute('aria-pressed',String(visible));
+}
+function resetPasswordVisibility(){for(const control of passwordControls)setPasswordVisibility(control,false);}
+for(const control of passwordControls)el(control.button).onclick=()=>setPasswordVisibility(control,el(control.input).type==='password');
 const check = response => { if (response.error) throw response.error; return response.data; };
 function friendly(error) {
   return ({ invalid_credentials:'E-mail ou senha incorretos.', email_not_confirmed:'Confirme seu e-mail antes de entrar.',
@@ -189,6 +202,7 @@ function clearWorkspace() {
   for(const id of ['workspace','clientPanel','providerPanel','providerApply','adminPanel','conversation']) el(id).hidden=true;
   for(const id of ['requests','opportunities','messages','quotes','applications','identity','profile']) el(id).replaceChildren();
   for(const id of ['password','passwordConfirmation','newPassword','newPasswordConfirmation','message','description','experience','quoteAmount','quoteDescription','scheduled']) el(id).value='';
+  resetPasswordVisibility();
   el('urgent').checked=false;
 }
 function authView() {
@@ -491,6 +505,7 @@ el('action').onchange=()=>{
   el('passwordArea').hidden=action==='reset';el('password').required=action!=='reset';
   el('passwordConfirmationArea').hidden=action!=='signup';el('passwordConfirmation').required=action==='signup';
   el('password').autocomplete=action==='signup'?'new-password':'current-password';el('password').value='';el('passwordConfirmation').value='';
+  resetPasswordVisibility();
   if(action!=='signup'){el('name').value='';el('role').value='cliente';}
   el('submit').textContent=({login:'Entrar',signup:'Criar conta',reset:'Enviar instruções'})[action];message('');
 };
@@ -510,7 +525,7 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
     }else {
       const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
     }
-  }finally{if(action!=='reset'){el('password').value='';el('passwordConfirmation').value='';}}
+  }finally{if(action!=='reset'){el('password').value='';el('passwordConfirmation').value='';resetPasswordVisibility();}}
 });};
 el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
   const password=el('newPassword').value,passwordConfirmation=el('newPasswordConfirmation').value;
@@ -519,7 +534,7 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
     if(password!==passwordConfirmation)throw new InputError('As senhas não coincidem.');
     check(await api.auth.updateUser({password}));check(await api.auth.signOut());recovery=false;
     history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Senha atualizada. Entre com sua nova senha.');
-  }finally{el('newPassword').value='';el('newPasswordConfirmation').value='';}
+  }finally{el('newPassword').value='';el('newPasswordConfirmation').value='';resetPasswordVisibility();}
 });};
 el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut());recovery=false;await loadAccount(null);message('Sessão encerrada.');});
 el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{
