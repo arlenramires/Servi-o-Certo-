@@ -527,6 +527,7 @@ el('action').onchange=()=>{
 el('action').onchange();
 el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
   const email=el('email').value.trim(),password=el('password').value,passwordConfirmation=el('passwordConfirmation').value,action=el('action').value;
+  pendingConfirmationEmail='';el('resendConfirmation').hidden=true;
   try {
     if(action!=='reset'&&password.length<8)throw new InputError('Senha deve ter pelo menos 8 caracteres.');
     if(action==='signup') {
@@ -540,7 +541,10 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
     }else {
       const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
     }
-  }catch(error){el(action==='reset'?'email':'password').focus();throw error;}
+  }catch(error){
+    if(action==='login'&&error?.code==='email_not_confirmed'){pendingConfirmationEmail=email;el('resendConfirmation').hidden=false;}
+    el(action==='reset'?'email':'password').focus();throw error;
+  }
   finally{if(action!=='reset'){el('password').value='';el('passwordConfirmation').value='';resetPasswordVisibility();hideCapsLockWarnings();}}
 });};
 el('resendConfirmation').onclick=()=>busy('resendConfirmation',async()=>{

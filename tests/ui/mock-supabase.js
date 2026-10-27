@@ -126,7 +126,7 @@ export function createClient(){return {
   auth:{
     onAuthStateChange:fn=>{listener=fn;return {data:{subscription:{unsubscribe(){}}}};},
     getUser:()=>response({user:state.user}),
-    signInWithPassword:async values=>{state.calls.push({auth:'login',values});if(values.password==='wrongpass')return {error:{code:'invalid_credentials'},data:{}};state.user=account;return {data:{user:account},error:null};},
+    signInWithPassword:async values=>{state.calls.push({auth:'login',values});if(values.password==='wrongpass')return {error:{code:'invalid_credentials'},data:{}};if(values.password==='unconfirmedpass')return {error:{code:'email_not_confirmed'},data:{}};state.user=account;return {data:{user:account},error:null};},
     signUp:values=>{state.calls.push({auth:'signup',values});return response({user:account,session:null});},
     resend:values=>{state.calls.push({auth:'resend',values});return response({});},
     resetPasswordForEmail:(email,options)=>{state.calls.push({auth:'reset',email,options});return response({});},
