@@ -189,7 +189,7 @@ function showAllRequestsButton() {
 }
 function switchLinkedRequestAccountButton() {
   const button=text('button','Entrar com outra conta','secondary');button.type='button';
-  button.onclick=async()=>{button.disabled=true;try{check(await api.auth.signOut());recovery=false;await loadAccount(null);message('Sessão encerrada. Entre com outra conta participante para abrir este link.');}catch(error){message(friendly(error));}finally{button.disabled=false;}};
+  button.onclick=async()=>{button.disabled=true;try{check(await api.auth.signOut({scope:'local'}));recovery=false;await loadAccount(null);message('Sessão encerrada. Entre com outra conta participante para abrir este link.');}catch(error){message(friendly(error));}finally{button.disabled=false;}};
   return button;
 }
 async function copyText(value) {
@@ -566,7 +566,7 @@ el('cancelRecovery').onclick=()=>busy('cancelRecovery',async()=>{
   check(await api.auth.signOut({scope:'local'}));recovery=false;
   history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Recuperação cancelada. Entre para continuar.');
 });
-el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut());recovery=false;await loadAccount(null);message('Sessão encerrada.');});
+el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut({scope:'local'}));recovery=false;await loadAccount(null);message('Sessão encerrada.');});
 el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
   const profession=el('profession').value;if(!profession)throw new InputError('Selecione uma profissão.');

@@ -113,6 +113,7 @@ test('unavailable authenticated link keeps its code while changing account',asyn
   await expect(page.locator('#linkedRequestHint')).toBeVisible();
   await expect(page.locator('#linkedRequestHint')).not.toContainText('account-switch-service');
   await expect(page.locator('#status')).toHaveText('Sessão encerrada. Entre com outra conta participante para abrir este link.');
+  expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='signout'))).toEqual([{auth:'signout',options:{scope:'local'}}]);
   expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
 });
 
