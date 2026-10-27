@@ -134,6 +134,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 128. [Visibilidade controlada das senhas](ENTREGA-2026-10-27-VISIBILIDADE-CONTROLADA-SENHAS.md). Entrada, confirmação de cadastro e redefinição oferecem controles acessíveis para mostrar ou ocultar cada senha; os campos voltam automaticamente ao modo protegido ao trocar de etapa ou depois de uma tentativa, sem chamada adicional ao Supabase ou alteração de sessão.
 129. [Foco contextual no fluxo de acesso](ENTREGA-2026-10-27-FOCO-CONTEXTUAL-FLUXO-ACESSO.md). Entrada, cadastro e recuperação direcionam o foco de teclado ao primeiro campo útil de cada etapa, incluindo a nova senha no retorno do e-mail e o e-mail após a redefinição, sem chamada adicional ao Supabase ou alteração de sessão.
 130. [Retomada do foco após falha de acesso](ENTREGA-2026-10-27-RETOMADA-FOCO-FALHA-ACESSO.md). Quando entrada, cadastro ou redefinição são recusados, os segredos são apagados e o foco retorna ao primeiro campo de senha da etapa para uma nova tentativa, sem repetir automaticamente a chamada ao Supabase ou abrir o espaço privado.
+131. [Aviso de Caps Lock nas senhas](ENTREGA-2026-10-27-AVISO-CAPS-LOCK-SENHAS.md). Entrada, cadastro e redefinição informam de modo acessível quando Caps Lock está ativo durante a digitação da senha; o aviso desaparece ao sair do campo ou trocar de etapa, sem enviar conteúdo ou chamar o Supabase.
 
 ## Próximas entregas prioritárias
 

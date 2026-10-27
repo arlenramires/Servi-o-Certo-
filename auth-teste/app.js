@@ -35,6 +35,16 @@ function setPasswordVisibility(control,visible) {
 }
 function resetPasswordVisibility(){for(const control of passwordControls)setPasswordVisibility(control,false);}
 for(const control of passwordControls)el(control.button).onclick=()=>setPasswordVisibility(control,el(control.input).type==='password');
+const capsLockGroups=[
+  {inputs:['password','passwordConfirmation'],warning:'authCapsLockWarning'},
+  {inputs:['newPassword','newPasswordConfirmation'],warning:'recoveryCapsLockWarning'}
+];
+function hideCapsLockWarnings(){for(const group of capsLockGroups)el(group.warning).hidden=true;}
+for(const group of capsLockGroups)for(const input of group.inputs){
+  el(input).addEventListener('keydown',event=>{el(group.warning).hidden=!event.getModifierState?.('CapsLock');});
+  el(input).addEventListener('keyup',event=>{el(group.warning).hidden=!event.getModifierState?.('CapsLock');});
+  el(input).addEventListener('blur',()=>{el(group.warning).hidden=true;});
+}
 function focusAccessField(){el(el('action').value==='signup'?'name':'email').focus();}
 const check = response => { if (response.error) throw response.error; return response.data; };
 function friendly(error) {
@@ -507,7 +517,7 @@ el('action').onchange=()=>{
   el('passwordArea').hidden=action==='reset';el('password').required=action!=='reset';
   el('passwordConfirmationArea').hidden=action!=='signup';el('passwordConfirmation').required=action==='signup';
   el('password').autocomplete=action==='signup'?'new-password':'current-password';el('password').value='';el('passwordConfirmation').value='';
-  resetPasswordVisibility();
+  resetPasswordVisibility();hideCapsLockWarnings();
   if(action!=='signup'){el('name').value='';el('role').value='cliente';}
   el('submit').textContent=({login:'Entrar',signup:'Criar conta',reset:'Enviar instruções'})[action];message('');
   focusAccessField();
@@ -529,7 +539,7 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
     }
   }catch(error){el(action==='reset'?'email':'password').focus();throw error;}
-  finally{if(action!=='reset'){el('password').value='';el('passwordConfirmation').value='';resetPasswordVisibility();}}
+  finally{if(action!=='reset'){el('password').value='';el('passwordConfirmation').value='';resetPasswordVisibility();hideCapsLockWarnings();}}
 });};
 el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
   const password=el('newPassword').value,passwordConfirmation=el('newPasswordConfirmation').value;
@@ -539,7 +549,7 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
     check(await api.auth.updateUser({password}));check(await api.auth.signOut());recovery=false;
     history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Senha atualizada. Entre com sua nova senha.');
   }catch(error){el('newPassword').focus();throw error;}
-  finally{el('newPassword').value='';el('newPasswordConfirmation').value='';resetPasswordVisibility();}
+  finally{el('newPassword').value='';el('newPasswordConfirmation').value='';resetPasswordVisibility();hideCapsLockWarnings();}
 });};
 el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut());recovery=false;await loadAccount(null);message('Sessão encerrada.');});
 el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{
