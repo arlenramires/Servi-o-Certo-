@@ -130,6 +130,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 124. [Limpeza da nova senha após falha na redefinição](ENTREGA-2026-10-26-LIMPEZA-NOVA-SENHA-FALHA-REDEFINICAO.md). O campo da nova senha é apagado quando o Supabase recusa a redefinição, mantendo o painel de recuperação aberto, o espaço privado fechado e a sessão inalterada para uma nova tentativa segura.
 125. [Confirmação de senha no cadastro e na redefinição](ENTREGA-2026-10-26-CONFIRMACAO-SENHA-CADASTRO-REDEFINICAO.md). Criar conta e definir uma nova senha agora exigem a repetição exata do segredo; divergências são bloqueadas e limpas localmente antes de qualquer chamada ao Supabase, sem criar conta, alterar senha ou abrir o espaço privado.
 126. [Ações contextuais na troca do modo de acesso](ENTREGA-2026-10-26-ACOES-CONTEXTUAIS-MODO-ACESSO.md). Ao alternar entre entrar, criar conta e recuperar senha, o formulário remove mensagens obsoletas, limpa senhas já digitadas e identifica a ação exata no botão, sem autenticar, criar conta, enviar recuperação ou alterar sessão apenas pela troca de modo.
+127. [Limpeza dos dados de cadastro ao trocar o modo de acesso](ENTREGA-2026-10-26-LIMPEZA-DADOS-CADASTRO-TROCA-MODO.md). Ao sair de **Criar conta**, o nome completo ainda não enviado é removido e o perfil solicitado volta a cliente; o e-mail permanece disponível para acesso ou recuperação, sem chamada ao Supabase, criação de conta ou alteração de sessão.
 
 ## Próximas entregas prioritárias
 

@@ -491,6 +491,7 @@ el('action').onchange=()=>{
   el('passwordArea').hidden=action==='reset';el('password').required=action!=='reset';
   el('passwordConfirmationArea').hidden=action!=='signup';el('passwordConfirmation').required=action==='signup';
   el('password').autocomplete=action==='signup'?'new-password':'current-password';el('password').value='';el('passwordConfirmation').value='';
+  if(action!=='signup'){el('name').value='';el('role').value='cliente';}
   el('submit').textContent=({login:'Entrar',signup:'Criar conta',reset:'Enviar instruções'})[action];message('');
 };
 el('action').onchange();
