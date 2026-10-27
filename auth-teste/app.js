@@ -528,7 +528,8 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
     }else {
       const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
     }
-  }finally{if(action!=='reset'){el('password').value='';el('passwordConfirmation').value='';resetPasswordVisibility();}}
+  }catch(error){el(action==='reset'?'email':'password').focus();throw error;}
+  finally{if(action!=='reset'){el('password').value='';el('passwordConfirmation').value='';resetPasswordVisibility();}}
 });};
 el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
   const password=el('newPassword').value,passwordConfirmation=el('newPasswordConfirmation').value;
@@ -537,7 +538,8 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
     if(password!==passwordConfirmation)throw new InputError('As senhas não coincidem.');
     check(await api.auth.updateUser({password}));check(await api.auth.signOut());recovery=false;
     history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Senha atualizada. Entre com sua nova senha.');
-  }finally{el('newPassword').value='';el('newPasswordConfirmation').value='';resetPasswordVisibility();}
+  }catch(error){el('newPassword').focus();throw error;}
+  finally{el('newPassword').value='';el('newPasswordConfirmation').value='';resetPasswordVisibility();}
 });};
 el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut());recovery=false;await loadAccount(null);message('Sessão encerrada.');});
 el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{
