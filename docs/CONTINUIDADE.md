@@ -132,6 +132,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 126. [Ações contextuais na troca do modo de acesso](ENTREGA-2026-10-26-ACOES-CONTEXTUAIS-MODO-ACESSO.md). Ao alternar entre entrar, criar conta e recuperar senha, o formulário remove mensagens obsoletas, limpa senhas já digitadas e identifica a ação exata no botão, sem autenticar, criar conta, enviar recuperação ou alterar sessão apenas pela troca de modo.
 127. [Limpeza dos dados de cadastro ao trocar o modo de acesso](ENTREGA-2026-10-26-LIMPEZA-DADOS-CADASTRO-TROCA-MODO.md). Ao sair de **Criar conta**, o nome completo ainda não enviado é removido e o perfil solicitado volta a cliente; o e-mail permanece disponível para acesso ou recuperação, sem chamada ao Supabase, criação de conta ou alteração de sessão.
 128. [Visibilidade controlada das senhas](ENTREGA-2026-10-27-VISIBILIDADE-CONTROLADA-SENHAS.md). Entrada, confirmação de cadastro e redefinição oferecem controles acessíveis para mostrar ou ocultar cada senha; os campos voltam automaticamente ao modo protegido ao trocar de etapa ou depois de uma tentativa, sem chamada adicional ao Supabase ou alteração de sessão.
+129. [Foco contextual no fluxo de acesso](ENTREGA-2026-10-27-FOCO-CONTEXTUAL-FLUXO-ACESSO.md). Entrada, cadastro e recuperação direcionam o foco de teclado ao primeiro campo útil de cada etapa, incluindo a nova senha no retorno do e-mail e o e-mail após a redefinição, sem chamada adicional ao Supabase ou alteração de sessão.
 
 ## Próximas entregas prioritárias
 

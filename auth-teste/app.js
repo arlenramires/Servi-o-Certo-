@@ -35,6 +35,7 @@ function setPasswordVisibility(control,visible) {
 }
 function resetPasswordVisibility(){for(const control of passwordControls)setPasswordVisibility(control,false);}
 for(const control of passwordControls)el(control.button).onclick=()=>setPasswordVisibility(control,el(control.input).type==='password');
+function focusAccessField(){el(el('action').value==='signup'?'name':'email').focus();}
 const check = response => { if (response.error) throw response.error; return response.data; };
 function friendly(error) {
   return ({ invalid_credentials:'E-mail ou senha incorretos.', email_not_confirmed:'Confirme seu e-mail antes de entrar.',
@@ -210,6 +211,7 @@ function authView() {
   el('accountPanel').hidden=!user||recovery;
   el('recoveryPanel').hidden=!recovery;
   el('linkedRequestHint').hidden=!linkedRequestId||!!user||recovery;
+  if(recovery)el('newPassword').focus();else if(!user)focusAccessField();
 }
 async function loadAccount(nextUser) {
   const ticket=++generation;
@@ -508,6 +510,7 @@ el('action').onchange=()=>{
   resetPasswordVisibility();
   if(action!=='signup'){el('name').value='';el('role').value='cliente';}
   el('submit').textContent=({login:'Entrar',signup:'Criar conta',reset:'Enviar instruções'})[action];message('');
+  focusAccessField();
 };
 el('action').onchange();
 el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
