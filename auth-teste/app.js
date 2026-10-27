@@ -692,7 +692,7 @@ el('quoteForm').onsubmit=event=>{event.preventDefault();busy('sendQuote',async()
 // Do not call Supabase asynchronously while holding its auth-state callback lock.
 api.auth.onAuthStateChange((event,session)=>{
   if(event==='PASSWORD_RECOVERY'){recovery=true;++generation;clearWorkspace();authView();message('Digite sua nova senha.');}
-  if(event==='SIGNED_OUT'){++generation;user=null;clearWorkspace();authView();}
+  if(event==='SIGNED_OUT'){++generation;user=null;clearWorkspace();authView();message('Sua sessão terminou. Entre novamente para continuar.');}
   if(event==='SIGNED_IN'&&!recovery)setTimeout(()=>loadAccount(session.user).catch(e=>message(friendly(e))),0);
 });
 authView();

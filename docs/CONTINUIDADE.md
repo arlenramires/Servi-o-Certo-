@@ -140,6 +140,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 134. [Recuperação do acesso com e-mail não confirmado](ENTREGA-2026-10-27-RECUPERACAO-EMAIL-NAO-CONFIRMADO.md). Quando o Supabase recusa a entrada porque o e-mail ainda não foi confirmado, a interface oferece o reenvio para o endereço da tentativa original, preserva o retorno protegido, apaga a senha e mantém o espaço privado fechado.
 135. [Cancelamento seguro da recuperação de senha](ENTREGA-2026-10-27-CANCELAMENTO-RECUPERACAO-SENHA.md). A pessoa pode abandonar a definição de nova senha, encerrar somente a sessão de recuperação atual e voltar ao login; os dois campos são apagados, a URL é limpa e o espaço privado permanece fechado sem afetar sessões em outros aparelhos.
 136. [Saída limitada à sessão atual](ENTREGA-2026-10-27-SAIDA-SESSAO-LOCAL.md). O botão Sair e a troca de conta em links protegidos encerram somente a sessão atual do navegador, preservando logins em outros aparelhos; a interface privada é limpa e o link protegido permanece disponível para a próxima conta.
+137. [Aviso após encerramento inesperado da sessão](ENTREGA-2026-10-27-AVISO-SESSAO-ENCERRADA.md). Quando o Supabase informa que a sessão terminou fora de uma saída voluntária, a interface remove imediatamente os dados privados, volta ao login e orienta a pessoa a entrar novamente, sem disparar outra chamada de autenticação.
 
 ## Próximas entregas prioritárias
 
