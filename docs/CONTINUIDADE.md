@@ -135,6 +135,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 129. [Foco contextual no fluxo de acesso](ENTREGA-2026-10-27-FOCO-CONTEXTUAL-FLUXO-ACESSO.md). Entrada, cadastro e recuperação direcionam o foco de teclado ao primeiro campo útil de cada etapa, incluindo a nova senha no retorno do e-mail e o e-mail após a redefinição, sem chamada adicional ao Supabase ou alteração de sessão.
 130. [Retomada do foco após falha de acesso](ENTREGA-2026-10-27-RETOMADA-FOCO-FALHA-ACESSO.md). Quando entrada, cadastro ou redefinição são recusados, os segredos são apagados e o foco retorna ao primeiro campo de senha da etapa para uma nova tentativa, sem repetir automaticamente a chamada ao Supabase ou abrir o espaço privado.
 131. [Aviso de Caps Lock nas senhas](ENTREGA-2026-10-27-AVISO-CAPS-LOCK-SENHAS.md). Entrada, cadastro e redefinição informam de modo acessível quando Caps Lock está ativo durante a digitação da senha; o aviso desaparece ao sair do campo ou trocar de etapa, sem enviar conteúdo ou chamar o Supabase.
+132. [Retorno ao login após cadastro pendente](ENTREGA-2026-10-27-RETORNO-LOGIN-CADASTRO-PENDENTE.md). Após solicitar cadastro com confirmação por e-mail, o formulário volta ao modo de entrada, limpa nome, perfil e senhas e preserva somente o e-mail para o acesso posterior, sem nova chamada ao Supabase ou abertura do espaço privado.
 
 ## Próximas entregas prioritárias
 

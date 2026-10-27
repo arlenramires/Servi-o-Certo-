@@ -531,8 +531,8 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       if(password!==passwordConfirmation)throw new InputError('As senhas não coincidem.');
       const full_name=el('name').value.trim();if(!full_name)throw new InputError('Informe seu nome.');
       const data=check(await api.auth.signUp({email,password,options:{emailRedirectTo:authCallbackUrl(),data:{full_name,requested_role:el('role').value}}}));
-      message('Cadastro solicitado. Verifique seu e-mail para confirmar a conta. O perfil de prestador depende de análise.');
       if(data.session)await loadAccount(data.user);
+      else {el('action').value='login';el('action').onchange();message('Cadastro solicitado. Verifique seu e-mail para confirmar a conta. O perfil de prestador depende de análise.');el('password').focus();}
     }else if(action==='reset') {
       check(await api.auth.resetPasswordForEmail(email,{redirectTo:authCallbackUrl()}));message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');
     }else {
