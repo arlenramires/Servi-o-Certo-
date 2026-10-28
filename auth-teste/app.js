@@ -51,6 +51,7 @@ const check = response => { if (response.error) throw response.error; return res
 function friendly(error) {
   return ({ invalid_credentials:'E-mail ou senha incorretos.', email_not_confirmed:'Confirme seu e-mail antes de entrar.',
     email_address_invalid:'Informe um endereço de e-mail válido.',
+    email_address_not_authorized:'Não foi possível enviar e-mail para este endereço. Informe outro e-mail ou fale com o suporte.',
     weak_password:'Use uma senha mais forte que atenda aos requisitos de segurança.',
     same_password:'A nova senha deve ser diferente da senha atual.',
     over_request_rate_limit:'Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.',
@@ -565,7 +566,7 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
     }
     if(action==='login'&&error?.code==='user_banned'){el('email').focus();throw error;}
     if(action==='login'&&error?.code==='email_not_confirmed'){pendingConfirmationEmail=email;el('resendConfirmation').hidden=false;}
-    if(error?.code==='email_address_invalid'){el('email').focus();throw error;}
+    if(['email_address_invalid','email_address_not_authorized'].includes(error?.code)){el('email').focus();throw error;}
     el(action==='reset'?'email':'password').focus();throw error;
   }
   finally{if(action!=='reset'){el('password').value='';el('passwordConfirmation').value='';resetPasswordVisibility();hideCapsLockWarnings();}}
