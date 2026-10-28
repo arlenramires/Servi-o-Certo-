@@ -552,6 +552,10 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       el('action').value='login';el('action').onchange();el('email').value=email;el('password').focus();
       throw new InputError('Não foi possível concluir o cadastro. Entre com sua conta ou use Recuperar senha.');
     }
+    if(action==='signup'&&['signup_disabled','email_provider_disabled'].includes(error?.code)){
+      el('action').value='login';el('action').onchange();el('email').value=email;el('password').focus();
+      throw new InputError('Novos cadastros por e-mail estão temporariamente indisponíveis. Tente entrar se já possui conta.');
+    }
     if(action==='login'&&error?.code==='weak_password'){
       el('action').value='reset';el('action').onchange();el('email').value=email;el('email').focus();
       throw new InputError('Sua senha não atende mais aos requisitos de segurança. Solicite a recuperação para criar uma senha mais forte.');
