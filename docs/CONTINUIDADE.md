@@ -141,6 +141,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 135. [Cancelamento seguro da recuperação de senha](ENTREGA-2026-10-27-CANCELAMENTO-RECUPERACAO-SENHA.md). A pessoa pode abandonar a definição de nova senha, encerrar somente a sessão de recuperação atual e voltar ao login; os dois campos são apagados, a URL é limpa e o espaço privado permanece fechado sem afetar sessões em outros aparelhos.
 136. [Saída limitada à sessão atual](ENTREGA-2026-10-27-SAIDA-SESSAO-LOCAL.md). O botão Sair e a troca de conta em links protegidos encerram somente a sessão atual do navegador, preservando logins em outros aparelhos; a interface privada é limpa e o link protegido permanece disponível para a próxima conta.
 137. [Aviso após encerramento inesperado da sessão](ENTREGA-2026-10-27-AVISO-SESSAO-ENCERRADA.md). Quando o Supabase informa que a sessão terminou fora de uma saída voluntária, a interface remove imediatamente os dados privados, volta ao login e orienta a pessoa a entrar novamente, sem disparar outra chamada de autenticação.
+138. [Saída global após redefinição de senha](ENTREGA-2026-10-28-SAIDA-GLOBAL-APOS-REDEFINICAO.md). Depois de salvar uma nova senha, o fluxo encerra explicitamente as sessões da conta com escopo global e orienta novo acesso neste e nos outros aparelhos; saídas comuns continuam locais e tokens de acesso revogados permanecem sujeitos ao próprio prazo de expiração.
 
 ## Próximas entregas prioritárias
 

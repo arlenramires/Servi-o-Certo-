@@ -162,5 +162,6 @@ test('protected link is preserved through password recovery',async({page})=>{
   await expect(page.locator('#authPanel')).toBeVisible();
   await expect(page.locator('#linkedRequestHint')).toBeVisible();
   await expect(page.locator('#linkedRequestHint')).not.toContainText('recovery-link-service');
-  await expect(page.locator('#status')).toHaveText('Senha atualizada. Entre com sua nova senha.');
+  await expect(page.locator('#status')).toHaveText('Senha atualizada. Por segurança, entre novamente neste e nos outros aparelhos.');
+  expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).slice(-2))).toEqual([{auth:'update',values:{password:'new-password123'}},{auth:'signout',options:{scope:'global'}}]);
 });

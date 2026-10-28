@@ -557,8 +557,8 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
   try {
     if(password.length<8)throw new InputError('A nova senha precisa de pelo menos 8 caracteres.');
     if(password!==passwordConfirmation)throw new InputError('As senhas não coincidem.');
-    check(await api.auth.updateUser({password}));check(await api.auth.signOut());recovery=false;
-    history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Senha atualizada. Entre com sua nova senha.');
+    check(await api.auth.updateUser({password}));check(await api.auth.signOut({scope:'global'}));recovery=false;
+    history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Senha atualizada. Por segurança, entre novamente neste e nos outros aparelhos.');
   }catch(error){el('newPassword').focus();throw error;}
   finally{el('newPassword').value='';el('newPasswordConfirmation').value='';resetPasswordVisibility();hideCapsLockWarnings();}
 });};
