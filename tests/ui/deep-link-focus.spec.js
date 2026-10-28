@@ -153,6 +153,10 @@ test('protected link is preserved through password recovery',async({page})=>{
   await page.locator('#submit').click();
   const call=await page.evaluate(()=>window.testState.calls.find(item=>item.auth==='reset'));
   expect(call.options.redirectTo).toBe('http://127.0.0.1:4173/auth-teste/?servico=recovery-link-service');
+  await expect(page.locator('#action')).toHaveValue('login');
+  await expect(page.locator('#email')).toHaveValue('pessoa@example.invalid');
+  await expect(page.locator('#password')).toBeFocused();
+  await expect(page.locator('#linkedRequestHint')).toBeVisible();
   await page.goto('/auth-teste/?servico=recovery-link-service&callback=test#type=recovery');
   await expect(page.locator('#recoveryPanel')).toBeVisible();
   await page.locator('#newPassword').fill('new-password123');

@@ -537,7 +537,7 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       if(data.session)await loadAccount(data.user);
       else {el('action').value='login';el('action').onchange();pendingConfirmationEmail=email;el('resendConfirmation').hidden=false;message('Cadastro solicitado. Verifique seu e-mail para confirmar a conta. O perfil de prestador depende de análise.');el('password').focus();}
     }else if(action==='reset') {
-      check(await api.auth.resetPasswordForEmail(email,{redirectTo:authCallbackUrl()}));message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');
+      check(await api.auth.resetPasswordForEmail(email,{redirectTo:authCallbackUrl()}));el('action').value='login';el('action').onchange();el('email').value=email;message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');el('password').focus();
     }else {
       const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
     }
