@@ -50,6 +50,7 @@ function focusAccessField(){el(el('action').value==='signup'?'name':'email').foc
 const check = response => { if (response.error) throw response.error; return response.data; };
 function friendly(error) {
   return ({ invalid_credentials:'E-mail ou senha incorretos.', email_not_confirmed:'Confirme seu e-mail antes de entrar.',
+    weak_password:'Use uma senha mais forte que atenda aos requisitos de segurança.',
     over_email_send_rate_limit:'Aguarde antes de solicitar outro e-mail.', '23505':'Esta solicitação já foi enviada.',
     '42501':'Você não tem permissão para esta operação.', '23514':'Confira os dados informados.',
     SC001:'O acordo depende de um orçamento aceito e serviço apto para contratação.',

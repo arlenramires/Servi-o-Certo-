@@ -144,6 +144,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 138. [Saída global após redefinição de senha](ENTREGA-2026-10-28-SAIDA-GLOBAL-APOS-REDEFINICAO.md). Depois de salvar uma nova senha, o fluxo encerra explicitamente as sessões da conta com escopo global e orienta novo acesso neste e nos outros aparelhos; saídas comuns continuam locais e tokens de acesso revogados permanecem sujeitos ao próprio prazo de expiração.
 139. [Retorno ao login após solicitar recuperação](ENTREGA-2026-10-28-RETORNO-LOGIN-APOS-SOLICITAR-RECUPERACAO.md). Depois de enviar uma solicitação genérica de recuperação, o formulário volta ao modo de entrada com o e-mail preservado e foco na senha, evitando reenvio acidental e mantendo o retorno de links protegidos sem revelar o código.
 140. [Recuperação de link de senha inválido ou expirado](ENTREGA-2026-10-28-RECUPERACAO-LINK-SENHA-INVALIDO.md). Quando o retorno de recuperação não possui uma sessão válida, a interface não oferece a definição de nova senha: limpa o fragmento inválido, volta diretamente à solicitação genérica de outro e-mail e preserva uma eventual referência protegida sem exibir seu código ou abrir o espaço privado.
+141. [Orientação após senha fraca recusada](ENTREGA-2026-10-28-ORIENTACAO-SENHA-FRACA.md). Cadastro e redefinição agora reconhecem a recusa `weak_password` do Supabase e orientam a criação de uma senha mais forte; os campos rejeitados são apagados, o foco retorna à etapa correta e o espaço privado permanece fechado.
 
 ## Próximas entregas prioritárias
 
