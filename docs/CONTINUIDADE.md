@@ -146,6 +146,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 140. [Recuperação de link de senha inválido ou expirado](ENTREGA-2026-10-28-RECUPERACAO-LINK-SENHA-INVALIDO.md). Quando o retorno de recuperação não possui uma sessão válida, a interface não oferece a definição de nova senha: limpa o fragmento inválido, volta diretamente à solicitação genérica de outro e-mail e preserva uma eventual referência protegida sem exibir seu código ou abrir o espaço privado.
 141. [Orientação após senha fraca recusada](ENTREGA-2026-10-28-ORIENTACAO-SENHA-FRACA.md). Cadastro e redefinição agora reconhecem a recusa `weak_password` do Supabase e orientam a criação de uma senha mais forte; os campos rejeitados são apagados, o foco retorna à etapa correta e o espaço privado permanece fechado.
 142. [Recuperação após login com senha fraca](ENTREGA-2026-10-28-RECUPERACAO-APOS-LOGIN-SENHA-FRACA.md). Quando o Supabase recusa uma senha antiga no acesso por não atender mais às regras de segurança, a interface encaminha diretamente à solicitação de recuperação, preserva o e-mail e uma eventual referência protegida, apaga a senha e mantém o espaço privado fechado.
+143. [Nova senha diferente da atual](ENTREGA-2026-10-28-NOVA-SENHA-DIFERENTE.md). Quando o Supabase recusa a redefinição com `same_password`, a interface informa que a nova senha precisa ser diferente da atual, apaga os dois campos e mantém a recuperação aberta sem alterar a senha, encerrar sessões ou abrir o espaço privado.
 
 ## Próximas entregas prioritárias
 
