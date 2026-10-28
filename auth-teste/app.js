@@ -182,6 +182,9 @@ function authCallbackUrl() {
   if(linkedRequestId)url.searchParams.set('servico',linkedRequestId);
   return url.href;
 }
+function rejectInvalidRecovery() {
+  recovery=false;history.replaceState(null,'',authCallbackUrl());el('action').value='reset';el('action').onchange();authView();message('Link de recuperação inválido ou expirado. Informe seu e-mail para solicitar outro.');
+}
 function showAllRequestsButton() {
   const button=text('button','Ver todos os serviços','secondary');button.type='button';
   button.onclick=async()=>{button.disabled=true;try{clearLinkedRequest();el('requestSearch').value='';requestDisplayLimit=requestPageSize;await refresh();message('Lista completa de serviços autorizados exibida.');}catch(error){message(friendly(error));}finally{button.disabled=false;}};
@@ -697,5 +700,5 @@ api.auth.onAuthStateChange((event,session)=>{
 });
 authView();
 if(invalidLinkedRequest)message('Link de serviço inválido. Entre para acessar seus serviços normalmente.');
-try { const {user:current}=check(await api.auth.getUser());await loadAccount(current); }
-catch(error){if(error?.name!=='AuthSessionMissingError')message(friendly(error));}
+try { const {user:current}=check(await api.auth.getUser());if(recovery&&!current)rejectInvalidRecovery();else await loadAccount(current); }
+catch(error){if(error?.name==='AuthSessionMissingError'&&recovery)rejectInvalidRecovery();else if(error?.name!=='AuthSessionMissingError')message(friendly(error));}

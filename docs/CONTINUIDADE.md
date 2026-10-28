@@ -143,6 +143,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 137. [Aviso após encerramento inesperado da sessão](ENTREGA-2026-10-27-AVISO-SESSAO-ENCERRADA.md). Quando o Supabase informa que a sessão terminou fora de uma saída voluntária, a interface remove imediatamente os dados privados, volta ao login e orienta a pessoa a entrar novamente, sem disparar outra chamada de autenticação.
 138. [Saída global após redefinição de senha](ENTREGA-2026-10-28-SAIDA-GLOBAL-APOS-REDEFINICAO.md). Depois de salvar uma nova senha, o fluxo encerra explicitamente as sessões da conta com escopo global e orienta novo acesso neste e nos outros aparelhos; saídas comuns continuam locais e tokens de acesso revogados permanecem sujeitos ao próprio prazo de expiração.
 139. [Retorno ao login após solicitar recuperação](ENTREGA-2026-10-28-RETORNO-LOGIN-APOS-SOLICITAR-RECUPERACAO.md). Depois de enviar uma solicitação genérica de recuperação, o formulário volta ao modo de entrada com o e-mail preservado e foco na senha, evitando reenvio acidental e mantendo o retorno de links protegidos sem revelar o código.
+140. [Recuperação de link de senha inválido ou expirado](ENTREGA-2026-10-28-RECUPERACAO-LINK-SENHA-INVALIDO.md). Quando o retorno de recuperação não possui uma sessão válida, a interface não oferece a definição de nova senha: limpa o fragmento inválido, volta diretamente à solicitação genérica de outro e-mail e preserva uma eventual referência protegida sem exibir seu código ou abrir o espaço privado.
 
 ## Próximas entregas prioritárias
 
