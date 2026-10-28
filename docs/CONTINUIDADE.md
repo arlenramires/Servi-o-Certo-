@@ -153,6 +153,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 147. [Correção de endereço de e-mail recusado](ENTREGA-2026-10-28-EMAIL-INVALIDO-AUTH.md). Quando o Supabase recusa um endereço com `email_address_invalid`, cadastro e recuperação permanecem na etapa atual, orientam informar um e-mail válido e devolvem o foco ao endereço; senhas de cadastro são limpas sem repetir chamadas, criar conta, enviar recuperação ou abrir o espaço privado.
 148. [Contenção após limite de envio de e-mails](ENTREGA-2026-10-28-LIMITE-ENVIO-EMAIL-AUTH.md). Cadastro, recuperação e reenvio de confirmação reconhecem `over_email_send_rate_limit` e orientam aguardar; após a recusa do reenvio, a ação é ocultada para impedir repetição imediata, sem autenticar, enviar outro e-mail ou abrir o espaço privado.
 149. [Acesso temporariamente indisponível](ENTREGA-2026-10-28-ACESSO-TEMPORARIAMENTE-INDISPONIVEL.md). Quando o Supabase informa `user_banned`, o login apresenta orientação neutra para tentar depois ou procurar suporte, preserva o e-mail e uma eventual referência protegida, apaga a senha e mantém o espaço privado fechado sem repetir a chamada ou expor o motivo administrativo.
+150. [Nova tentativa manual após timeout no login](ENTREGA-2026-10-28-TIMEOUT-LOGIN-TENTATIVA-MANUAL.md). Quando o Supabase informa `request_timeout`, o login orienta tentar novamente, preserva o e-mail e uma eventual referência protegida, apaga a senha e mantém a etapa aberta sem repetir automaticamente a autenticação ou abrir o espaço privado.
 
 ## Próximas entregas prioritárias
 
