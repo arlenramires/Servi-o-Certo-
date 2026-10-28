@@ -546,6 +546,10 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
     }
   }catch(error){
+    if(action==='login'&&error?.code==='weak_password'){
+      el('action').value='reset';el('action').onchange();el('email').value=email;el('email').focus();
+      throw new InputError('Sua senha não atende mais aos requisitos de segurança. Solicite a recuperação para criar uma senha mais forte.');
+    }
     if(action==='login'&&error?.code==='email_not_confirmed'){pendingConfirmationEmail=email;el('resendConfirmation').hidden=false;}
     el(action==='reset'?'email':'password').focus();throw error;
   }

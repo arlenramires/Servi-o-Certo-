@@ -127,7 +127,7 @@ export function createClient(){return {
   auth:{
     onAuthStateChange:fn=>{listener=fn;return {data:{subscription:{unsubscribe(){}}}};},
     getUser:()=>{const url=new URL(location.href),recoveryUrl=new URLSearchParams(location.hash.slice(1)).get('type')==='recovery';if(recoveryUrl&&url.searchParams.get('callback')==='test')return response({user:account});if(recoveryUrl&&!state.user)return Promise.resolve({data:{},error:{name:'AuthSessionMissingError'}});return response({user:state.user});},
-    signInWithPassword:async values=>{state.calls.push({auth:'login',values});if(values.password==='wrongpass')return {error:{code:'invalid_credentials'},data:{}};if(values.password==='unconfirmedpass')return {error:{code:'email_not_confirmed'},data:{}};state.user=account;return {data:{user:account},error:null};},
+    signInWithPassword:async values=>{state.calls.push({auth:'login',values});if(values.password==='wrongpass')return {error:{code:'invalid_credentials'},data:{}};if(values.password==='unconfirmedpass')return {error:{code:'email_not_confirmed'},data:{}};if(values.password==='weak-login-password')return {error:{code:'weak_password'},data:{}};state.user=account;return {data:{user:account},error:null};},
     signUp:values=>{state.calls.push({auth:'signup',values});if(values.password==='weak-password123')return Promise.resolve({data:{},error:{code:'weak_password'}});return response({user:account,session:null});},
     resend:values=>{state.calls.push({auth:'resend',values});return response({});},
     resetPasswordForEmail:(email,options)=>{state.calls.push({auth:'reset',email,options});return response({});},
