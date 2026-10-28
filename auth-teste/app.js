@@ -49,7 +49,7 @@ for(const group of capsLockGroups)for(const input of group.inputs){
 function focusAccessField(){el(el('action').value==='signup'?'name':'email').focus();}
 const check = response => { if (response.error) throw response.error; return response.data; };
 function friendly(error) {
-  return ({ invalid_credentials:'E-mail ou senha incorretos.', email_not_confirmed:'Confirme seu e-mail antes de entrar.',
+  return ({ invalid_credentials:'E-mail ou senha incorretos.', user_not_found:'E-mail ou senha incorretos.', email_not_confirmed:'Confirme seu e-mail antes de entrar.',
     email_address_invalid:'Informe um endereço de e-mail válido.',
     email_address_not_authorized:'Não foi possível enviar e-mail para este endereço. Informe outro e-mail ou fale com o suporte.',
     weak_password:'Use uma senha mais forte que atenda aos requisitos de segurança.',
