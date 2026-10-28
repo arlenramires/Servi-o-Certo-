@@ -54,6 +54,7 @@ function friendly(error) {
     weak_password:'Use uma senha mais forte que atenda aos requisitos de segurança.',
     same_password:'A nova senha deve ser diferente da senha atual.',
     over_request_rate_limit:'Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.',
+    user_banned:'Este acesso está temporariamente indisponível. Tente novamente mais tarde ou fale com o suporte.',
     over_email_send_rate_limit:'Aguarde antes de solicitar outro e-mail.', '23505':'Esta solicitação já foi enviada.',
     '42501':'Você não tem permissão para esta operação.', '23514':'Confira os dados informados.',
     SC001:'O acordo depende de um orçamento aceito e serviço apto para contratação.',
@@ -561,6 +562,7 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       el('action').value='reset';el('action').onchange();el('email').value=email;el('email').focus();
       throw new InputError('Sua senha não atende mais aos requisitos de segurança. Solicite a recuperação para criar uma senha mais forte.');
     }
+    if(action==='login'&&error?.code==='user_banned'){el('email').focus();throw error;}
     if(action==='login'&&error?.code==='email_not_confirmed'){pendingConfirmationEmail=email;el('resendConfirmation').hidden=false;}
     if(error?.code==='email_address_invalid'){el('email').focus();throw error;}
     el(action==='reset'?'email':'password').focus();throw error;
