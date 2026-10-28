@@ -569,8 +569,10 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
 });};
 el('resendConfirmation').onclick=()=>busy('resendConfirmation',async()=>{
   if(!pendingConfirmationEmail){el('resendConfirmation').hidden=true;return;}
-  check(await api.auth.resend({type:'signup',email:pendingConfirmationEmail,options:{emailRedirectTo:authCallbackUrl()}}));
-  pendingConfirmationEmail='';el('resendConfirmation').hidden=true;message('Novo e-mail de confirmação solicitado. Aguarde antes de tentar novamente.');
+  try {
+    check(await api.auth.resend({type:'signup',email:pendingConfirmationEmail,options:{emailRedirectTo:authCallbackUrl()}}));
+    pendingConfirmationEmail='';el('resendConfirmation').hidden=true;message('Novo e-mail de confirmação solicitado. Aguarde antes de tentar novamente.');
+  }catch(error){if(error?.code==='over_email_send_rate_limit'){pendingConfirmationEmail='';el('resendConfirmation').hidden=true;}throw error;}
 });
 el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
   const password=el('newPassword').value,passwordConfirmation=el('newPasswordConfirmation').value;
