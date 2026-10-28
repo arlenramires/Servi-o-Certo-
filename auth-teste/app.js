@@ -52,6 +52,7 @@ function friendly(error) {
   return ({ invalid_credentials:'E-mail ou senha incorretos.', email_not_confirmed:'Confirme seu e-mail antes de entrar.',
     weak_password:'Use uma senha mais forte que atenda aos requisitos de segurança.',
     same_password:'A nova senha deve ser diferente da senha atual.',
+    over_request_rate_limit:'Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.',
     over_email_send_rate_limit:'Aguarde antes de solicitar outro e-mail.', '23505':'Esta solicitação já foi enviada.',
     '42501':'Você não tem permissão para esta operação.', '23514':'Confira os dados informados.',
     SC001:'O acordo depende de um orçamento aceito e serviço apto para contratação.',

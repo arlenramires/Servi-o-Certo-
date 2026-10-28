@@ -148,6 +148,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 142. [Recuperação após login com senha fraca](ENTREGA-2026-10-28-RECUPERACAO-APOS-LOGIN-SENHA-FRACA.md). Quando o Supabase recusa uma senha antiga no acesso por não atender mais às regras de segurança, a interface encaminha diretamente à solicitação de recuperação, preserva o e-mail e uma eventual referência protegida, apaga a senha e mantém o espaço privado fechado.
 143. [Nova senha diferente da atual](ENTREGA-2026-10-28-NOVA-SENHA-DIFERENTE.md). Quando o Supabase recusa a redefinição com `same_password`, a interface informa que a nova senha precisa ser diferente da atual, apaga os dois campos e mantém a recuperação aberta sem alterar a senha, encerrar sessões ou abrir o espaço privado.
 144. [Retorno seguro após cadastro duplicado](ENTREGA-2026-10-28-CADASTRO-DUPLICADO-SEGURO.md). Quando o Supabase recusa um cadastro com `email_exists` ou `user_already_exists`, a interface retorna ao login com o e-mail preservado e orientação neutra para entrar ou recuperar a senha, sem confirmar se a conta existe, reenviar confirmação, autenticar ou abrir o espaço privado.
+145. [Orientação após excesso de tentativas](ENTREGA-2026-10-28-LIMITE-TENTATIVAS-AUTH.md). Login, cadastro, solicitação de recuperação e definição de nova senha reconhecem `over_request_rate_limit`, orientam aguardar alguns minutos e mantêm a etapa pronta para uma tentativa posterior, sem repetir chamadas, autenticar, alterar senha ou encerrar sessões.
 
 ## Próximas entregas prioritárias
 
