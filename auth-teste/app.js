@@ -56,6 +56,7 @@ function friendly(error) {
     same_password:'A nova senha deve ser diferente da senha atual.',
     over_request_rate_limit:'Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.',
     request_timeout:'A solicitação demorou mais que o esperado. Tente novamente.',
+    unexpected_failure:'O serviço de acesso está temporariamente indisponível. Tente novamente mais tarde.',
     user_banned:'Este acesso está temporariamente indisponível. Tente novamente mais tarde ou fale com o suporte.',
     over_email_send_rate_limit:'Aguarde antes de solicitar outro e-mail.', '23505':'Esta solicitação já foi enviada.',
     '42501':'Você não tem permissão para esta operação.', '23514':'Confira os dados informados.',
