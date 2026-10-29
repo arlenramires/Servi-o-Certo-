@@ -587,7 +587,11 @@ el('resendConfirmation').onclick=()=>busy('resendConfirmation',async()=>{
   try {
     check(await api.auth.resend({type:'signup',email:pendingConfirmationEmail,options:{emailRedirectTo:authCallbackUrl()}}));
     pendingConfirmationEmail='';el('resendConfirmation').hidden=true;message('Novo e-mail de confirmação solicitado. Aguarde antes de tentar novamente.');
-  }catch(error){if(['over_email_send_rate_limit','email_address_not_authorized','email_provider_disabled'].includes(error?.code)){pendingConfirmationEmail='';el('resendConfirmation').hidden=true;}throw error;}
+  }catch(error){
+    if(['over_email_send_rate_limit','email_address_invalid','email_address_not_authorized','email_provider_disabled'].includes(error?.code)){pendingConfirmationEmail='';el('resendConfirmation').hidden=true;}
+    if(error?.code==='email_address_invalid')throw new InputError('O endereço usado na confirmação não é válido. Crie a conta novamente com outro e-mail.');
+    throw error;
+  }
 });
 el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
   const password=el('newPassword').value,passwordConfirmation=el('newPasswordConfirmation').value;
