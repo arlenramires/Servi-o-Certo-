@@ -174,6 +174,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 168. [Contenção do limite geral no reenvio de confirmação](ENTREGA-2026-10-29-LIMITE-GERAL-REENVIO-CONFIRMACAO.md). Quando o reenvio do e-mail de confirmação atinge `over_request_rate_limit`, a interface orienta aguardar, consome a ação pendente e impede novas chamadas na mesma abertura; a conta e a área privada permanecem fechadas e o link protegido não é revelado.
 169. [Contenção de timeout do hook no reenvio de confirmação](ENTREGA-2026-10-29-TIMEOUT-HOOK-REENVIO-CONFIRMACAO.md). Quando o hook de envio não responde no prazo inicial ou após as tentativas do Supabase, a interface orienta aguardar, consome a ação pendente e impede reenvios duplicados na mesma abertura; conta, área privada e link protegido permanecem seguros.
 170. [Contenção de degradação do Auth no reenvio de confirmação](ENTREGA-2026-10-29-AUTH-DEGRADADO-REENVIO-CONFIRMACAO.md). Quando o Supabase informa degradação inesperada durante o reenvio, a interface orienta tentar mais tarde, consome a ação pendente e impede repetição na mesma abertura; conta, área privada e link protegido permanecem seguros.
+171. [Contenção de timeout no reenvio de confirmação](ENTREGA-2026-10-29-TIMEOUT-REENVIO-CONFIRMACAO.md). Quando o processamento do reenvio excede o prazo, a interface orienta tentar novamente depois, consome a ação pendente e impede repetição imediata com resultado incerto; conta, área privada e link protegido permanecem seguros.
 
 ## Próximas entregas prioritárias
 
