@@ -21,6 +21,7 @@ let user = null, profile = null, generation = 0, selected = null, conversationGe
 let pendingConfirmationEmail = '';
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const invalidRecoveryCodes = new Set(['otp_expired','flow_state_expired','flow_state_not_found','bad_code_verifier']);
+const endedSessionCodes = new Set(['session_expired','session_not_found','refresh_token_not_found','refresh_token_already_used']);
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
 const requestBatchSize=100;
 const message = value => { el('status').textContent = value; };
@@ -194,6 +195,9 @@ function authCallbackUrl() {
 }
 function rejectInvalidRecovery() {
   recovery=false;history.replaceState(null,'',authCallbackUrl());el('action').value='reset';el('action').onchange();authView();message('Link de recuperação inválido ou expirado. Informe seu e-mail para solicitar outro.');
+}
+function rejectEndedSession() {
+  ++generation;user=null;clearWorkspace();authView();message('Sua sessão expirou. Entre novamente para continuar.');
 }
 function showAllRequestsButton() {
   const button=text('button','Ver todos os serviços','secondary');button.type='button';
@@ -727,4 +731,4 @@ api.auth.onAuthStateChange((event,session)=>{
 authView();
 if(invalidLinkedRequest)message('Link de serviço inválido. Entre para acessar seus serviços normalmente.');
 try { const {user:current}=check(await api.auth.getUser());if(recovery&&!current)rejectInvalidRecovery();else await loadAccount(current); }
-catch(error){if(recovery&&(error?.name==='AuthSessionMissingError'||invalidRecoveryCodes.has(error?.code)))rejectInvalidRecovery();else if(error?.name!=='AuthSessionMissingError')message(friendly(error));}
+catch(error){if(recovery&&(error?.name==='AuthSessionMissingError'||invalidRecoveryCodes.has(error?.code)))rejectInvalidRecovery();else if(endedSessionCodes.has(error?.code))rejectEndedSession();else if(error?.name!=='AuthSessionMissingError')message(friendly(error));}
