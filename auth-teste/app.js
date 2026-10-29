@@ -62,6 +62,7 @@ function friendly(error) {
     request_timeout:'A solicitação demorou mais que o esperado. Tente novamente.',
     hook_timeout:'O serviço de acesso demorou para responder. Aguarde um momento e tente novamente.',
     hook_timeout_after_retry:'O serviço de acesso demorou para responder. Aguarde um momento e tente novamente.',
+    conflict:'Outra atualização de acesso está em andamento. Aguarde um momento e tente novamente.',
     unexpected_failure:'O serviço de acesso está temporariamente indisponível. Tente novamente mais tarde.',
     user_banned:'Este acesso está temporariamente indisponível. Tente novamente mais tarde ou fale com o suporte.',
     over_email_send_rate_limit:'Aguarde antes de solicitar outro e-mail.', '23505':'Esta solicitação já foi enviada.',
