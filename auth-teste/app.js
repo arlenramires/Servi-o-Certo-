@@ -55,6 +55,7 @@ const check = response => { if (response.error) throw response.error; return res
 function friendly(error) {
   return ({ invalid_credentials:'E-mail ou senha incorretos.', user_not_found:'E-mail ou senha incorretos.', email_not_confirmed:'Confirme seu e-mail antes de entrar.',
     validation_failed:'Confira os dados informados e tente novamente.',
+    captcha_failed:'Não foi possível confirmar a verificação de segurança. Recarregue a página e tente novamente.',
     email_address_invalid:'Informe um endereço de e-mail válido.',
     email_address_not_authorized:'Não foi possível enviar e-mail para este endereço. Informe outro e-mail ou fale com o suporte.',
     email_provider_disabled:'O envio de confirmação por e-mail está temporariamente indisponível. Tente novamente mais tarde.',
