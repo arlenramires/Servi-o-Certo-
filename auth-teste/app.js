@@ -22,7 +22,7 @@ let pendingConfirmationEmail = '';
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 let recoveryNeedsReauthentication = false;
 let recoveryNonceResendAvailable = false;
-let recoveryReauthenticationBlocked = false;
+let recoveryReauthenticationBlockedMessage = '';
 const invalidRecoveryCodes = new Set(['otp_expired','flow_state_expired','flow_state_not_found','bad_code_verifier']);
 const endedSessionCodes = new Set(['session_expired','session_not_found','refresh_token_not_found','refresh_token_already_used','bad_jwt']);
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
@@ -112,6 +112,21 @@ function friendly(error) {
     || (error instanceof InputError ? error.message : 'Não foi possível concluir. Verifique sua conexão e tente novamente.');
 }
 class InputError extends Error {}
+function containReauthenticationEmailError(error) {
+  if(error?.code==='over_email_send_rate_limit'){
+    recoveryReauthenticationBlockedMessage='Aguarde alguns minutos e abra novamente a recuperação para solicitar outro código.';
+    return error;
+  }
+  if(error?.code==='email_provider_disabled'){
+    recoveryReauthenticationBlockedMessage='O envio do código de verificação está temporariamente indisponível. Abra novamente a recuperação mais tarde.';
+    return new InputError(recoveryReauthenticationBlockedMessage);
+  }
+  if(['email_address_invalid','email_address_not_authorized'].includes(error?.code)){
+    recoveryReauthenticationBlockedMessage='Não foi possível enviar o código de verificação para esta conta. Fale com o suporte antes de tentar novamente.';
+    return new InputError(recoveryReauthenticationBlockedMessage);
+  }
+  return error;
+}
 const contracts=createContractPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly});
 const execution=createExecutionPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
 const cancellations=createCancellationPanel({api,getContext:()=>({user,profile,selected,generation}),message,friendly,onChanged:()=>refresh()});
@@ -239,7 +254,7 @@ function clearWorkspace() {
   for(const id of ['workspace','clientPanel','providerPanel','providerApply','adminPanel','conversation']) el(id).hidden=true;
   for(const id of ['requests','opportunities','messages','quotes','applications','identity','profile']) el(id).replaceChildren();
   for(const id of ['password','passwordConfirmation','newPassword','newPasswordConfirmation','recoveryNonce','message','description','experience','quoteAmount','quoteDescription','scheduled']) el(id).value='';
-  recoveryNeedsReauthentication=false;recoveryNonceResendAvailable=false;recoveryReauthenticationBlocked=false;el('recoveryNonceArea').hidden=true;el('recoveryNonce').required=false;el('resendRecoveryNonce').hidden=true;
+  recoveryNeedsReauthentication=false;recoveryNonceResendAvailable=false;recoveryReauthenticationBlockedMessage='';el('recoveryNonceArea').hidden=true;el('recoveryNonce').required=false;el('resendRecoveryNonce').hidden=true;
   resetPasswordVisibility();
   el('urgent').checked=false;
 }
@@ -601,7 +616,7 @@ el('resendConfirmation').onclick=()=>busy('resendConfirmation',async()=>{
 el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
   const password=el('newPassword').value,passwordConfirmation=el('newPasswordConfirmation').value,nonce=el('recoveryNonce').value.trim();
   try {
-    if(recoveryReauthenticationBlocked)throw new InputError('Aguarde alguns minutos e abra novamente a recuperação para solicitar outro código.');
+    if(recoveryReauthenticationBlockedMessage)throw new InputError(recoveryReauthenticationBlockedMessage);
     if(password.length<8)throw new InputError('A nova senha precisa de pelo menos 8 caracteres.');
     if(password!==passwordConfirmation)throw new InputError('As senhas não coincidem.');
     if(recoveryNeedsReauthentication&&!nonce){el('recoveryNonce').focus();throw new InputError('Informe o código de verificação enviado para sua conta.');}
@@ -610,7 +625,7 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
   }catch(error){
     if(endedSessionCodes.has(error?.code)){rejectInvalidRecovery();return;}
     if(error?.code==='reauthentication_needed'){
-      try{check(await api.auth.reauthenticate());}catch(reauthError){if(reauthError?.code==='over_email_send_rate_limit')recoveryReauthenticationBlocked=true;throw reauthError;}
+      try{check(await api.auth.reauthenticate());}catch(reauthError){throw containReauthenticationEmailError(reauthError);}
       recoveryNeedsReauthentication=true;recoveryNonceResendAvailable=true;el('recoveryNonceArea').hidden=false;el('recoveryNonce').required=true;el('resendRecoveryNonce').hidden=false;el('recoveryNonce').value='';el('recoveryNonce').focus();message('Enviamos um código de verificação. Informe o código e digite a nova senha novamente.');return;
     }
     if(recoveryNeedsReauthentication&&error?.code==='otp_expired'){recoveryNonceResendAvailable=true;el('resendRecoveryNonce').hidden=false;el('recoveryNonce').value='';el('recoveryNonce').focus();throw new InputError('O código de verificação expirou. Solicite um novo código para continuar.');}
@@ -622,7 +637,7 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
 el('resendRecoveryNonce').onclick=()=>busy('resendRecoveryNonce',async()=>{
   if(!recovery||!recoveryNeedsReauthentication||!recoveryNonceResendAvailable){el('resendRecoveryNonce').hidden=true;return;}
   recoveryNonceResendAvailable=false;el('resendRecoveryNonce').hidden=true;el('recoveryNonce').value='';
-  try{check(await api.auth.reauthenticate());}catch(error){if(error?.code==='over_email_send_rate_limit')recoveryReauthenticationBlocked=true;throw error;}
+  try{check(await api.auth.reauthenticate());}catch(error){throw containReauthenticationEmailError(error);}
   el('recoveryNonce').focus();message('Novo código de verificação solicitado. Aguarde o e-mail antes de continuar.');
 });
 el('cancelRecovery').onclick=()=>busy('cancelRecovery',async()=>{
