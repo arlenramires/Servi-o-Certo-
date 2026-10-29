@@ -21,7 +21,7 @@ let user = null, profile = null, generation = 0, selected = null, conversationGe
 let pendingConfirmationEmail = '';
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 const invalidRecoveryCodes = new Set(['otp_expired','flow_state_expired','flow_state_not_found','bad_code_verifier']);
-const endedSessionCodes = new Set(['session_expired','session_not_found','refresh_token_not_found','refresh_token_already_used']);
+const endedSessionCodes = new Set(['session_expired','session_not_found','refresh_token_not_found','refresh_token_already_used','bad_jwt']);
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
 const requestBatchSize=100;
 const message = value => { el('status').textContent = value; };
@@ -194,7 +194,7 @@ function authCallbackUrl() {
   return url.href;
 }
 function rejectInvalidRecovery() {
-  recovery=false;history.replaceState(null,'',authCallbackUrl());el('action').value='reset';el('action').onchange();authView();message('Link de recuperação inválido ou expirado. Informe seu e-mail para solicitar outro.');
+  ++generation;user=null;clearWorkspace();recovery=false;history.replaceState(null,'',authCallbackUrl());el('action').value='reset';el('action').onchange();authView();message('Link de recuperação inválido ou expirado. Informe seu e-mail para solicitar outro.');
 }
 function rejectEndedSession() {
   ++generation;user=null;clearWorkspace();authView();message('Sua sessão expirou. Entre novamente para continuar.');
@@ -592,7 +592,7 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
     if(password!==passwordConfirmation)throw new InputError('As senhas não coincidem.');
     check(await api.auth.updateUser({password}));check(await api.auth.signOut({scope:'global'}));recovery=false;
     history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Senha atualizada. Por segurança, entre novamente neste e nos outros aparelhos.');
-  }catch(error){el('newPassword').focus();throw error;}
+  }catch(error){if(endedSessionCodes.has(error?.code)){rejectInvalidRecovery();return;}el('newPassword').focus();throw error;}
   finally{el('newPassword').value='';el('newPasswordConfirmation').value='';resetPasswordVisibility();hideCapsLockWarnings();}
 });};
 el('cancelRecovery').onclick=()=>busy('cancelRecovery',async()=>{
@@ -731,4 +731,4 @@ api.auth.onAuthStateChange((event,session)=>{
 authView();
 if(invalidLinkedRequest)message('Link de serviço inválido. Entre para acessar seus serviços normalmente.');
 try { const {user:current}=check(await api.auth.getUser());if(recovery&&!current)rejectInvalidRecovery();else await loadAccount(current); }
-catch(error){if(recovery&&(error?.name==='AuthSessionMissingError'||invalidRecoveryCodes.has(error?.code)))rejectInvalidRecovery();else if(endedSessionCodes.has(error?.code))rejectEndedSession();else if(error?.name!=='AuthSessionMissingError')message(friendly(error));}
+catch(error){if(recovery&&(error?.name==='AuthSessionMissingError'||invalidRecoveryCodes.has(error?.code)||endedSessionCodes.has(error?.code)))rejectInvalidRecovery();else if(endedSessionCodes.has(error?.code))rejectEndedSession();else if(error?.name!=='AuthSessionMissingError')message(friendly(error));}
