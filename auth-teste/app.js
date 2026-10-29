@@ -21,6 +21,7 @@ let user = null, profile = null, generation = 0, selected = null, conversationGe
 let pendingConfirmationEmail = '';
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 let recoveryNeedsReauthentication = false;
+let recoveryNonceResendAvailable = false;
 const invalidRecoveryCodes = new Set(['otp_expired','flow_state_expired','flow_state_not_found','bad_code_verifier']);
 const endedSessionCodes = new Set(['session_expired','session_not_found','refresh_token_not_found','refresh_token_already_used','bad_jwt']);
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
@@ -236,7 +237,7 @@ function clearWorkspace() {
   for(const id of ['workspace','clientPanel','providerPanel','providerApply','adminPanel','conversation']) el(id).hidden=true;
   for(const id of ['requests','opportunities','messages','quotes','applications','identity','profile']) el(id).replaceChildren();
   for(const id of ['password','passwordConfirmation','newPassword','newPasswordConfirmation','recoveryNonce','message','description','experience','quoteAmount','quoteDescription','scheduled']) el(id).value='';
-  recoveryNeedsReauthentication=false;el('recoveryNonceArea').hidden=true;el('recoveryNonce').required=false;
+  recoveryNeedsReauthentication=false;recoveryNonceResendAvailable=false;el('recoveryNonceArea').hidden=true;el('recoveryNonce').required=false;el('resendRecoveryNonce').hidden=true;
   resetPasswordVisibility();
   el('urgent').checked=false;
 }
@@ -606,13 +607,19 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
   }catch(error){
     if(endedSessionCodes.has(error?.code)){rejectInvalidRecovery();return;}
     if(error?.code==='reauthentication_needed'){
-      check(await api.auth.reauthenticate());recoveryNeedsReauthentication=true;el('recoveryNonceArea').hidden=false;el('recoveryNonce').required=true;el('recoveryNonce').value='';el('recoveryNonce').focus();message('Enviamos um código de verificação. Informe o código e digite a nova senha novamente.');return;
+      check(await api.auth.reauthenticate());recoveryNeedsReauthentication=true;recoveryNonceResendAvailable=true;el('recoveryNonceArea').hidden=false;el('recoveryNonce').required=true;el('resendRecoveryNonce').hidden=false;el('recoveryNonce').value='';el('recoveryNonce').focus();message('Enviamos um código de verificação. Informe o código e digite a nova senha novamente.');return;
     }
+    if(recoveryNeedsReauthentication&&error?.code==='otp_expired'){recoveryNonceResendAvailable=true;el('resendRecoveryNonce').hidden=false;el('recoveryNonce').value='';el('recoveryNonce').focus();throw new InputError('O código de verificação expirou. Solicite um novo código para continuar.');}
     if(error?.code==='reauthentication_not_valid'){el('recoveryNonce').value='';el('recoveryNonce').focus();throw new InputError('Código de verificação inválido. Confira o código enviado e tente novamente.');}
     el(recoveryNeedsReauthentication?'recoveryNonce':'newPassword').focus();throw error;
   }
   finally{el('newPassword').value='';el('newPasswordConfirmation').value='';resetPasswordVisibility();hideCapsLockWarnings();}
 });};
+el('resendRecoveryNonce').onclick=()=>busy('resendRecoveryNonce',async()=>{
+  if(!recovery||!recoveryNeedsReauthentication||!recoveryNonceResendAvailable){el('resendRecoveryNonce').hidden=true;return;}
+  recoveryNonceResendAvailable=false;el('resendRecoveryNonce').hidden=true;el('recoveryNonce').value='';
+  check(await api.auth.reauthenticate());el('recoveryNonce').focus();message('Novo código de verificação solicitado. Aguarde o e-mail antes de continuar.');
+});
 el('cancelRecovery').onclick=()=>busy('cancelRecovery',async()=>{
   check(await api.auth.signOut({scope:'local'}));recovery=false;
   history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Recuperação cancelada. Entre para continuar.');
