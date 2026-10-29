@@ -55,6 +55,7 @@ function friendly(error) {
     validation_failed:'Confira os dados informados e tente novamente.',
     email_address_invalid:'Informe um endereço de e-mail válido.',
     email_address_not_authorized:'Não foi possível enviar e-mail para este endereço. Informe outro e-mail ou fale com o suporte.',
+    email_provider_disabled:'O envio de confirmação por e-mail está temporariamente indisponível. Tente novamente mais tarde.',
     weak_password:'Use uma senha mais forte que atenda aos requisitos de segurança.',
     same_password:'A nova senha deve ser diferente da senha atual.',
     over_request_rate_limit:'Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.',
@@ -583,7 +584,7 @@ el('resendConfirmation').onclick=()=>busy('resendConfirmation',async()=>{
   try {
     check(await api.auth.resend({type:'signup',email:pendingConfirmationEmail,options:{emailRedirectTo:authCallbackUrl()}}));
     pendingConfirmationEmail='';el('resendConfirmation').hidden=true;message('Novo e-mail de confirmação solicitado. Aguarde antes de tentar novamente.');
-  }catch(error){if(error?.code==='over_email_send_rate_limit'){pendingConfirmationEmail='';el('resendConfirmation').hidden=true;}throw error;}
+  }catch(error){if(['over_email_send_rate_limit','email_address_not_authorized','email_provider_disabled'].includes(error?.code)){pendingConfirmationEmail='';el('resendConfirmation').hidden=true;}throw error;}
 });
 el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
   const password=el('newPassword').value,passwordConfirmation=el('newPasswordConfirmation').value;
