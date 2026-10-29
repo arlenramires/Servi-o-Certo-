@@ -21,6 +21,7 @@ O espaço privado e seus dados são limpos, o login volta a receber foco e a pes
 - Nenhuma chamada de login, cadastro, recuperação ou renovação é disparada durante a correção.
 - `npm ci --ignore-scripts`: concluído em ambiente isolado.
 - `npm run test:all`: **339/339** testes aprovados — 13 Node/PostgreSQL isolado e 326 Playwright.
+- A comparação dos blobs após a primeira atualização detectou truncamento no arquivo de testes durante o transporte; a publicação foi corrigida em seguida por avanço normal da mesma branch, sem force push, e o conteúdo final foi conferido contra o arquivo validado localmente.
 - Nenhuma conta, sessão ou mensagem real foi criada. Banco conectado, produção, pagamentos, aprovações e privilégios administrativos permaneceram inalterados.
 
 ## Arquivos funcionais
