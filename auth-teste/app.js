@@ -20,6 +20,7 @@ let linkedRequestNeedsFocus = Boolean(linkedRequestId);
 let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map();
 let pendingConfirmationEmail = '';
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
+const invalidRecoveryCodes = new Set(['otp_expired','flow_state_expired','flow_state_not_found','bad_code_verifier']);
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
 const requestBatchSize=100;
 const message = value => { el('status').textContent = value; };
@@ -726,4 +727,4 @@ api.auth.onAuthStateChange((event,session)=>{
 authView();
 if(invalidLinkedRequest)message('Link de serviço inválido. Entre para acessar seus serviços normalmente.');
 try { const {user:current}=check(await api.auth.getUser());if(recovery&&!current)rejectInvalidRecovery();else await loadAccount(current); }
-catch(error){if(error?.name==='AuthSessionMissingError'&&recovery)rejectInvalidRecovery();else if(error?.name!=='AuthSessionMissingError')message(friendly(error));}
+catch(error){if(recovery&&(error?.name==='AuthSessionMissingError'||invalidRecoveryCodes.has(error?.code)))rejectInvalidRecovery();else if(error?.name!=='AuthSessionMissingError')message(friendly(error));}
