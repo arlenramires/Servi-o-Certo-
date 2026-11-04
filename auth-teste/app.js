@@ -61,6 +61,7 @@ function friendly(error) {
     email_address_invalid:'Informe um endereço de e-mail válido.',
     email_address_not_authorized:'Não foi possível enviar e-mail para este endereço. Informe outro e-mail ou fale com o suporte.',
     email_provider_disabled:'O envio de confirmação por e-mail está temporariamente indisponível. Tente novamente mais tarde.',
+    otp_disabled:'O envio do código de verificação está temporariamente indisponível. Tente novamente mais tarde.',
     weak_password:'Use uma senha mais forte que atenda aos requisitos de segurança.',
     same_password:'A nova senha deve ser diferente da senha atual.',
     over_request_rate_limit:'Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.',
@@ -116,6 +117,10 @@ function friendly(error) {
 }
 class InputError extends Error {}
 function containReauthenticationRequestError(error) {
+  if(error?.code==='otp_disabled'){
+    recoveryReauthenticationBlockedMessage='O envio do código de verificação está temporariamente indisponível. Abra novamente a recuperação mais tarde.';
+    return error;
+  }
   if(['validation_failed','bad_json'].includes(error?.code)){
     recoveryReauthenticationBlockedMessage='Não foi possível processar a solicitação do código. Abra novamente a recuperação.';
     return error;
