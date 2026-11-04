@@ -666,7 +666,7 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
   }catch(error){
     if(endedSessionCodes.has(error?.code)){rejectInvalidRecovery();return;}
     if(error?.code==='reauthentication_needed'){
-      try{check(await api.auth.reauthenticate());}catch(reauthError){if(reauthError?.code==='no_authorization'){rejectInvalidRecovery();return;}throw containReauthenticationRequestError(reauthError);}
+      try{check(await api.auth.reauthenticate());}catch(reauthError){if(reauthError?.code==='no_authorization'||endedSessionCodes.has(reauthError?.code)){rejectInvalidRecovery();return;}throw containReauthenticationRequestError(reauthError);}
       recoveryNeedsReauthentication=true;recoveryNonceResendAvailable=true;el('recoveryNonceArea').hidden=false;el('recoveryNonce').required=true;el('resendRecoveryNonce').hidden=false;el('recoveryNonce').value='';el('recoveryNonce').focus();message('Enviamos um código de verificação. Informe o código e digite a nova senha novamente.');return;
     }
     if(recoveryNeedsReauthentication&&error?.code==='otp_expired'){recoveryNonceResendAvailable=true;el('resendRecoveryNonce').hidden=false;el('recoveryNonce').value='';el('recoveryNonce').focus();throw new InputError('O código de verificação expirou. Solicite um novo código para continuar.');}
@@ -678,7 +678,7 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
 el('resendRecoveryNonce').onclick=()=>busy('resendRecoveryNonce',async()=>{
   if(!recovery||!recoveryNeedsReauthentication||!recoveryNonceResendAvailable){el('resendRecoveryNonce').hidden=true;return;}
   recoveryNonceResendAvailable=false;el('resendRecoveryNonce').hidden=true;el('recoveryNonce').value='';
-  try{check(await api.auth.reauthenticate());}catch(error){if(error?.code==='no_authorization'){rejectInvalidRecovery();return;}throw containReauthenticationRequestError(error);}
+  try{check(await api.auth.reauthenticate());}catch(error){if(error?.code==='no_authorization'||endedSessionCodes.has(error?.code)){rejectInvalidRecovery();return;}throw containReauthenticationRequestError(error);}
   el('recoveryNonce').focus();message('Novo código de verificação solicitado. Aguarde o e-mail antes de continuar.');
 });
 el('cancelRecovery').onclick=()=>busy('cancelRecovery',async()=>{
