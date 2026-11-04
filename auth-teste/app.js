@@ -116,6 +116,10 @@ function friendly(error) {
 }
 class InputError extends Error {}
 function containReauthenticationRequestError(error) {
+  if(error?.code==='request_timeout'){
+    recoveryReauthenticationBlockedMessage='A solicitação do código demorou mais que o esperado. Abra novamente a recuperação antes de solicitar outro código.';
+    return error;
+  }
   if(error?.code==='over_request_rate_limit'){
     recoveryReauthenticationBlockedMessage='Muitas tentativas foram feitas. Aguarde alguns minutos e abra novamente a recuperação.';
     return error;
