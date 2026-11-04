@@ -116,6 +116,10 @@ function friendly(error) {
 }
 class InputError extends Error {}
 function containReauthenticationRequestError(error) {
+  if(['validation_failed','bad_json'].includes(error?.code)){
+    recoveryReauthenticationBlockedMessage='Não foi possível processar a solicitação do código. Abra novamente a recuperação.';
+    return error;
+  }
   if(['hook_payload_over_size_limit','hook_payload_invalid_content_type'].includes(error?.code)){
     recoveryReauthenticationBlockedMessage='O serviço de acesso recusou a solicitação. Abra novamente a recuperação mais tarde.';
     return error;
