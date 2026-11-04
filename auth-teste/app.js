@@ -116,6 +116,10 @@ function friendly(error) {
 }
 class InputError extends Error {}
 function containReauthenticationRequestError(error) {
+  if(error?.code==='conflict'){
+    recoveryReauthenticationBlockedMessage='Há outra solicitação em andamento. Aguarde e abra novamente a recuperação antes de pedir outro código.';
+    return error;
+  }
   if(error?.code==='unexpected_failure'){
     recoveryReauthenticationBlockedMessage='O serviço de acesso está temporariamente indisponível. Abra novamente a recuperação mais tarde.';
     return error;
