@@ -118,6 +118,10 @@ function friendly(error) {
 }
 class InputError extends Error {}
 function containReauthenticationRequestError(error) {
+  if(error?.code==='captcha_failed'){
+    recoveryReauthenticationBlockedMessage='A verificação de segurança precisa ser refeita. Recarregue a página antes de abrir novamente a recuperação.';
+    return error;
+  }
   if(error?.code==='user_banned'){
     recoveryReauthenticationBlockedMessage='Este acesso continua temporariamente indisponível. Fale com o suporte antes de abrir novamente a recuperação.';
     return error;
