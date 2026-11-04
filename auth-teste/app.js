@@ -116,6 +116,10 @@ function friendly(error) {
 }
 class InputError extends Error {}
 function containReauthenticationRequestError(error) {
+  if(error?.code==='unexpected_failure'){
+    recoveryReauthenticationBlockedMessage='O serviço de acesso está temporariamente indisponível. Abra novamente a recuperação mais tarde.';
+    return error;
+  }
   if(error?.code==='request_timeout'){
     recoveryReauthenticationBlockedMessage='A solicitação do código demorou mais que o esperado. Abra novamente a recuperação antes de solicitar outro código.';
     return error;
