@@ -116,6 +116,10 @@ function friendly(error) {
 }
 class InputError extends Error {}
 function containReauthenticationRequestError(error) {
+  if(['hook_timeout','hook_timeout_after_retry'].includes(error?.code)){
+    recoveryReauthenticationBlockedMessage='O serviço de acesso demorou para responder. Aguarde e abra novamente a recuperação antes de pedir outro código.';
+    return error;
+  }
   if(error?.code==='conflict'){
     recoveryReauthenticationBlockedMessage='Há outra solicitação em andamento. Aguarde e abra novamente a recuperação antes de pedir outro código.';
     return error;
