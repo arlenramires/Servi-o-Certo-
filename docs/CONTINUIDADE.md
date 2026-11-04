@@ -178,6 +178,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 172. [Contenção de conflito no reenvio de confirmação](ENTREGA-2026-11-04-CONFLITO-REENVIO-CONFIRMACAO.md). Quando o Supabase detecta solicitações concorrentes durante o reenvio, a interface orienta aguardar, consome a ação pendente e impede repetição imediata; conta, área privada e link protegido permanecem seguros.
 173. [Recuperação após validação recusada no reenvio de confirmação](ENTREGA-2026-11-04-VALIDACAO-REENVIO-CONFIRMACAO.md). Quando o Supabase recusa os parâmetros fixos do reenvio, a interface consome a ação inválida, orienta reabrir o fluxo pelo login e impede repetição imediata; conta, área privada e link protegido permanecem seguros.
 174. [Contenção de carga inválida do hook no reenvio de confirmação](ENTREGA-2026-11-04-CARGA-HOOK-REENVIO-CONFIRMACAO.md). Quando o Send Email Hook recusa a carga por tamanho ou `Content-Type`, a interface apresenta orientação neutra, consome a ação e impede repetição imediata; conta, área privada e link protegido permanecem seguros.
+175. [Recuperação após corpo recusado no reenvio de confirmação](ENTREGA-2026-11-04-CORPO-REENVIO-CONFIRMACAO.md). Quando o Supabase informa que o corpo do reenvio não é JSON válido, a interface consome a ação fixa, orienta reabrir o fluxo e impede a repetição dos mesmos dados; conta, área privada e link protegido permanecem seguros.
 
 ## Próximas entregas prioritárias
 

@@ -56,6 +56,7 @@ const check = response => { if (response.error) throw response.error; return res
 function friendly(error) {
   return ({ invalid_credentials:'E-mail ou senha incorretos.', user_not_found:'E-mail ou senha incorretos.', email_not_confirmed:'Confirme seu e-mail antes de entrar.',
     validation_failed:'Confira os dados informados e tente novamente.',
+    bad_json:'O serviço de acesso recusou os dados da solicitação. Reabra o fluxo e tente novamente.',
     captcha_failed:'Não foi possível confirmar a verificação de segurança. Recarregue a página e tente novamente.',
     email_address_invalid:'Informe um endereço de e-mail válido.',
     email_address_not_authorized:'Não foi possível enviar e-mail para este endereço. Informe outro e-mail ou fale com o suporte.',
@@ -614,7 +615,7 @@ el('resendConfirmation').onclick=()=>busy('resendConfirmation',async()=>{
     check(await api.auth.resend({type:'signup',email:pendingConfirmationEmail,options:{emailRedirectTo:authCallbackUrl()}}));
     pendingConfirmationEmail='';el('resendConfirmation').hidden=true;message('Novo e-mail de confirmação solicitado. Aguarde antes de tentar novamente.');
   }catch(error){
-    if(['over_request_rate_limit','over_email_send_rate_limit','email_address_invalid','email_address_not_authorized','email_provider_disabled','hook_timeout','hook_timeout_after_retry','hook_payload_over_size_limit','hook_payload_invalid_content_type','unexpected_failure','request_timeout','conflict','validation_failed'].includes(error?.code)){pendingConfirmationEmail='';el('resendConfirmation').hidden=true;}
+    if(['over_request_rate_limit','over_email_send_rate_limit','email_address_invalid','email_address_not_authorized','email_provider_disabled','hook_timeout','hook_timeout_after_retry','hook_payload_over_size_limit','hook_payload_invalid_content_type','unexpected_failure','request_timeout','conflict','validation_failed','bad_json'].includes(error?.code)){pendingConfirmationEmail='';el('resendConfirmation').hidden=true;}
     if(error?.code==='email_address_invalid')throw new InputError('O endereço usado na confirmação não é válido. Crie a conta novamente com outro e-mail.');
     if(error?.code==='validation_failed')throw new InputError('Não foi possível validar o reenvio. Entre novamente com seu e-mail para solicitar outra confirmação.');
     throw error;
