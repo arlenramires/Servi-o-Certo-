@@ -176,6 +176,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 170. [Contenção de degradação do Auth no reenvio de confirmação](ENTREGA-2026-10-29-AUTH-DEGRADADO-REENVIO-CONFIRMACAO.md). Quando o Supabase informa degradação inesperada durante o reenvio, a interface orienta tentar mais tarde, consome a ação pendente e impede repetição na mesma abertura; conta, área privada e link protegido permanecem seguros.
 171. [Contenção de timeout no reenvio de confirmação](ENTREGA-2026-10-29-TIMEOUT-REENVIO-CONFIRMACAO.md). Quando o processamento do reenvio excede o prazo, a interface orienta tentar novamente depois, consome a ação pendente e impede repetição imediata com resultado incerto; conta, área privada e link protegido permanecem seguros.
 172. [Contenção de conflito no reenvio de confirmação](ENTREGA-2026-11-04-CONFLITO-REENVIO-CONFIRMACAO.md). Quando o Supabase detecta solicitações concorrentes durante o reenvio, a interface orienta aguardar, consome a ação pendente e impede repetição imediata; conta, área privada e link protegido permanecem seguros.
+173. [Recuperação após validação recusada no reenvio de confirmação](ENTREGA-2026-11-04-VALIDACAO-REENVIO-CONFIRMACAO.md). Quando o Supabase recusa os parâmetros fixos do reenvio, a interface consome a ação inválida, orienta reabrir o fluxo pelo login e impede repetição imediata; conta, área privada e link protegido permanecem seguros.
 
 ## Próximas entregas prioritárias
 

@@ -612,8 +612,9 @@ el('resendConfirmation').onclick=()=>busy('resendConfirmation',async()=>{
     check(await api.auth.resend({type:'signup',email:pendingConfirmationEmail,options:{emailRedirectTo:authCallbackUrl()}}));
     pendingConfirmationEmail='';el('resendConfirmation').hidden=true;message('Novo e-mail de confirmação solicitado. Aguarde antes de tentar novamente.');
   }catch(error){
-    if(['over_request_rate_limit','over_email_send_rate_limit','email_address_invalid','email_address_not_authorized','email_provider_disabled','hook_timeout','hook_timeout_after_retry','unexpected_failure','request_timeout','conflict'].includes(error?.code)){pendingConfirmationEmail='';el('resendConfirmation').hidden=true;}
+    if(['over_request_rate_limit','over_email_send_rate_limit','email_address_invalid','email_address_not_authorized','email_provider_disabled','hook_timeout','hook_timeout_after_retry','unexpected_failure','request_timeout','conflict','validation_failed'].includes(error?.code)){pendingConfirmationEmail='';el('resendConfirmation').hidden=true;}
     if(error?.code==='email_address_invalid')throw new InputError('O endereço usado na confirmação não é válido. Crie a conta novamente com outro e-mail.');
+    if(error?.code==='validation_failed')throw new InputError('Não foi possível validar o reenvio. Entre novamente com seu e-mail para solicitar outra confirmação.');
     throw error;
   }
 });
