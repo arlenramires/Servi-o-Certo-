@@ -25,6 +25,7 @@ let recoveryNonceResendAvailable = false;
 let recoveryReauthenticationBlockedMessage = '';
 const invalidRecoveryCodes = new Set(['otp_expired','flow_state_expired','flow_state_not_found','bad_code_verifier']);
 const endedSessionCodes = new Set(['session_expired','session_not_found','refresh_token_not_found','refresh_token_already_used','bad_jwt']);
+const invalidReauthenticationRecoveryCodes = new Set([...endedSessionCodes,'no_authorization','user_not_found']);
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
 const requestBatchSize=100;
 const message = value => { el('status').textContent = value; };
@@ -666,7 +667,7 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
   }catch(error){
     if(endedSessionCodes.has(error?.code)){rejectInvalidRecovery();return;}
     if(error?.code==='reauthentication_needed'){
-      try{check(await api.auth.reauthenticate());}catch(reauthError){if(reauthError?.code==='no_authorization'||endedSessionCodes.has(reauthError?.code)){rejectInvalidRecovery();return;}throw containReauthenticationRequestError(reauthError);}
+      try{check(await api.auth.reauthenticate());}catch(reauthError){if(invalidReauthenticationRecoveryCodes.has(reauthError?.code)){rejectInvalidRecovery();return;}throw containReauthenticationRequestError(reauthError);}
       recoveryNeedsReauthentication=true;recoveryNonceResendAvailable=true;el('recoveryNonceArea').hidden=false;el('recoveryNonce').required=true;el('resendRecoveryNonce').hidden=false;el('recoveryNonce').value='';el('recoveryNonce').focus();message('Enviamos um código de verificação. Informe o código e digite a nova senha novamente.');return;
     }
     if(recoveryNeedsReauthentication&&error?.code==='otp_expired'){recoveryNonceResendAvailable=true;el('resendRecoveryNonce').hidden=false;el('recoveryNonce').value='';el('recoveryNonce').focus();throw new InputError('O código de verificação expirou. Solicite um novo código para continuar.');}
@@ -678,7 +679,7 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',a
 el('resendRecoveryNonce').onclick=()=>busy('resendRecoveryNonce',async()=>{
   if(!recovery||!recoveryNeedsReauthentication||!recoveryNonceResendAvailable){el('resendRecoveryNonce').hidden=true;return;}
   recoveryNonceResendAvailable=false;el('resendRecoveryNonce').hidden=true;el('recoveryNonce').value='';
-  try{check(await api.auth.reauthenticate());}catch(error){if(error?.code==='no_authorization'||endedSessionCodes.has(error?.code)){rejectInvalidRecovery();return;}throw containReauthenticationRequestError(error);}
+  try{check(await api.auth.reauthenticate());}catch(error){if(invalidReauthenticationRecoveryCodes.has(error?.code)){rejectInvalidRecovery();return;}throw containReauthenticationRequestError(error);}
   el('recoveryNonce').focus();message('Novo código de verificação solicitado. Aguarde o e-mail antes de continuar.');
 });
 el('cancelRecovery').onclick=()=>busy('cancelRecovery',async()=>{
