@@ -116,6 +116,10 @@ function friendly(error) {
 }
 class InputError extends Error {}
 function containReauthenticationRequestError(error) {
+  if(['hook_payload_over_size_limit','hook_payload_invalid_content_type'].includes(error?.code)){
+    recoveryReauthenticationBlockedMessage='O serviço de acesso recusou a solicitação. Abra novamente a recuperação mais tarde.';
+    return error;
+  }
   if(['hook_timeout','hook_timeout_after_retry'].includes(error?.code)){
     recoveryReauthenticationBlockedMessage='O serviço de acesso demorou para responder. Aguarde e abra novamente a recuperação antes de pedir outro código.';
     return error;
