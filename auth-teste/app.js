@@ -645,7 +645,8 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
     }
     if(action==='reset'&&error?.code==='unexpected_failure'){
-      el('action').value='login';el('action').onchange();el('email').value=email;message('O serviço de recuperação está temporariamente indisponível. Tente novamente mais tarde.');el('password').focus();return;
+      resetRequestBlockedMessage='O serviço de recuperação está temporariamente indisponível. Tente novamente mais tarde.';
+      el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
     }
     if(action==='reset'&&error?.code==='conflict'){
       el('action').value='login';el('action').onchange();el('email').value=email;message('Já existe uma solicitação de recuperação em andamento. Aguarde antes de tentar novamente.');el('password').focus();return;
