@@ -630,7 +630,7 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
     }
   }catch(error){
-    if(action==='reset'&&['over_request_rate_limit','over_email_send_rate_limit'].includes(error?.code)){
+    if(action==='reset'&&['captcha_failed','over_request_rate_limit','over_email_send_rate_limit'].includes(error?.code)){
       resetRequestBlockedMessage=friendly(error);message(resetRequestBlockedMessage);el('email').focus();return;
     }
     if(action==='reset'&&['user_not_found','user_banned'].includes(error?.code)){
