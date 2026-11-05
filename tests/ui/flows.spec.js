@@ -252,6 +252,11 @@ test('invalid password reset hook payload is consumed without duplicate delivery
     const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe(email);
   }
 });
+test('malformed password reset request is consumed without repeating the fixed body',async({page})=>{
+  await page.goto('/auth-teste/?servico=bad-json-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill('bad-json-reset@example.invalid');await page.locator('#submit').click();
+  await expect(page.locator('#status')).toHaveText('Não foi possível processar a solicitação de recuperação. Reabra o fluxo e tente novamente.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('bad-json-reset@example.invalid');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('bad-json-reset-service');
+  const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe('bad-json-reset@example.invalid');
+});
 test('expired or invalid recovery states return safely to a new request',async({page})=>{
   for(const callback of ['otp-expired','flow-expired','flow-missing','bad-verifier']){
     await page.goto(`/auth-teste/?callback=${callback}&servico=recovery-error-service#type=recovery`);await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#status')).toHaveText('Link de recuperação inválido ou expirado. Informe seu e-mail para solicitar outro.');await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('recovery-error-service');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=recovery-error-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([]);
