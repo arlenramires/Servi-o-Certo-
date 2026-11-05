@@ -656,7 +656,8 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
     }
     if(action==='reset'&&error?.code==='bad_json'){
-      el('action').value='login';el('action').onchange();el('email').value=email;message('Não foi possível processar a solicitação de recuperação. Reabra o fluxo e tente novamente.');el('password').focus();return;
+      resetRequestBlockedMessage='Não foi possível processar a solicitação de recuperação. Reabra o fluxo e tente novamente.';
+      el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
     }
     if(action==='signup'&&['email_exists','user_already_exists'].includes(error?.code)){
       el('action').value='login';el('action').onchange();el('email').value=email;el('password').focus();
