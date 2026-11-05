@@ -656,6 +656,10 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       resetRequestBlockedMessage='O serviço de recuperação recusou o envio. Tente novamente mais tarde.';
       el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
     }
+    if(action==='reset'&&error?.code==='email_provider_disabled'){
+      resetRequestBlockedMessage='O envio das instruções de recuperação está temporariamente indisponível. Tente novamente mais tarde.';
+      el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
+    }
     if(action==='reset'&&error?.code==='validation_failed'){
       resetRequestBlockedMessage='Não foi possível validar a solicitação de recuperação. Reabra o fluxo e confira os dados antes de tentar novamente.';
       el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;

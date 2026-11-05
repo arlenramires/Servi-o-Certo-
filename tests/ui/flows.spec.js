@@ -257,6 +257,12 @@ test('invalid password reset hook payload is consumed without duplicate delivery
     const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe(email);
   }
 });
+test('disabled password reset email provider blocks repeated requests',async({page})=>{
+  await page.goto('/auth-teste/?servico=disabled-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill('disabled-reset@example.invalid');await page.locator('#submit').click();
+  await expect(page.locator('#status')).toHaveText('O envio das instruções de recuperação está temporariamente indisponível. Tente novamente mais tarde.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('disabled-reset@example.invalid');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('disabled-reset-service');
+  await page.locator('#action').selectOption('reset');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('O envio das instruções de recuperação está temporariamente indisponível. Tente novamente mais tarde.');await expect(page.locator('#email')).toBeFocused();
+  const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe('disabled-reset@example.invalid');
+});
 test('invalid password reset parameters require reopening the flow without repeating the request',async({page})=>{
   await page.goto('/auth-teste/?servico=validation-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill('invalid-reset-data@example.invalid');await page.locator('#submit').click();
   await expect(page.locator('#status')).toHaveText('Não foi possível validar a solicitação de recuperação. Reabra o fluxo e confira os dados antes de tentar novamente.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('invalid-reset-data@example.invalid');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('validation-reset-service');
