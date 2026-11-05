@@ -651,6 +651,10 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
     if(action==='reset'&&['hook_payload_over_size_limit','hook_payload_invalid_content_type'].includes(error?.code)){
       el('action').value='login';el('action').onchange();el('email').value=email;message('O serviço de recuperação recusou o envio. Tente novamente mais tarde.');el('password').focus();return;
     }
+    if(action==='reset'&&error?.code==='validation_failed'){
+      resetRequestBlockedMessage='Não foi possível validar a solicitação de recuperação. Reabra o fluxo e confira os dados antes de tentar novamente.';
+      el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
+    }
     if(action==='reset'&&error?.code==='bad_json'){
       el('action').value='login';el('action').onchange();el('email').value=email;message('Não foi possível processar a solicitação de recuperação. Reabra o fluxo e tente novamente.');el('password').focus();return;
     }
