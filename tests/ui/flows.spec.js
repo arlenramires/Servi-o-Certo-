@@ -246,6 +246,7 @@ test('degraded password reset service is consumed without a duplicate delivery a
 test('concurrent password reset conflict is consumed without another request',async({page})=>{
   await page.goto('/auth-teste/?servico=conflict-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill('conflict-reset@example.invalid');await page.locator('#submit').click();
   await expect(page.locator('#status')).toHaveText('Já existe uma solicitação de recuperação em andamento. Aguarde antes de tentar novamente.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('conflict-reset@example.invalid');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('conflict-reset-service');
+  await page.locator('#action').selectOption('reset');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Já existe uma solicitação de recuperação em andamento. Aguarde antes de tentar novamente.');await expect(page.locator('#email')).toBeFocused();
   const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe('conflict-reset@example.invalid');
 });
 test('invalid password reset hook payload is consumed without duplicate delivery attempts',async({page})=>{

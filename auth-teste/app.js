@@ -649,7 +649,8 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
     }
     if(action==='reset'&&error?.code==='conflict'){
-      el('action').value='login';el('action').onchange();el('email').value=email;message('Já existe uma solicitação de recuperação em andamento. Aguarde antes de tentar novamente.');el('password').focus();return;
+      resetRequestBlockedMessage='Já existe uma solicitação de recuperação em andamento. Aguarde antes de tentar novamente.';
+      el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
     }
     if(action==='reset'&&['hook_payload_over_size_limit','hook_payload_invalid_content_type'].includes(error?.code)){
       el('action').value='login';el('action').onchange();el('email').value=email;message('O serviço de recuperação recusou o envio. Tente novamente mais tarde.');el('password').focus();return;
