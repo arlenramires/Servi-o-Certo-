@@ -21,6 +21,7 @@ let user = null, profile = null, generation = 0, selected = null, conversationGe
 let pendingConfirmationEmail = '';
 let resetRequestBlockedMessage = '';
 const resetRequestBlockedEmails = new Map();
+const resetEmailKey = value => value.toLowerCase();
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 let recoveryNeedsReauthentication = false;
 let recoveryNonceResendAvailable = false;
@@ -626,7 +627,8 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       else {el('action').value='login';el('action').onchange();pendingConfirmationEmail=email;el('resendConfirmation').hidden=false;message('Cadastro solicitado. Verifique seu e-mail para confirmar a conta. O perfil de prestador depende de análise.');el('password').focus();}
     }else if(action==='reset') {
       if(resetRequestBlockedMessage){message(resetRequestBlockedMessage);el('email').focus();return;}
-      if(resetRequestBlockedEmails.has(email)){message(resetRequestBlockedEmails.get(email));el('email').focus();return;}
+      const blockedEmailMessage=resetRequestBlockedEmails.get(resetEmailKey(email));
+      if(blockedEmailMessage){message(blockedEmailMessage);el('email').focus();return;}
       check(await api.auth.resetPasswordForEmail(email,{redirectTo:authCallbackUrl()}));el('action').value='login';el('action').onchange();el('email').value=email;message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');el('password').focus();
     }else {
       const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
@@ -671,7 +673,7 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
     }
     if(action==='reset'&&['email_address_invalid','email_address_not_authorized'].includes(error?.code)){
-      const blockedMessage=friendly(error);resetRequestBlockedEmails.set(email,blockedMessage);message(blockedMessage);el('email').focus();return;
+      const blockedMessage=friendly(error);resetRequestBlockedEmails.set(resetEmailKey(email),blockedMessage);message(blockedMessage);el('email').focus();return;
     }
     if(action==='signup'&&['email_exists','user_already_exists'].includes(error?.code)){
       el('action').value='login';el('action').onchange();el('email').value=email;el('password').focus();
