@@ -628,6 +628,9 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
     }
   }catch(error){
+    if(action==='reset'&&['user_not_found','user_banned'].includes(error?.code)){
+      el('action').value='login';el('action').onchange();el('email').value=email;message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');el('password').focus();return;
+    }
     if(action==='signup'&&['email_exists','user_already_exists'].includes(error?.code)){
       el('action').value='login';el('action').onchange();el('email').value=email;el('password').focus();
       throw new InputError('Não foi possível concluir o cadastro. Entre com sua conta ou use Recuperar senha.');
