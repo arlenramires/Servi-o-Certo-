@@ -634,6 +634,9 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
     if(action==='reset'&&['hook_timeout','hook_timeout_after_retry'].includes(error?.code)){
       el('action').value='login';el('action').onchange();el('email').value=email;message('O envio das instruções demorou para responder. Aguarde antes de solicitar novamente.');el('password').focus();return;
     }
+    if(action==='reset'&&error?.code==='request_timeout'){
+      el('action').value='login';el('action').onchange();el('email').value=email;message('A solicitação demorou mais que o esperado. Aguarde antes de solicitar novamente.');el('password').focus();return;
+    }
     if(action==='signup'&&['email_exists','user_already_exists'].includes(error?.code)){
       el('action').value='login';el('action').onchange();el('email').value=email;el('password').focus();
       throw new InputError('Não foi possível concluir o cadastro. Entre com sua conta ou use Recuperar senha.');
