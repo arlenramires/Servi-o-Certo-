@@ -640,6 +640,9 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
     if(action==='reset'&&error?.code==='unexpected_failure'){
       el('action').value='login';el('action').onchange();el('email').value=email;message('O serviço de recuperação está temporariamente indisponível. Tente novamente mais tarde.');el('password').focus();return;
     }
+    if(action==='reset'&&error?.code==='conflict'){
+      el('action').value='login';el('action').onchange();el('email').value=email;message('Já existe uma solicitação de recuperação em andamento. Aguarde antes de tentar novamente.');el('password').focus();return;
+    }
     if(action==='signup'&&['email_exists','user_already_exists'].includes(error?.code)){
       el('action').value='login';el('action').onchange();el('email').value=email;el('password').focus();
       throw new InputError('Não foi possível concluir o cadastro. Entre com sua conta ou use Recuperar senha.');
