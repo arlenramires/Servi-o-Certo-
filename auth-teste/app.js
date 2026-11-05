@@ -641,7 +641,8 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
     }
     if(action==='reset'&&error?.code==='request_timeout'){
-      el('action').value='login';el('action').onchange();el('email').value=email;message('A solicitação demorou mais que o esperado. Aguarde antes de solicitar novamente.');el('password').focus();return;
+      resetRequestBlockedMessage='A solicitação demorou mais que o esperado. Aguarde antes de solicitar novamente.';
+      el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
     }
     if(action==='reset'&&error?.code==='unexpected_failure'){
       el('action').value='login';el('action').onchange();el('email').value=email;message('O serviço de recuperação está temporariamente indisponível. Tente novamente mais tarde.');el('password').focus();return;
