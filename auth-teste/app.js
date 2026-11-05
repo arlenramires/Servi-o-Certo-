@@ -20,6 +20,7 @@ let linkedRequestNeedsFocus = Boolean(linkedRequestId);
 let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map();
 let pendingConfirmationEmail = '';
 let resetRequestBlockedMessage = '';
+let resetRequestBlockedEmail = '';
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 let recoveryNeedsReauthentication = false;
 let recoveryNonceResendAvailable = false;
@@ -625,6 +626,7 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       else {el('action').value='login';el('action').onchange();pendingConfirmationEmail=email;el('resendConfirmation').hidden=false;message('Cadastro solicitado. Verifique seu e-mail para confirmar a conta. O perfil de prestador depende de análise.');el('password').focus();}
     }else if(action==='reset') {
       if(resetRequestBlockedMessage){message(resetRequestBlockedMessage);el('email').focus();return;}
+      if(resetRequestBlockedEmail===email){message('Não foi possível enviar e-mail para este endereço. Informe outro e-mail ou fale com o suporte.');el('email').focus();return;}
       check(await api.auth.resetPasswordForEmail(email,{redirectTo:authCallbackUrl()}));el('action').value='login';el('action').onchange();el('email').value=email;message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');el('password').focus();
     }else {
       const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
@@ -667,6 +669,9 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
     if(action==='reset'&&error?.code==='bad_json'){
       resetRequestBlockedMessage='Não foi possível processar a solicitação de recuperação. Reabra o fluxo e tente novamente.';
       el('action').value='login';el('action').onchange();el('email').value=email;message(resetRequestBlockedMessage);el('password').focus();return;
+    }
+    if(action==='reset'&&error?.code==='email_address_not_authorized'){
+      resetRequestBlockedEmail=email;message(friendly(error));el('email').focus();return;
     }
     if(action==='signup'&&['email_exists','user_already_exists'].includes(error?.code)){
       el('action').value='login';el('action').onchange();el('email').value=email;el('password').focus();
