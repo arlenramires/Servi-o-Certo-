@@ -19,6 +19,7 @@ if(invalidLinkedRequest){const url=new URL(location.href);url.searchParams.delet
 let linkedRequestNeedsFocus = Boolean(linkedRequestId);
 let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map();
 let pendingConfirmationEmail = '';
+let resetRequestBlockedMessage = '';
 let recovery = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 let recoveryNeedsReauthentication = false;
 let recoveryNonceResendAvailable = false;
@@ -623,11 +624,15 @@ el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
       if(data.session)await loadAccount(data.user);
       else {el('action').value='login';el('action').onchange();pendingConfirmationEmail=email;el('resendConfirmation').hidden=false;message('Cadastro solicitado. Verifique seu e-mail para confirmar a conta. O perfil de prestador depende de análise.');el('password').focus();}
     }else if(action==='reset') {
+      if(resetRequestBlockedMessage){message(resetRequestBlockedMessage);el('email').focus();return;}
       check(await api.auth.resetPasswordForEmail(email,{redirectTo:authCallbackUrl()}));el('action').value='login';el('action').onchange();el('email').value=email;message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');el('password').focus();
     }else {
       const data=check(await api.auth.signInWithPassword({email,password}));message('');await loadAccount(data.user);
     }
   }catch(error){
+    if(action==='reset'&&['over_request_rate_limit','over_email_send_rate_limit'].includes(error?.code)){
+      resetRequestBlockedMessage=friendly(error);message(resetRequestBlockedMessage);el('email').focus();return;
+    }
     if(action==='reset'&&['user_not_found','user_banned'].includes(error?.code)){
       el('action').value='login';el('action').onchange();el('email').value=email;message('Se o e-mail estiver cadastrado, você receberá as instruções de recuperação.');el('password').focus();return;
     }
