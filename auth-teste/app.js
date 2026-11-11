@@ -55,6 +55,7 @@ for(const group of capsLockGroups)for(const input of group.inputs){
   el(input).addEventListener('keyup',event=>{el(group.warning).hidden=!event.getModifierState?.('CapsLock');});
   el(input).addEventListener('blur',()=>{el(group.warning).hidden=true;});
 }
+el('scheduled').addEventListener('input',()=>el('scheduled').removeAttribute('aria-invalid'));
 function focusAccessField(){el(el('action').value==='signup'?'name':'email').focus();}
 const check = response => { if (response.error) throw response.error; return response.data; };
 function friendly(error) {
@@ -756,8 +757,8 @@ el('requestForm').onsubmit=event=>{event.preventDefault();busy('createRequest',a
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
   const profession=el('serviceProfession').value,description=el('description').value.trim(),city=el('city').value.trim(),state=el('state').value.trim().toUpperCase();
   if(!profession||description.length<10||city.length<2||!/^[A-Z]{2}$/.test(state))throw new InputError('Confira a profissão, descrição e cidade.');
-  const scheduled_for=el('scheduled').value?new Date(el('scheduled').value).toISOString():null;
-  if(scheduled_for&&new Date(scheduled_for)<=new Date())throw new InputError('Escolha um horário futuro.');
+  const schedule=el('scheduled'),scheduled_for=schedule.value?new Date(schedule.value).toISOString():null;schedule.removeAttribute('aria-invalid');
+  if(scheduled_for&&new Date(scheduled_for)<=new Date()){schedule.setAttribute('aria-invalid','true');schedule.focus();throw new InputError('Escolha um horário futuro. Os demais dados do pedido foram preservados.');}
   const is_urgent=el('urgent').checked;
   check(await api.from('service_requests').insert({client_id:user.id,profession,description,city,state,scheduled_for,is_urgent}));
   el('description').value='';el('scheduled').value='';el('urgent').checked=false;await refresh();message(is_urgent?'Pedido urgente registrado. Prestadores elegíveis verão a prioridade.':'Pedido registrado. Aguardando um profissional elegível da sua região.');
