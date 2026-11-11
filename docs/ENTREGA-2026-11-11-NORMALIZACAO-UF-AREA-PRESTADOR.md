@@ -21,6 +21,13 @@ Referências oficiais atuais:
 - O runtime iniciou sem o Chromium. O CDN primário retornou artefatos vazios/truncados, e o espelho oficial da Microsoft restaurou o navegador; os testes foram executados e aprovados depois da correção do ambiente.
 - Nenhuma migração foi aplicada, nenhum banco conectado ou de produção foi alterado e não houve publicação, e-mail real, cobrança, pagamento, aprovação ou concessão administrativa.
 
+## Evidência remota
+
+- Commit funcional: `59a4370542e6a72d0a08ba0029d1f246b7abeb97`.
+- GitHub Actions CI #231: concluído com sucesso em 11/11/2026 às 15:40:14 (America/Boa_Vista, UTC-4).
+- Execução: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/43088827048
+- A execução hospedada aprovou `npm ci --ignore-scripts`, 13 testes Node/PostgreSQL, a instalação do Chromium e 448 testes Playwright.
+
 ## Limites e riscos para 04/12/2026
 
 A prova usa API controlada no navegador e confirma o objeto enviado ao `upsert`. Ela não substitui a homologação hospedada com conta de prestador aprovada e políticas RLS do projeto conectado.
