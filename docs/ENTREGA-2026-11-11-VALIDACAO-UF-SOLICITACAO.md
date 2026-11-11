@@ -19,6 +19,7 @@ Referências oficiais atuais:
 - Teste dirigido em desktop e viewport Android: 2/2 aprovados. A prova confirmou foco e `aria-invalid` para `ZZ`, preservação dos demais campos, zero inserções antes da correção e somente uma inserção com `state: 'RR'` depois da correção.
 - `npm run test:all`: 461/461 aprovados — 13 testes Node/PostgreSQL e 448 testes Playwright.
 - A primeira execução dirigida não abriu porque o Chromium não estava presente. O CDN primário devolveu artefatos vazios ou truncados; o espelho oficial da Microsoft restaurou Chromium, FFmpeg e o shell headless, e todos os testes foram repetidos depois da correção do ambiente.
+- O CI #236 aprovou instalação e 13 testes Node/PostgreSQL, mas detectou que o arquivo de testes havia sido truncado durante a transferência ao GitHub. A publicação foi corrigida com a leitura integral do arquivo, sem alterar o código funcional, e uma nova validação do HEAD foi disparada.
 - Nenhuma migração foi criada ou aplicada, nenhum banco conectado ou de produção foi alterado e não houve publicação em produção, e-mail real, cobrança, pagamento, aprovação ou concessão administrativa.
 
 ## Limites e riscos para 04/12/2026
