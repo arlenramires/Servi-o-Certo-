@@ -30,6 +30,7 @@ const invalidRecoveryCodes = new Set(['otp_expired','flow_state_expired','flow_s
 const endedSessionCodes = new Set(['session_expired','session_not_found','refresh_token_not_found','refresh_token_already_used','bad_jwt']);
 const invalidReauthenticationRecoveryCodes = new Set([...endedSessionCodes,'no_authorization','user_not_found']);
 const labels = { aberto:'Buscando profissional', aceito:'Profissional aceitou', em_andamento:'Em andamento', concluido:'Concluído', cancelado:'Cancelado' };
+const validBrazilianStates = new Set(['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO']);
 const requestBatchSize=100;
 const message = value => { el('status').textContent = value; };
 const passwordControls = [
@@ -56,7 +57,7 @@ for(const group of capsLockGroups)for(const input of group.inputs){
   el(input).addEventListener('blur',()=>{el(group.warning).hidden=true;});
 }
 el('scheduled').addEventListener('input',()=>el('scheduled').removeAttribute('aria-invalid'));
-el('state').addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();});
+el('state').addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();event.currentTarget.removeAttribute('aria-invalid');});
 el('providerState').addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();});
 function focusAccessField(){el(el('action').value==='signup'?'name':'email').focus();}
 const check = response => { if (response.error) throw response.error; return response.data; };
@@ -758,8 +759,10 @@ el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvide
 });};
 el('requestForm').onsubmit=event=>{event.preventDefault();busy('createRequest',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
-  const profession=el('serviceProfession').value,description=el('description').value.trim(),city=el('city').value.trim(),state=el('state').value.trim().toUpperCase();
+  const profession=el('serviceProfession').value,description=el('description').value.trim(),city=el('city').value.trim(),stateField=el('state'),state=stateField.value.trim().toUpperCase();
   if(!profession||description.length<10||city.length<2||!/^[A-Z]{2}$/.test(state))throw new InputError('Confira a profissão, descrição e cidade.');
+  stateField.removeAttribute('aria-invalid');
+  if(!validBrazilianStates.has(state)){stateField.setAttribute('aria-invalid','true');stateField.focus();throw new InputError('Informe uma UF brasileira válida. Os demais dados do pedido foram preservados.');}
   const schedule=el('scheduled'),scheduled_for=schedule.value?new Date(schedule.value).toISOString():null;schedule.removeAttribute('aria-invalid');
   if(scheduled_for&&new Date(scheduled_for)<=new Date()){schedule.setAttribute('aria-invalid','true');schedule.focus();throw new InputError('Escolha um horário futuro. Os demais dados do pedido foram preservados.');}
   const is_urgent=el('urgent').checked;
