@@ -58,6 +58,7 @@ for(const group of capsLockGroups)for(const input of group.inputs){
 function focusAccessField(){el(el('action').value==='signup'?'name':'email').focus();}
 const check = response => { if (response.error) throw response.error; return response.data; };
 function friendly(error) {
+  if(error?.code==='weak_password'&&error.reasons?.includes('pwned'))return 'Esta senha apareceu em vazamentos conhecidos. Escolha outra senha que você não use em outros serviços.';
   return ({ invalid_credentials:'E-mail ou senha incorretos.', user_not_found:'E-mail ou senha incorretos.', email_not_confirmed:'Confirme seu e-mail antes de entrar.',
     validation_failed:'Confira os dados informados e tente novamente.',
     bad_json:'O serviço de acesso recusou os dados da solicitação. Reabra o fluxo e tente novamente.',
