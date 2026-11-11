@@ -20,6 +20,7 @@ Referências oficiais atuais:
 - `npm run test:all`: 461/461 aprovados — 13 testes Node/PostgreSQL e 448 testes Playwright.
 - A primeira execução dirigida não abriu porque o Chromium não estava presente. O CDN primário devolveu artefatos vazios ou truncados; o espelho oficial da Microsoft restaurou Chromium, FFmpeg e o shell headless, e todos os testes foram repetidos depois da correção do ambiente.
 - O CI #236 aprovou instalação e 13 testes Node/PostgreSQL, mas detectou que o arquivo de testes havia sido truncado durante a transferência ao GitHub. A publicação foi corrigida com a leitura integral do arquivo, sem alterar o código funcional, e uma nova validação do HEAD foi disparada.
+- O CI #237 confirmou a correção e concluiu com sucesso às 19:56:03 (America/Boa_Vista): instalação sem scripts, 13 testes Node/PostgreSQL, instalação do Chromium, 448 testes Playwright e armazenamento das evidências passaram. Execução: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/43123134644.
 - Nenhuma migração foi criada ou aplicada, nenhum banco conectado ou de produção foi alterado e não houve publicação em produção, e-mail real, cobrança, pagamento, aprovação ou concessão administrativa.
 
 ## Limites e riscos para 04/12/2026
