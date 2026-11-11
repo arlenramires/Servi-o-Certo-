@@ -23,7 +23,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm test
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install chromium
       - run: npm run test:ui
       - name: Guardar evidências dos testes
         if: always()
