@@ -19,13 +19,7 @@ Referências oficiais atuais:
 - Teste dirigido em desktop e viewport Android: 2/2 aprovados. A prova confirmou a atualização imediata de `rr` para `RR`, uma única inserção e o objeto enviado ao Supabase com `state: 'RR'`.
 - `npm run test:all`: 459/459 aprovados — 13 testes Node/PostgreSQL e 446 testes Playwright.
 - O runtime iniciou sem o Chromium. O CDN primário retornou artefatos vazios/truncados, e o espelho oficial da Microsoft restaurou o navegador; os testes foram executados e aprovados depois da correção do ambiente.
-- Nenhuma migração foi aplicada, nenhum banco conectado ou de produção foi alterado e não houve publicação, e-mail real, cobrança, pagamento, aprovação ou concessão administrativa.
-
-## Evidências locais isoladas
-
-- `npm ci --ignore-scripts`: pendente de registro final.
-- Teste dirigido em desktop e viewport Android: pendente de registro final.
-- `npm run test:all`: pendente de registro final.
+- O CI #229 concluiu com sucesso às 11:25:47 (America/Boa_Vista): instalação do Chromium, testes Node/PostgreSQL, 446 testes Playwright e armazenamento das evidências foram aprovados. Execução: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/43047924817
 - Nenhuma migração foi aplicada, nenhum banco conectado ou de produção foi alterado e não houve publicação, e-mail real, cobrança, pagamento, aprovação ou concessão administrativa.
 
 ## Limites e riscos para 04/12/2026
