@@ -19,7 +19,8 @@ Referências oficiais atuais:
 - Teste dirigido em desktop e viewport Android: 2/2 aprovados. A prova confirmou foco e `aria-invalid` no horário passado, preservação dos demais dados, zero inserções antes da correção e uma única inserção após informar horário futuro.
 - `npm run test:all`: 457/457 aprovados — 13 testes Node/PostgreSQL e 444 testes Playwright; a suíte completa foi repetida com o mesmo resultado após a correção do workflow.
 - Na primeira execução dirigida, o runtime não tinha o Chromium do Playwright. O CDN primário retornou artefatos vazios/truncados; a instalação pelo espelho oficial da Microsoft restaurou o navegador. O teste dirigido e a suíte completa foram repetidos e aprovados depois da correção do runtime.
-- O CI #226 falhou duas vezes antes dos testes de interface porque o runner não conseguiu resolver `azure.archive.ubuntu.com` ao tentar baixar fontes com `playwright install --with-deps`. Como o Ubuntu 24.04 já contém as bibliotecas necessárias, o workflow passou a instalar somente o Chromium, sem a busca redundante de pacotes do sistema; a correção depende da nova execução remota registrada abaixo.
+- O CI #226 falhou duas vezes antes dos testes de interface porque o runner não conseguiu resolver `azure.archive.ubuntu.com` ao tentar baixar fontes com `playwright install --with-deps`. Como o Ubuntu 24.04 já contém as bibliotecas necessárias, o workflow passou a instalar somente o Chromium, sem a busca redundante de pacotes do sistema.
+- O CI #227 concluiu com sucesso às 10:17:43 (America/Boa_Vista): instalação do Chromium, testes Node/PostgreSQL, 444 testes Playwright e armazenamento das evidências foram aprovados. Execução: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/43036631345
 - Nenhuma migração foi aplicada, nenhum banco conectado ou de produção foi alterado e não houve publicação, e-mail real, cobrança, pagamento, aprovação ou concessão administrativa.
 
 ## Limites e riscos para 04/12/2026
