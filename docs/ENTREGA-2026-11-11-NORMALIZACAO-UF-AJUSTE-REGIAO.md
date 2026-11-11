@@ -26,6 +26,7 @@ Referências oficiais atuais:
 - O commit funcional `879584f7bd5f91d9e2a8fc1dce3f0d304d29b9a5` iniciou o CI #233 às 16:22:49 (America/Boa_Vista), durante uma indisponibilidade geral do GitHub Actions.
 - Mesmo depois de o status oficial informar que a fila havia sido totalmente processada às 17:21, o CI #233 continuava `queued`, sem nenhum job criado e sem atualização, na conferência das 18:42.
 - Para não confundir falha de infraestrutura com falha da entrega, este próprio registro foi atualizado para disparar uma nova validação remota do mesmo código funcional. O commit documental não é contado como funcionalidade adicional.
+- A recuperação foi confirmada pelo CI #234, concluído com sucesso às 18:45:04 (America/Boa_Vista): instalação sem scripts, testes Node, instalação do Chromium, testes Playwright e armazenamento das evidências passaram. Execução: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/43114088560.
 
 ## Limites e riscos para 04/12/2026
 
