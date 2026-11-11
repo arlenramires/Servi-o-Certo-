@@ -56,6 +56,7 @@ for(const group of capsLockGroups)for(const input of group.inputs){
   el(input).addEventListener('blur',()=>{el(group.warning).hidden=true;});
 }
 el('scheduled').addEventListener('input',()=>el('scheduled').removeAttribute('aria-invalid'));
+el('state').addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();});
 function focusAccessField(){el(el('action').value==='signup'?'name':'email').focus();}
 const check = response => { if (response.error) throw response.error; return response.data; };
 function friendly(error) {
