@@ -585,9 +585,9 @@ test('client corrects the description while a request remains open',async({page}
 });
 test('client changes the region while a request remains open',async({page})=>{
   await login(page);await page.locator('#serviceProfession').selectOption('Eletricista');await page.locator('#description').fill('Instalar iluminação em uma residência.');await page.locator('#createRequest').click();
-  const card=page.locator('#requests .service').first();await card.getByLabel('Cidade do pedido').fill('Parintins');await card.getByLabel('UF do pedido').fill('am');await card.getByRole('button',{name:'Atualizar região'}).click();
+  const card=page.locator('#requests .service').first(),state=card.getByLabel('UF do pedido');await card.getByLabel('Cidade do pedido').fill('Parintins');await state.fill('am');await expect(state).toHaveValue('AM');await card.getByRole('button',{name:'Atualizar região'}).click();
   await expect(page.locator('#status')).toContainText('Região do pedido atualizada');await expect(card).toContainText('Parintins / AM');
-  expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='set_open_request_location').args)).toEqual({p_request_id:expect.any(String),p_city:'Parintins',p_state:'AM'});
+  const calls=await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_open_request_location'));expect(calls).toHaveLength(1);expect(calls[0].args).toEqual({p_request_id:expect.any(String),p_city:'Parintins',p_state:'AM'});
 });
 test('client changes the profession while a request remains open',async({page})=>{
   await login(page);await page.locator('#serviceProfession').selectOption('Pintor');await page.locator('#description').fill('Pintura de uma sala com correção do acabamento.');await page.locator('#createRequest').click();

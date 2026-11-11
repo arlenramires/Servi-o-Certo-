@@ -486,6 +486,7 @@ async function refresh(ticket=generation) {
       const requestCity=document.createElement('input');requestCity.id=cityLabel.htmlFor;requestCity.minLength=2;requestCity.maxLength=100;requestCity.value=r.city;
       const stateLabel=text('label','UF do pedido');stateLabel.htmlFor='request-state-'+r.id;
       const requestState=document.createElement('input');requestState.id=stateLabel.htmlFor;requestState.maxLength=2;requestState.value=r.state;
+      requestState.addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();});
       const saveLocation=text('button','Atualizar região','secondary');saveLocation.type='button';
       saveLocation.onclick=async()=>{saveLocation.disabled=true;try{
         const city=requestCity.value.trim(),state=requestState.value.trim().toUpperCase();

@@ -220,6 +220,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 214. [Correção de horário passado na solicitação](ENTREGA-2026-11-11-CORRECAO-HORARIO-PASSADO-SOLICITACAO.md). Ao informar um horário preferido já passado, o cliente recebe orientação no próprio campo, nenhum pedido é inserido e profissão, descrição e região permanecem preenchidas; após escolher um horário futuro, a mesma solicitação pode ser enviada uma única vez.
 215. [Normalização da UF na solicitação](ENTREGA-2026-11-11-NORMALIZACAO-UF-SOLICITACAO.md). O cliente pode digitar a UF em minúsculas no início do pedido; o campo é normalizado imediatamente para maiúsculas e uma única solicitação é inserida com a região canônica.
 216. [Normalização da UF na área do prestador](ENTREGA-2026-11-11-NORMALIZACAO-UF-AREA-PRESTADOR.md). O prestador pode digitar a UF em minúsculas ao definir sua área de atendimento; o campo passa imediatamente para maiúsculas e um único `upsert` salva a região canônica usada no pareamento.
+217. [Normalização da UF ao ajustar a região](ENTREGA-2026-11-11-NORMALIZACAO-UF-AJUSTE-REGIAO.md). O cliente pode digitar a UF em minúsculas ao corrigir a região de um pedido aberto; o campo passa imediatamente para maiúsculas e uma única chamada protegida atualiza cidade e UF canônicas.
 
 ## Próximas entregas prioritárias
 
