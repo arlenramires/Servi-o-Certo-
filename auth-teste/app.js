@@ -57,12 +57,14 @@ for(const group of capsLockGroups)for(const input of group.inputs){
   el(input).addEventListener('blur',()=>{el(group.warning).hidden=true;});
 }
 el('scheduled').addEventListener('input',()=>el('scheduled').removeAttribute('aria-invalid'));
+el('profession').addEventListener('change',event=>event.currentTarget.removeAttribute('aria-invalid'));
 el('serviceProfession').addEventListener('change',event=>event.currentTarget.removeAttribute('aria-invalid'));
 el('description').addEventListener('input',event=>event.currentTarget.removeAttribute('aria-invalid'));
 el('city').addEventListener('input',event=>event.currentTarget.removeAttribute('aria-invalid'));
 el('state').addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();event.currentTarget.removeAttribute('aria-invalid');});
 el('providerCity').addEventListener('input',event=>event.currentTarget.removeAttribute('aria-invalid'));
 el('providerState').addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();event.currentTarget.removeAttribute('aria-invalid');});
+el('applicationForm').noValidate=true;
 el('requestForm').noValidate=true;
 el('areaForm').noValidate=true;
 function focusAccessField(){el(el('action').value==='signup'?'name':'email').focus();}
@@ -766,7 +768,8 @@ el('cancelRecovery').onclick=()=>busy('cancelRecovery',async()=>{
 el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut({scope:'local'}));recovery=false;await loadAccount(null);message('Sessão encerrada.');});
 el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
-  const profession=el('profession').value;if(!profession)throw new InputError('Selecione uma profissão.');
+  const professionField=el('profession'),profession=professionField.value;professionField.removeAttribute('aria-invalid');
+  if(!profession){professionField.setAttribute('aria-invalid','true');professionField.focus();throw new InputError('Selecione a profissão que deseja exercer. Sua experiência foi preservada.');}
   check(await api.from('provider_applications').insert({user_id:user.id,profession,experience_summary:el('experience').value.trim()||null}));
   await loadAccount(user);message('Solicitação enviada para análise. O acesso de prestador ainda não foi liberado.');
 });};
