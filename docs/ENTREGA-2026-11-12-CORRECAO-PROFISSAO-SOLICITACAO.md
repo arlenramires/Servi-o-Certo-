@@ -18,6 +18,7 @@ Referências oficiais atuais:
 - `npm ci --ignore-scripts`: concluído; 4 pacotes instalados sem executar scripts de dependências.
 - Teste dirigido em desktop e viewport Android: 2/2 aprovados. A prova confirmou foco e `aria-invalid` na profissão ausente, preservação de descrição, região e horário, zero inserções durante as correções de profissão, descrição e horário passado e somente uma gravação depois de todos os dados estarem válidos.
 - `npm run test:all`: 461/461 aprovados — 13 testes Node/PostgreSQL e 448 testes Playwright.
+- O CI #255 confirmou o commit funcional e concluiu com sucesso às 04:59:08 (America/Boa_Vista): instalação sem scripts, 13 testes Node/PostgreSQL, instalação do Chromium, 448 testes Playwright e armazenamento das evidências passaram. Execução: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/43187070010.
 - Nenhuma migração foi criada ou aplicada, nenhum banco conectado ou de produção foi alterado e não houve publicação em produção, e-mail real, cobrança, pagamento, aprovação ou concessão administrativa.
 
 ## Limites e riscos para 04/12/2026
