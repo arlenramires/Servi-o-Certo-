@@ -19,7 +19,7 @@ Referências oficiais atuais:
 - Teste dirigido em desktop e viewport Android: 2/2 aprovados. A prova simulou outra aba gravando `Pintor` depois do carregamento da tela; a tentativa concorrente recebeu `23505`, preservou a experiência, atualizou a lista com as duas candidaturas e não criou uma terceira linha.
 - `npm run test:all`: 463/463 aprovados — 13 testes Node/PostgreSQL e 450 testes Playwright.
 - O Chromium ausente após a instalação limpa foi restaurado com FFmpeg e shell headless pelo espelho oficial do Playwright; o teste dirigido e a suíte completa foram repetidos com sucesso.
-- O CI do commit funcional será registrado após a execução no GitHub Actions.
+- O CI #265 confirmou o commit funcional e concluiu com sucesso às 10:41:24 (America/Boa_Vista): instalação sem scripts, 13 testes Node/PostgreSQL, instalação do Chromium, 450 testes Playwright e armazenamento das evidências passaram. Execução: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/43239421407.
 - Nenhuma migração foi criada ou aplicada. Nenhum banco conectado ou de produção foi consultado ou alterado.
 - Não houve publicação em produção, e-mail real, cobrança, pagamento, aprovação de candidatura/profissão/documento ou concessão administrativa.
 
