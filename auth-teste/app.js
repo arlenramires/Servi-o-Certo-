@@ -332,14 +332,16 @@ function authView() {
   el('linkedRequestHint').hidden=!linkedRequestId||!!user||recovery;
   if(recovery)el('newPassword').focus();else if(!user)focusAccessField();
 }
+const providerApplicationStatusLabels=Object.freeze({pendente:'Pendente',em_analise:'Em análise',aprovado:'Aprovada',rejeitado:'Recusada'});
+const providerApplicationStatusLabel=status=>providerApplicationStatusLabels[status]||'Status indisponível';
 function showProviderApplications(applications) {
   providerApplications=applications||[];
-  el('applications').textContent=providerApplications.length?providerApplications.map(application=>application.profession+' — '+application.status).join('; '):'Nenhuma solicitação enviada.';
+  el('applications').textContent=providerApplications.length?providerApplications.map(application=>application.profession+' — '+providerApplicationStatusLabel(application.status)).join('; '):'Nenhuma solicitação enviada.';
   for(const option of el('profession').options) {
     if(!option.value)continue;
     const application=providerApplications.find(item=>item.profession===option.value);
     option.disabled=!!application;
-    option.textContent=application?`${option.value} — candidatura ${application.status}`:option.value;
+    option.textContent=application?`${option.value} — ${providerApplicationStatusLabel(application.status)}`:option.value;
   }
 }
 async function loadAccount(nextUser) {
@@ -783,7 +785,7 @@ el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvide
   if(!profession){professionField.setAttribute('aria-invalid','true');professionField.focus();throw new InputError('Selecione a profissão que deseja exercer. Sua experiência foi preservada.');}
   if(experience.length>1500){experienceField.setAttribute('aria-invalid','true');experienceField.focus();throw new InputError('Resuma sua experiência em até 1500 caracteres. A profissão foi preservada e nenhuma candidatura foi enviada.');}
   const existing=providerApplications.find(application=>application.profession===profession);
-  if(existing){professionField.setAttribute('aria-invalid','true');professionField.focus();throw new InputError(`Já existe uma candidatura para ${profession} (${existing.status}). Escolha outra profissão ou acompanhe a solicitação existente. Sua experiência foi preservada.`);}
+  if(existing){professionField.setAttribute('aria-invalid','true');professionField.focus();throw new InputError(`Já existe uma candidatura para ${profession} (${providerApplicationStatusLabel(existing.status)}). Escolha outra profissão ou acompanhe a solicitação existente. Sua experiência foi preservada.`);}
   try{check(await api.from('provider_applications').insert({user_id:user.id,profession,experience_summary:experience||null}));}
   catch(error){
     if(error?.code!=='23505')throw error;
@@ -791,7 +793,7 @@ el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvide
     showProviderApplications(applications);
     const concurrent=providerApplications.find(application=>application.profession===profession);
     professionField.setAttribute('aria-invalid','true');professionField.focus();
-    throw new InputError(`Já existe uma candidatura para ${profession} (${concurrent?.status||'registrada'}). Escolha outra profissão ou acompanhe a solicitação existente. Sua experiência foi preservada.`);
+    throw new InputError(`Já existe uma candidatura para ${profession} (${concurrent?providerApplicationStatusLabel(concurrent.status):'Registrada'}). Escolha outra profissão ou acompanhe a solicitação existente. Sua experiência foi preservada.`);
   }
   await loadAccount(user);experienceField.value='';professionField.focus();message('Solicitação enviada para análise. O acesso de prestador ainda não foi liberado.');
 });};

@@ -1,5 +1,5 @@
 // UI contract double only. PostgreSQL/RLS are verified separately in database.test.mjs.
-const state=window.testState={user:null,role:window.testRole||'cliente',requests:[],messages:[],messageReads:[],quotes:[],decisions:[],contracts:[],contractDecisions:[],executionEvents:[],arrivalEstimates:[],completionAdjustments:[],progressUpdates:[],scheduleChanges:[],ratings:[],cancellations:[],extras:[],disputes:[],inspections:[],declinedRequests:[],calls:[],applications:[]};
+const state=window.testState={user:null,role:window.testRole||'cliente',requests:[],messages:[],messageReads:[],quotes:[],decisions:[],contracts:[],contractDecisions:[],executionEvents:[],arrivalEstimates:[],completionAdjustments:[],progressUpdates:[],scheduleChanges:[],ratings:[],cancellations:[],extras:[],disputes:[],inspections:[],declinedRequests:[],calls:[],applications:window.testApplications||[]};
 let listener=()=>{};
 state.emitAuth=(event,session=null)=>listener(event,session);
 const response=data=>Promise.resolve({data,error:null});
