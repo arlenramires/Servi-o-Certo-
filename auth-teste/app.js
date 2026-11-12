@@ -332,6 +332,16 @@ function authView() {
   el('linkedRequestHint').hidden=!linkedRequestId||!!user||recovery;
   if(recovery)el('newPassword').focus();else if(!user)focusAccessField();
 }
+function showProviderApplications(applications) {
+  providerApplications=applications||[];
+  el('applications').textContent=providerApplications.length?providerApplications.map(application=>application.profession+' — '+application.status).join('; '):'Nenhuma solicitação enviada.';
+  for(const option of el('profession').options) {
+    if(!option.value)continue;
+    const application=providerApplications.find(item=>item.profession===option.value);
+    option.disabled=!!application;
+    option.textContent=application?`${option.value} — candidatura ${application.status}`:option.value;
+  }
+}
 async function loadAccount(nextUser) {
   const ticket=++generation;
   clearWorkspace(); user=nextUser; authView();
@@ -360,8 +370,7 @@ async function loadAccount(nextUser) {
   if(profile.role==='cliente') {
     const applications=check(await api.from('provider_applications').select('profession,status').eq('user_id',accountId).order('created_at',{ascending:false}));
     if(ticket!==generation)return;
-    providerApplications=applications||[];
-    el('applications').textContent=applications?.length?applications.map(a=>a.profession+' — '+a.status).join('; '):'Nenhuma solicitação enviada.';
+    showProviderApplications(applications);
   }
   if(profile.role==='prestador') {
     el('available').checked=profile.is_available;
@@ -779,8 +788,7 @@ el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvide
   catch(error){
     if(error?.code!=='23505')throw error;
     const applications=check(await api.from('provider_applications').select('profession,status').eq('user_id',user.id).order('created_at',{ascending:false}));
-    providerApplications=applications||[];
-    el('applications').textContent=providerApplications.length?providerApplications.map(application=>application.profession+' — '+application.status).join('; '):'Nenhuma solicitação enviada.';
+    showProviderApplications(applications);
     const concurrent=providerApplications.find(application=>application.profession===profession);
     professionField.setAttribute('aria-invalid','true');professionField.focus();
     throw new InputError(`Já existe uma candidatura para ${profession} (${concurrent?.status||'registrada'}). Escolha outra profissão ou acompanhe a solicitação existente. Sua experiência foi preservada.`);
