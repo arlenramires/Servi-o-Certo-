@@ -775,7 +775,16 @@ el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvide
   if(experience.length>1500){experienceField.setAttribute('aria-invalid','true');experienceField.focus();throw new InputError('Resuma sua experiência em até 1500 caracteres. A profissão foi preservada e nenhuma candidatura foi enviada.');}
   const existing=providerApplications.find(application=>application.profession===profession);
   if(existing){professionField.setAttribute('aria-invalid','true');professionField.focus();throw new InputError(`Já existe uma candidatura para ${profession} (${existing.status}). Escolha outra profissão ou acompanhe a solicitação existente. Sua experiência foi preservada.`);}
-  check(await api.from('provider_applications').insert({user_id:user.id,profession,experience_summary:experience||null}));
+  try{check(await api.from('provider_applications').insert({user_id:user.id,profession,experience_summary:experience||null}));}
+  catch(error){
+    if(error?.code!=='23505')throw error;
+    const applications=check(await api.from('provider_applications').select('profession,status').eq('user_id',user.id).order('created_at',{ascending:false}));
+    providerApplications=applications||[];
+    el('applications').textContent=providerApplications.length?providerApplications.map(application=>application.profession+' — '+application.status).join('; '):'Nenhuma solicitação enviada.';
+    const concurrent=providerApplications.find(application=>application.profession===profession);
+    professionField.setAttribute('aria-invalid','true');professionField.focus();
+    throw new InputError(`Já existe uma candidatura para ${profession} (${concurrent?.status||'registrada'}). Escolha outra profissão ou acompanhe a solicitação existente. Sua experiência foi preservada.`);
+  }
   await loadAccount(user);message('Solicitação enviada para análise. O acesso de prestador ainda não foi liberado.');
 });};
 el('requestForm').onsubmit=event=>{event.preventDefault();busy('createRequest',async()=>{

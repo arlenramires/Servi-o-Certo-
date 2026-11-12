@@ -16,6 +16,7 @@ class Query {
   async execute(){
     state.calls.push({table:this.table,operation:this.operation,payload:this.payload,range:this.rangeBounds});
     if(this.operation==='insert'){
+      if(this.table==='provider_applications'&&state.applications.some(application=>application.user_id===this.payload.user_id&&application.profession===this.payload.profession))return {data:null,error:{code:'23505',message:'duplicate key value violates unique constraint'}};
       const item={id:'request-'+Date.now(),created_at:new Date().toISOString(),status:'aberto',...this.payload};
       if(this.table==='service_requests')state.requests.push(item);
       if(this.table==='service_messages')state.messages.push(item);
