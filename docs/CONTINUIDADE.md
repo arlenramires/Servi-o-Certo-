@@ -229,6 +229,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 223. [Correção da cidade ao ajustar a região](ENTREGA-2026-11-12-CORRECAO-CIDADE-AJUSTE-REGIAO.md). Ao editar a região de um pedido aberto, o cliente corrige uma cidade fora do limite antes de qualquer chamada RPC; a UF permanece preenchida e somente a região totalmente válida é enviada depois da correção.
 224. [Correção da cidade na área do prestador](ENTREGA-2026-11-12-CORRECAO-CIDADE-AREA-PRESTADOR.md). Ao definir a área de atendimento, o prestador corrige uma cidade fora do limite antes de qualquer `upsert`; a UF permanece preenchida, a validação de cidade e UF é acessível e somente uma região totalmente válida é salva.
 225. [Correção da cidade na solicitação](ENTREGA-2026-11-12-CORRECAO-CIDADE-SOLICITACAO.md). Ao criar um pedido, o cliente corrige uma cidade fora do limite antes de qualquer inserção; profissão, descrição e UF permanecem preenchidas, a validação de cidade e UF é acessível e somente uma solicitação totalmente válida é criada.
+226. [Correção da descrição na solicitação](ENTREGA-2026-11-12-CORRECAO-DESCRICAO-SOLICITACAO.md). Ao criar um pedido, o cliente corrige uma descrição fora do limite antes de qualquer inserção; profissão, região e horário permanecem preenchidos, e somente uma solicitação com descrição e horário válidos é criada.
 
 ## Próximas entregas prioritárias
 
