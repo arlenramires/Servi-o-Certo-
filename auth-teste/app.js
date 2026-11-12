@@ -785,7 +785,7 @@ el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvide
     professionField.setAttribute('aria-invalid','true');professionField.focus();
     throw new InputError(`Já existe uma candidatura para ${profession} (${concurrent?.status||'registrada'}). Escolha outra profissão ou acompanhe a solicitação existente. Sua experiência foi preservada.`);
   }
-  await loadAccount(user);message('Solicitação enviada para análise. O acesso de prestador ainda não foi liberado.');
+  await loadAccount(user);experienceField.value='';professionField.focus();message('Solicitação enviada para análise. O acesso de prestador ainda não foi liberado.');
 });};
 el('requestForm').onsubmit=event=>{event.preventDefault();busy('createRequest',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
