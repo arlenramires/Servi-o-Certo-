@@ -479,9 +479,10 @@ async function refresh(ticket=generation) {
       }catch(error){message(friendly(error));}finally{saveSchedule.disabled=false;}};
       const descriptionLabel=text('label','Descrição do pedido');descriptionLabel.htmlFor='request-description-'+r.id;
       const description=document.createElement('textarea');description.id=descriptionLabel.htmlFor;description.minLength=10;description.maxLength=3000;description.rows=3;description.value=r.description;
+      description.addEventListener('input',()=>description.removeAttribute('aria-invalid'));
       const saveDescription=text('button','Atualizar descrição','secondary');saveDescription.type='button';
       saveDescription.onclick=async()=>{saveDescription.disabled=true;try{
-        const next=description.value.trim();if(next.length<10||next.length>3000)throw new InputError('Descreva o serviço com 10 a 3000 caracteres.');
+        const next=description.value.trim();description.removeAttribute('aria-invalid');if(next.length<10||next.length>3000){description.setAttribute('aria-invalid','true');description.focus();throw new InputError('Descreva o serviço com 10 a 3000 caracteres. O pedido foi preservado.');}
         check(await api.rpc('set_open_request_description',{p_request_id:r.id,p_description:next}));
         message('Descrição do pedido atualizada. O chamado continua disponível.');await refresh();
       }catch(error){message(friendly(error));}finally{saveDescription.disabled=false;}};
