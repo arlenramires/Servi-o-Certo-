@@ -467,11 +467,13 @@ async function refresh(ticket=generation) {
       }catch(error){message(friendly(error));}finally{urgency.disabled=false;}};
       const scheduleLabel=text('label','Horário preferido');scheduleLabel.htmlFor='request-schedule-'+r.id;
       const schedule=document.createElement('input');schedule.type='datetime-local';schedule.id=scheduleLabel.htmlFor;
+      schedule.addEventListener('input',()=>schedule.removeAttribute('aria-invalid'));
       if(r.scheduled_for){const date=new Date(r.scheduled_for);if(!Number.isNaN(date.getTime()))schedule.value=new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);}
       const saveSchedule=text('button','Atualizar horário','secondary');saveSchedule.type='button';
       saveSchedule.onclick=async()=>{saveSchedule.disabled=true;try{
         const next=schedule.value?new Date(schedule.value).toISOString():null;
-        if(next&&new Date(next)<=new Date())throw new InputError('Escolha um horário futuro.');
+        schedule.removeAttribute('aria-invalid');
+        if(next&&new Date(next)<=new Date()){schedule.setAttribute('aria-invalid','true');schedule.focus();throw new InputError('Escolha um horário futuro. O pedido foi preservado.');}
         check(await api.rpc('set_open_request_schedule',{p_request_id:r.id,p_scheduled_for:next}));
         message(next?'Horário preferido atualizado. Prestadores elegíveis verão a nova preferência.':'Horário preferido removido. O pedido continua aberto.');await refresh();
       }catch(error){message(friendly(error));}finally{saveSchedule.disabled=false;}};

@@ -224,6 +224,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 218. [Correção de UF inexistente na solicitação](ENTREGA-2026-11-11-VALIDACAO-UF-SOLICITACAO.md). Ao criar um pedido, o cliente corrige uma sigla que não pertence às 27 UFs antes de qualquer inserção; os demais dados permanecem preenchidos e somente uma solicitação com a UF válida é enviada depois da correção.
 219. [Correção de UF inexistente na área do prestador](ENTREGA-2026-11-11-VALIDACAO-UF-AREA-PRESTADOR.md). Ao definir sua região, o prestador corrige uma sigla que não pertence às 27 UFs antes de qualquer `upsert`; a cidade permanece preenchida e somente uma área com a UF válida é salva depois da correção.
 220. [Correção de UF inexistente ao ajustar a região](ENTREGA-2026-11-11-VALIDACAO-UF-AJUSTE-REGIAO.md). Ao editar a região de um pedido aberto, o cliente corrige uma sigla que não pertence às 27 UFs antes de qualquer chamada RPC; a cidade permanece preenchida e somente a UF válida é enviada depois da correção.
+221. [Correção de horário passado ao ajustar o pedido](ENTREGA-2026-11-11-CORRECAO-HORARIO-PASSADO-AJUSTE-PEDIDO.md). Ao editar a preferência de um pedido aberto, o cliente corrige um horário passado antes de qualquer chamada RPC; o pedido permanece preenchido e somente o horário futuro é enviado depois da correção.
 
 ## Próximas entregas prioritárias
 
