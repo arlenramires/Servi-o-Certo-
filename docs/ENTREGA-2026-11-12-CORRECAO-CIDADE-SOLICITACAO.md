@@ -19,6 +19,7 @@ Referências oficiais atuais:
 - Teste dirigido em desktop e viewport Android: 2/2 aprovados. A prova confirmou foco e `aria-invalid` na cidade curta, preservação de profissão, descrição e UF, zero inserções durante as correções de cidade e UF e somente uma gravação com `Boa Vista / RR` depois de ambas estarem válidas.
 - `npm run test:all`: 461/461 aprovados — 13 testes Node/PostgreSQL e 448 testes Playwright.
 - O Chromium não estava presente no runtime isolado. O CDN primário devolveu artefatos vazios ou truncados; o espelho oficial da Microsoft restaurou Chromium, FFmpeg e o shell headless, e todos os testes foram repetidos depois da correção do ambiente.
+- O CI #251 confirmou o commit funcional e concluiu com sucesso às 03:40:28 (America/Boa_Vista): instalação sem scripts, 13 testes Node/PostgreSQL, instalação do Chromium, 448 testes Playwright e armazenamento das evidências passaram. Execução: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/43176737579.
 - Nenhuma migração foi criada ou aplicada, nenhum banco conectado ou de produção foi alterado e não houve publicação em produção, e-mail real, cobrança, pagamento, aprovação ou concessão administrativa.
 
 ## Limites e riscos para 04/12/2026
