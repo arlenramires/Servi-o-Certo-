@@ -19,6 +19,7 @@ Referências oficiais atuais:
 - Teste dirigido em desktop e viewport Android: 2/2 aprovados. A prova confirmou foco e `aria-invalid` na experiência acima do limite, profissão preservada, zero candidaturas durante as correções de profissão e experiência, somente uma candidatura pendente com texto válido e bloqueio posterior de duplicidade.
 - `npm run test:all`: 463/463 aprovados — 13 testes Node/PostgreSQL e 450 testes Playwright.
 - O navegador já estava disponível no runtime isolado; a instalação explícita do Chromium confirmou os binários necessários sem novo download.
+- O CI #263 confirmou o commit funcional e concluiu com sucesso às 08:58:54 (America/Boa_Vista): instalação sem scripts, 13 testes Node/PostgreSQL, instalação do Chromium, 450 testes Playwright e armazenamento das evidências passaram. Execução: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/43222512307.
 - Nenhuma migração foi criada ou aplicada. A restrição existente de até 1.500 caracteres continua sendo a garantia final no banco; nenhum banco conectado ou de produção foi alterado.
 - Não houve publicação em produção, e-mail real, cobrança, pagamento, aprovação de candidatura/profissão/documento ou concessão administrativa.
 
