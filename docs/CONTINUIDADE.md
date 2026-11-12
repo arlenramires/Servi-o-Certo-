@@ -222,6 +222,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 216. [Normalização da UF na área do prestador](ENTREGA-2026-11-11-NORMALIZACAO-UF-AREA-PRESTADOR.md). O prestador pode digitar a UF em minúsculas ao definir sua área de atendimento; o campo passa imediatamente para maiúsculas e um único `upsert` salva a região canônica usada no pareamento.
 217. [Normalização da UF ao ajustar a região](ENTREGA-2026-11-11-NORMALIZACAO-UF-AJUSTE-REGIAO.md). O cliente pode digitar a UF em minúsculas ao corrigir a região de um pedido aberto; o campo passa imediatamente para maiúsculas e uma única chamada protegida atualiza cidade e UF canônicas.
 218. [Correção de UF inexistente na solicitação](ENTREGA-2026-11-11-VALIDACAO-UF-SOLICITACAO.md). Ao criar um pedido, o cliente corrige uma sigla que não pertence às 27 UFs antes de qualquer inserção; os demais dados permanecem preenchidos e somente uma solicitação com a UF válida é enviada depois da correção.
+219. [Correção de UF inexistente na área do prestador](ENTREGA-2026-11-11-VALIDACAO-UF-AREA-PRESTADOR.md). Ao definir sua região, o prestador corrige uma sigla que não pertence às 27 UFs antes de qualquer `upsert`; a cidade permanece preenchida e somente uma área com a UF válida é salva depois da correção.
 
 ## Próximas entregas prioritárias
 
