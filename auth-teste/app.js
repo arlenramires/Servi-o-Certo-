@@ -57,9 +57,11 @@ for(const group of capsLockGroups)for(const input of group.inputs){
   el(input).addEventListener('blur',()=>{el(group.warning).hidden=true;});
 }
 el('scheduled').addEventListener('input',()=>el('scheduled').removeAttribute('aria-invalid'));
+el('city').addEventListener('input',event=>event.currentTarget.removeAttribute('aria-invalid'));
 el('state').addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();event.currentTarget.removeAttribute('aria-invalid');});
 el('providerCity').addEventListener('input',event=>event.currentTarget.removeAttribute('aria-invalid'));
 el('providerState').addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();event.currentTarget.removeAttribute('aria-invalid');});
+el('requestForm').noValidate=true;
 el('areaForm').noValidate=true;
 function focusAccessField(){el(el('action').value==='signup'?'name':'email').focus();}
 const check = response => { if (response.error) throw response.error; return response.data; };
@@ -768,8 +770,10 @@ el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvide
 });};
 el('requestForm').onsubmit=event=>{event.preventDefault();busy('createRequest',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
-  const profession=el('serviceProfession').value,description=el('description').value.trim(),city=el('city').value.trim(),stateField=el('state'),state=stateField.value.trim().toUpperCase();
-  if(!profession||description.length<10||city.length<2||!/^[A-Z]{2}$/.test(state))throw new InputError('Confira a profissão, descrição e cidade.');
+  const profession=el('serviceProfession').value,description=el('description').value.trim(),cityField=el('city'),city=cityField.value.trim(),stateField=el('state'),state=stateField.value.trim().toUpperCase();
+  cityField.removeAttribute('aria-invalid');
+  if(city.length<2||city.length>100){cityField.setAttribute('aria-invalid','true');cityField.focus();throw new InputError('Informe uma cidade com 2 a 100 caracteres. Os demais dados do pedido foram preservados.');}
+  if(!profession||description.length<10||description.length>3000||!/^[A-Z]{2}$/.test(state))throw new InputError('Confira a profissão, descrição e UF.');
   stateField.removeAttribute('aria-invalid');
   if(!validBrazilianStates.has(state)){stateField.setAttribute('aria-invalid','true');stateField.focus();throw new InputError('Informe uma UF brasileira válida. Os demais dados do pedido foram preservados.');}
   const schedule=el('scheduled'),scheduled_for=schedule.value?new Date(schedule.value).toISOString():null;schedule.removeAttribute('aria-invalid');
