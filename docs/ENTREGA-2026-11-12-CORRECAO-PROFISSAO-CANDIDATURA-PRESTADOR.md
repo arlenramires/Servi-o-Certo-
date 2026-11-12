@@ -19,6 +19,7 @@ Referências oficiais atuais:
 - Teste dirigido em desktop e viewport Android: 2/2 aprovados. A prova confirmou foco e `aria-invalid` na profissão ausente, preservação da experiência, zero candidaturas durante a correção, somente uma candidatura pendente depois da seleção e permanência no perfil de cliente sem painel de prestador.
 - `npm run test:all`: 463/463 aprovados — 13 testes Node/PostgreSQL e 450 testes Playwright.
 - O Chromium não estava presente após a instalação limpa; Chromium, FFmpeg e o shell headless foram restaurados pelo espelho oficial da Microsoft, e os testes foram repetidos depois da correção do runtime.
+- O CI #259 confirmou o commit funcional e concluiu com sucesso às 07:33:57 (America/Boa_Vista): instalação sem scripts, 13 testes Node/PostgreSQL, instalação do Chromium, 450 testes Playwright e armazenamento das evidências passaram. Execução: https://github.com/arlenramires/Servi-o-Certo-/actions/runs/43209907754.
 - Nenhuma migração foi criada ou aplicada, nenhum banco conectado ou de produção foi alterado e não houve publicação em produção, e-mail real, cobrança, pagamento, aprovação de candidatura/profissão/documento ou concessão administrativa.
 
 ## Limites e riscos para 04/12/2026
