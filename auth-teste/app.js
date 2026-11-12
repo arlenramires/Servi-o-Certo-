@@ -58,7 +58,9 @@ for(const group of capsLockGroups)for(const input of group.inputs){
 }
 el('scheduled').addEventListener('input',()=>el('scheduled').removeAttribute('aria-invalid'));
 el('state').addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();event.currentTarget.removeAttribute('aria-invalid');});
+el('providerCity').addEventListener('input',event=>event.currentTarget.removeAttribute('aria-invalid'));
 el('providerState').addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();event.currentTarget.removeAttribute('aria-invalid');});
+el('areaForm').noValidate=true;
 function focusAccessField(){el(el('action').value==='signup'?'name':'email').focus();}
 const check = response => { if (response.error) throw response.error; return response.data; };
 function friendly(error) {
@@ -778,9 +780,11 @@ el('requestForm').onsubmit=event=>{event.preventDefault();busy('createRequest',a
 });};
 el('areaForm').onsubmit=event=>{event.preventDefault();busy('saveArea',async()=>{
   if(profile?.role!=='prestador')throw new InputError('Acesso restrito ao prestador aprovado.');
-  const city=el('providerCity').value.trim(),stateField=el('providerState'),state=stateField.value.trim().toUpperCase();
+  const cityField=el('providerCity'),city=cityField.value.trim(),stateField=el('providerState'),state=stateField.value.trim().toUpperCase();
+  cityField.removeAttribute('aria-invalid');
+  if(city.length<2||city.length>100){cityField.setAttribute('aria-invalid','true');cityField.focus();throw new InputError('Informe uma cidade com 2 a 100 caracteres. A UF foi preservada.');}
   stateField.removeAttribute('aria-invalid');
-  if(!validBrazilianStates.has(state)){stateField.setAttribute('aria-invalid','true');stateField.focus();throw new InputError('Informe uma UF brasileira válida. A cidade foi preservada.');}
+  if(!/^[A-Z]{2}$/.test(state)||!validBrazilianStates.has(state)){stateField.setAttribute('aria-invalid','true');stateField.focus();throw new InputError('Informe uma UF brasileira válida. A cidade foi preservada.');}
   check(await api.from('provider_service_areas').upsert({provider_id:user.id,city,state,updated_at:new Date().toISOString()},{onConflict:'provider_id'}));
   await refresh();message('Região de atendimento atualizada.');
 });};
