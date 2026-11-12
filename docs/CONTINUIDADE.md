@@ -231,6 +231,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 225. [Correção da cidade na solicitação](ENTREGA-2026-11-12-CORRECAO-CIDADE-SOLICITACAO.md). Ao criar um pedido, o cliente corrige uma cidade fora do limite antes de qualquer inserção; profissão, descrição e UF permanecem preenchidas, a validação de cidade e UF é acessível e somente uma solicitação totalmente válida é criada.
 226. [Correção da descrição na solicitação](ENTREGA-2026-11-12-CORRECAO-DESCRICAO-SOLICITACAO.md). Ao criar um pedido, o cliente corrige uma descrição fora do limite antes de qualquer inserção; profissão, região e horário permanecem preenchidos, e somente uma solicitação com descrição e horário válidos é criada.
 227. [Correção da profissão na solicitação](ENTREGA-2026-11-12-CORRECAO-PROFISSAO-SOLICITACAO.md). Ao criar um pedido, o cliente seleciona uma profissão antes de qualquer inserção; descrição, região e horário permanecem preenchidos, e somente uma solicitação totalmente válida é criada.
+228. [Correção de UF incompleta na solicitação](ENTREGA-2026-11-12-CORRECAO-UF-INCOMPLETA-SOLICITACAO.md). Ao criar um pedido, o cliente completa uma UF com menos de duas letras antes de qualquer inserção; profissão, descrição e cidade permanecem preenchidas, e somente uma solicitação com UF completa e existente é criada.
 
 ## Próximas entregas prioritárias
 

@@ -779,7 +779,7 @@ el('requestForm').onsubmit=event=>{event.preventDefault();busy('createRequest',a
   if(city.length<2||city.length>100){cityField.setAttribute('aria-invalid','true');cityField.focus();throw new InputError('Informe uma cidade com 2 a 100 caracteres. Os demais dados do pedido foram preservados.');}
   descriptionField.removeAttribute('aria-invalid');
   if(description.length<10||description.length>3000){descriptionField.setAttribute('aria-invalid','true');descriptionField.focus();throw new InputError('Descreva o serviço com 10 a 3000 caracteres. Os demais dados do pedido foram preservados.');}
-  if(!/^[A-Z]{2}$/.test(state))throw new InputError('Confira a UF.');
+  if(!/^[A-Z]{2}$/.test(state)){stateField.setAttribute('aria-invalid','true');stateField.focus();throw new InputError('Informe a UF com 2 letras. Os demais dados do pedido foram preservados.');}
   stateField.removeAttribute('aria-invalid');
   if(!validBrazilianStates.has(state)){stateField.setAttribute('aria-invalid','true');stateField.focus();throw new InputError('Informe uma UF brasileira válida. Os demais dados do pedido foram preservados.');}
   const schedule=el('scheduled'),scheduled_for=schedule.value?new Date(schedule.value).toISOString():null;schedule.removeAttribute('aria-invalid');

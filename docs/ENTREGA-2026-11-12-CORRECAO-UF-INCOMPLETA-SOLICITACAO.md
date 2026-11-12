@@ -1,0 +1,28 @@
+# Entrega: correção de UF incompleta na solicitação
+
+Validada em 12/11/2026 às 06:27:13 (America/Boa_Vista, UTC-4).
+
+## Funcionalidade entregue
+
+Ao criar um pedido, o cliente agora recebe orientação no próprio campo quando a UF está vazia ou tem menos de duas letras. O campo é marcado como inválido e recebe foco, enquanto profissão, descrição e cidade permanecem preenchidas e nenhum `insert` é enviado para `service_requests`.
+
+Depois de completar a sigla, a marca de erro é removida e a validação das 27 UFs continua independente. Somente quando a UF possui duas letras e pertence ao conjunto brasileiro uma única solicitação é criada.
+
+Referências oficiais atuais:
+
+- https://supabase.com/docs/reference/javascript/insert
+- https://supabase.com/docs/guides/database/postgres/row-level-security
+
+## Evidências locais isoladas
+
+- `npm ci --ignore-scripts`: concluído; 4 pacotes instalados sem executar scripts de dependências.
+- Teste dirigido em desktop e viewport Android: 2/2 aprovados. A prova confirmou foco e `aria-invalid` na UF incompleta, preservação de profissão, descrição e cidade, zero inserções durante as correções de cidade, UF incompleta e UF inexistente e somente uma gravação depois de toda a região estar válida.
+- `npm run test:all`: 461/461 aprovados — 13 testes Node/PostgreSQL e 448 testes Playwright.
+- O Chromium não estava presente após a instalação limpa; Chromium, FFmpeg e o shell headless foram restaurados pelo espelho oficial da Microsoft, e os testes foram repetidos depois da correção do runtime.
+- Nenhuma migração foi criada ou aplicada, nenhum banco conectado ou de produção foi alterado e não houve publicação em produção, e-mail real, cobrança, pagamento, aprovação ou concessão administrativa.
+
+## Limites e riscos para 04/12/2026
+
+Esta entrega comprova o comportamento da interface com uma API controlada. Ela não substitui a homologação hospedada com conta de cliente confirmada nem altera as políticas RLS do projeto conectado.
+
+Permanecem no caminho crítico: definição e credenciais do gateway sandbox; provisionamento verificado do proprietário; armazenamento privado e análise de documentos e contestações; e homologação de e-mails, pagamentos, notificações, localização, Android, LGPD e fluxos completos no ambiente conectado. Sem essas decisões e acessos externos com antecedência, a meta integral de 04/12/2026 continua em risco e não é tratada como garantia nem reduzida a MVP.
