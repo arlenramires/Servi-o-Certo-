@@ -57,6 +57,7 @@ for(const group of capsLockGroups)for(const input of group.inputs){
   el(input).addEventListener('blur',()=>{el(group.warning).hidden=true;});
 }
 el('scheduled').addEventListener('input',()=>el('scheduled').removeAttribute('aria-invalid'));
+el('serviceProfession').addEventListener('change',event=>event.currentTarget.removeAttribute('aria-invalid'));
 el('description').addEventListener('input',event=>event.currentTarget.removeAttribute('aria-invalid'));
 el('city').addEventListener('input',event=>event.currentTarget.removeAttribute('aria-invalid'));
 el('state').addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();event.currentTarget.removeAttribute('aria-invalid');});
@@ -771,12 +772,14 @@ el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvide
 });};
 el('requestForm').onsubmit=event=>{event.preventDefault();busy('createRequest',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
-  const profession=el('serviceProfession').value,descriptionField=el('description'),description=descriptionField.value.trim(),cityField=el('city'),city=cityField.value.trim(),stateField=el('state'),state=stateField.value.trim().toUpperCase();
+  const professionField=el('serviceProfession'),profession=professionField.value,descriptionField=el('description'),description=descriptionField.value.trim(),cityField=el('city'),city=cityField.value.trim(),stateField=el('state'),state=stateField.value.trim().toUpperCase();
+  professionField.removeAttribute('aria-invalid');
+  if(!profession){professionField.setAttribute('aria-invalid','true');professionField.focus();throw new InputError('Selecione uma profissão. Os demais dados do pedido foram preservados.');}
   cityField.removeAttribute('aria-invalid');
   if(city.length<2||city.length>100){cityField.setAttribute('aria-invalid','true');cityField.focus();throw new InputError('Informe uma cidade com 2 a 100 caracteres. Os demais dados do pedido foram preservados.');}
   descriptionField.removeAttribute('aria-invalid');
   if(description.length<10||description.length>3000){descriptionField.setAttribute('aria-invalid','true');descriptionField.focus();throw new InputError('Descreva o serviço com 10 a 3000 caracteres. Os demais dados do pedido foram preservados.');}
-  if(!profession||!/^[A-Z]{2}$/.test(state))throw new InputError('Confira a profissão e a UF.');
+  if(!/^[A-Z]{2}$/.test(state))throw new InputError('Confira a UF.');
   stateField.removeAttribute('aria-invalid');
   if(!validBrazilianStates.has(state)){stateField.setAttribute('aria-invalid','true');stateField.focus();throw new InputError('Informe uma UF brasileira válida. Os demais dados do pedido foram preservados.');}
   const schedule=el('scheduled'),scheduled_for=schedule.value?new Date(schedule.value).toISOString():null;schedule.removeAttribute('aria-invalid');
