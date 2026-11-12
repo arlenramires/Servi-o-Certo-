@@ -233,6 +233,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 227. [Correção da profissão na solicitação](ENTREGA-2026-11-12-CORRECAO-PROFISSAO-SOLICITACAO.md). Ao criar um pedido, o cliente seleciona uma profissão antes de qualquer inserção; descrição, região e horário permanecem preenchidos, e somente uma solicitação totalmente válida é criada.
 228. [Correção de UF incompleta na solicitação](ENTREGA-2026-11-12-CORRECAO-UF-INCOMPLETA-SOLICITACAO.md). Ao criar um pedido, o cliente completa uma UF com menos de duas letras antes de qualquer inserção; profissão, descrição e cidade permanecem preenchidas, e somente uma solicitação com UF completa e existente é criada.
 229. [Correção da profissão na candidatura a prestador](ENTREGA-2026-11-12-CORRECAO-PROFISSAO-CANDIDATURA-PRESTADOR.md). Ao solicitar análise para atuar como prestador, o cliente seleciona uma profissão antes de qualquer inserção; a experiência permanece preenchida, uma única candidatura pendente é enviada e nenhum acesso de prestador é concedido automaticamente.
+230. [Prevenção de candidatura duplicada a prestador](ENTREGA-2026-11-12-PREVENCAO-CANDIDATURA-DUPLICADA-PRESTADOR.md). Ao tentar repetir uma candidatura para a mesma profissão, o cliente é orientado antes de qualquer nova inserção; a experiência permanece preenchida, a solicitação pendente original é preservada e nenhum acesso de prestador é concedido.
 
 ## Próximas entregas prioritárias
 

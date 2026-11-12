@@ -17,7 +17,7 @@ const invalidLinkedRequest = linkedRequestParams.length > 1 || (linkedRequestPar
 let linkedRequestId = invalidLinkedRequest ? '' : normalizedLinkedRequest;
 if(invalidLinkedRequest){const url=new URL(location.href);url.searchParams.delete('servico');history.replaceState(null,'',url.pathname+url.search+url.hash);}
 let linkedRequestNeedsFocus = Boolean(linkedRequestId);
-let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map();
+let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map(), providerApplications = [];
 let pendingConfirmationEmail = '';
 let resetRequestBlockedMessage = '';
 const resetRequestBlockedEmails = new Map();
@@ -309,7 +309,7 @@ async function busy(id, task) {
   try { await task(); } catch(error) { message(friendly(error)); } finally { el(id).disabled=false; }
 }
 function clearWorkspace() {
-  profile=null; selected=null; exportableRequests=[]; exportableUnread=new Map(); requestPageSize=10; requestDisplayLimit=requestPageSize; el('requestPageSize').value=String(requestPageSize); ++conversationGeneration;
+  profile=null; selected=null; exportableRequests=[]; exportableUnread=new Map(); providerApplications=[]; requestPageSize=10; requestDisplayLimit=requestPageSize; el('requestPageSize').value=String(requestPageSize); ++conversationGeneration;
   closeRequestLinksPreview();closeRequestSummariesPreview();
   contracts.reset();
   execution.reset();
@@ -359,6 +359,7 @@ async function loadAccount(nextUser) {
   if(profile.role==='cliente') {
     const applications=check(await api.from('provider_applications').select('profession,status').eq('user_id',accountId).order('created_at',{ascending:false}));
     if(ticket!==generation)return;
+    providerApplications=applications||[];
     el('applications').textContent=applications?.length?applications.map(a=>a.profession+' — '+a.status).join('; '):'Nenhuma solicitação enviada.';
   }
   if(profile.role==='prestador') {
@@ -770,6 +771,8 @@ el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvide
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
   const professionField=el('profession'),profession=professionField.value;professionField.removeAttribute('aria-invalid');
   if(!profession){professionField.setAttribute('aria-invalid','true');professionField.focus();throw new InputError('Selecione a profissão que deseja exercer. Sua experiência foi preservada.');}
+  const existing=providerApplications.find(application=>application.profession===profession);
+  if(existing){professionField.setAttribute('aria-invalid','true');professionField.focus();throw new InputError(`Já existe uma candidatura para ${profession} (${existing.status}). Escolha outra profissão ou acompanhe a solicitação existente. Sua experiência foi preservada.`);}
   check(await api.from('provider_applications').insert({user_id:user.id,profession,experience_summary:el('experience').value.trim()||null}));
   await loadAccount(user);message('Solicitação enviada para análise. O acesso de prestador ainda não foi liberado.');
 });};
