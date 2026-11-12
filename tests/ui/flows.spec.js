@@ -588,9 +588,11 @@ test('client corrects the description while a request remains open',async({page}
   await expect(page.locator('#status')).toContainText('Descrição do pedido atualizada');await expect(card).toContainText('Trocar duas tomadas antigas');
   expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='set_open_request_description').args)).toEqual({p_request_id:expect.any(String),p_description:'Trocar duas tomadas antigas da sala e revisar a fiação próxima.'});
 });
-test('client corrects an unknown state while a request remains open',async({page})=>{
+test('client corrects the city and an unknown state while a request remains open',async({page})=>{
   await login(page);await page.locator('#serviceProfession').selectOption('Eletricista');await page.locator('#description').fill('Instalar iluminação em uma residência.');await page.locator('#createRequest').click();
-  const card=page.locator('#requests .service').first(),city=card.getByLabel('Cidade do pedido'),state=card.getByLabel('UF do pedido');await city.fill('Parintins');await state.fill('zz');await expect(state).toHaveValue('ZZ');await card.getByRole('button',{name:'Atualizar região'}).click();
+  const card=page.locator('#requests .service').first(),city=card.getByLabel('Cidade do pedido'),state=card.getByLabel('UF do pedido');await city.fill('A');await state.fill('am');await card.getByRole('button',{name:'Atualizar região'}).click();
+  await expect(page.locator('#status')).toHaveText('Informe uma cidade com 2 a 100 caracteres. A UF foi preservada.');await expect(city).toBeFocused();await expect(city).toHaveAttribute('aria-invalid','true');await expect(state).toHaveValue('AM');expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_open_request_location'))).toHaveLength(0);
+  await city.fill('Parintins');await expect(city).not.toHaveAttribute('aria-invalid','true');await state.fill('zz');await expect(state).toHaveValue('ZZ');await card.getByRole('button',{name:'Atualizar região'}).click();
   await expect(page.locator('#status')).toHaveText('Informe uma UF brasileira válida. A cidade foi preservada.');await expect(state).toBeFocused();await expect(state).toHaveAttribute('aria-invalid','true');await expect(city).toHaveValue('Parintins');expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_open_request_location'))).toHaveLength(0);
   await state.fill('am');await expect(state).toHaveValue('AM');await expect(state).not.toHaveAttribute('aria-invalid','true');await card.getByRole('button',{name:'Atualizar região'}).click();
   await expect(page.locator('#status')).toContainText('Região do pedido atualizada');await expect(card).toContainText('Parintins / AM');

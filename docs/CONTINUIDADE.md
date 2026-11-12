@@ -226,6 +226,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 220. [Correção de UF inexistente ao ajustar a região](ENTREGA-2026-11-11-VALIDACAO-UF-AJUSTE-REGIAO.md). Ao editar a região de um pedido aberto, o cliente corrige uma sigla que não pertence às 27 UFs antes de qualquer chamada RPC; a cidade permanece preenchida e somente a UF válida é enviada depois da correção.
 221. [Correção de horário passado ao ajustar o pedido](ENTREGA-2026-11-11-CORRECAO-HORARIO-PASSADO-AJUSTE-PEDIDO.md). Ao editar a preferência de um pedido aberto, o cliente corrige um horário passado antes de qualquer chamada RPC; o pedido permanece preenchido e somente o horário futuro é enviado depois da correção.
 222. [Correção da descrição ao ajustar o pedido](ENTREGA-2026-11-11-CORRECAO-DESCRICAO-AJUSTE-PEDIDO.md). Ao editar a descrição de um pedido aberto, o cliente corrige um texto fora do limite antes de qualquer chamada RPC; a descrição anterior permanece no pedido e somente o texto válido é enviado depois da correção.
+223. [Correção da cidade ao ajustar a região](ENTREGA-2026-11-12-CORRECAO-CIDADE-AJUSTE-REGIAO.md). Ao editar a região de um pedido aberto, o cliente corrige uma cidade fora do limite antes de qualquer chamada RPC; a UF permanece preenchida e somente a região totalmente válida é enviada depois da correção.
 
 ## Próximas entregas prioritárias
 

@@ -488,15 +488,17 @@ async function refresh(ticket=generation) {
       }catch(error){message(friendly(error));}finally{saveDescription.disabled=false;}};
       const cityLabel=text('label','Cidade do pedido');cityLabel.htmlFor='request-city-'+r.id;
       const requestCity=document.createElement('input');requestCity.id=cityLabel.htmlFor;requestCity.minLength=2;requestCity.maxLength=100;requestCity.value=r.city;
+      requestCity.addEventListener('input',()=>requestCity.removeAttribute('aria-invalid'));
       const stateLabel=text('label','UF do pedido');stateLabel.htmlFor='request-state-'+r.id;
       const requestState=document.createElement('input');requestState.id=stateLabel.htmlFor;requestState.maxLength=2;requestState.value=r.state;
       requestState.addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();event.currentTarget.removeAttribute('aria-invalid');});
       const saveLocation=text('button','Atualizar região','secondary');saveLocation.type='button';
       saveLocation.onclick=async()=>{saveLocation.disabled=true;try{
         const city=requestCity.value.trim(),state=requestState.value.trim().toUpperCase();
-        if(city.length<2||city.length>100||!/^[A-Z]{2}$/.test(state))throw new InputError('Confira a cidade e a UF.');
+        requestCity.removeAttribute('aria-invalid');
+        if(city.length<2||city.length>100){requestCity.setAttribute('aria-invalid','true');requestCity.focus();throw new InputError('Informe uma cidade com 2 a 100 caracteres. A UF foi preservada.');}
         requestState.removeAttribute('aria-invalid');
-        if(!validBrazilianStates.has(state)){requestState.setAttribute('aria-invalid','true');requestState.focus();throw new InputError('Informe uma UF brasileira válida. A cidade foi preservada.');}
+        if(!/^[A-Z]{2}$/.test(state)||!validBrazilianStates.has(state)){requestState.setAttribute('aria-invalid','true');requestState.focus();throw new InputError('Informe uma UF brasileira válida. A cidade foi preservada.');}
         check(await api.rpc('set_open_request_location',{p_request_id:r.id,p_city:city,p_state:state}));
         message('Região do pedido atualizada. A busca considera agora a nova cidade e UF.');await refresh();
       }catch(error){message(friendly(error));}finally{saveLocation.disabled=false;}};
