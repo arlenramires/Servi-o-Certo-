@@ -805,7 +805,7 @@ el('refreshApplications').onclick=()=>busy('refreshApplications',async()=>{
     throw new InputError('Não foi possível atualizar as candidaturas. Os dados exibidos e o rascunho foram preservados. Tente novamente.');
   }
 });
-el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{
+el('applicationForm').onsubmit=event=>{event.preventDefault();if(el('applyProvider').disabled)return;busy('applyProvider',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
   const professionField=el('profession'),profession=professionField.value,experienceField=el('experience'),experience=experienceField.value.trim();professionField.removeAttribute('aria-invalid');experienceField.removeAttribute('aria-invalid');
   if(!providerApplicationsAvailable){professionField.focus();throw new InputError('Atualize suas candidaturas antes de enviar uma nova solicitação. A profissão e a experiência foram preservadas.');}
