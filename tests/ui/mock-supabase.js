@@ -20,6 +20,7 @@ class Query {
     if(this.operation==='select'&&this.table==='provider_applications'&&window.providerApplicationsInitiallyUnavailable){window.providerApplicationsInitiallyUnavailable=false;return {data:null,error:{code:'PGRST000',message:'temporary failure'}};}
     if(this.operation==='select'&&this.table==='provider_applications'&&state.providerApplicationsSelectError)return {data:null,error:state.providerApplicationsSelectError};
     if(this.operation==='insert'&&this.table==='provider_applications'&&state.delayProviderApplicationInsert)await state.delayProviderApplicationInsert;
+    if(this.operation==='insert'&&this.table==='service_requests'&&state.delayServiceRequestInsert)await state.delayServiceRequestInsert;
     if(this.operation==='insert'){
       if(this.table==='provider_applications'&&state.applications.some(application=>application.user_id===this.payload.user_id&&application.profession===this.payload.profession))return {data:null,error:{code:'23505',message:'duplicate key value violates unique constraint'}};
       if(this.table==='provider_applications'&&state.ambiguousProviderApplicationInsert){state.ambiguousProviderApplicationInsert=false;state.applications.push({id:'application-ambiguous',created_at:new Date().toISOString(),status:'pendente',...this.payload});return {data:null,error:{code:'request_timeout',message:'timeout after commit'}};}

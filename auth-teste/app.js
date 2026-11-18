@@ -831,7 +831,7 @@ el('applicationForm').onsubmit=event=>{event.preventDefault();if(el('applyProvid
   if(!reconciled)showProviderApplications([{profession,status:'pendente'},...providerApplications]);
   professionField.value='';experienceField.value='';professionField.focus();message(reconciled?'Solicitação confirmada após verificar suas candidaturas. O acesso de prestador ainda não foi liberado.':'Solicitação enviada para análise. O acesso de prestador ainda não foi liberado.');
 });};
-el('requestForm').onsubmit=event=>{event.preventDefault();busy('createRequest',async()=>{
+el('requestForm').onsubmit=event=>{event.preventDefault();if(el('createRequest').disabled)return;busy('createRequest',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
   const professionField=el('serviceProfession'),profession=professionField.value,descriptionField=el('description'),description=descriptionField.value.trim(),cityField=el('city'),city=cityField.value.trim(),stateField=el('state'),state=stateField.value.trim().toUpperCase();
   professionField.removeAttribute('aria-invalid');
