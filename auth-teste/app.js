@@ -344,9 +344,10 @@ function showProviderApplications(applications) {
     option.textContent=application?`${option.value} — ${providerApplicationStatusLabel(application.status)}`:option.value;
   }
 }
-async function loadProviderApplications(accountId) {
-  const applications=check(await api.from('provider_applications').select('profession,status').eq('user_id',accountId).order('created_at',{ascending:false}));
-  showProviderApplications(applications);
+async function loadProviderApplications(accountId,ticket=generation) {
+  const result=await api.from('provider_applications').select('profession,status').eq('user_id',accountId).order('created_at',{ascending:false});
+  if(ticket!==generation||user?.id!==accountId)return false;
+  showProviderApplications(check(result));return true;
 }
 async function loadAccount(nextUser) {
   const ticket=++generation;
@@ -785,7 +786,8 @@ el('cancelRecovery').onclick=()=>busy('cancelRecovery',async()=>{
 el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut({scope:'local'}));recovery=false;await loadAccount(null);message('Sessão encerrada.');});
 el('refreshApplications').onclick=()=>busy('refreshApplications',async()=>{
   if(profile?.role!=='cliente'||!user)throw new InputError('Entre com um perfil de cliente.');
-  await loadProviderApplications(user.id);message('Candidaturas atualizadas. Nenhuma permissão foi alterada.');
+  const accountId=user.id,ticket=generation;
+  if(await loadProviderApplications(accountId,ticket))message('Candidaturas atualizadas. Nenhuma permissão foi alterada.');
 });
 el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
