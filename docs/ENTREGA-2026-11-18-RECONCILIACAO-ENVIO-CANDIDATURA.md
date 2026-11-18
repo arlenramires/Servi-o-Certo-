@@ -4,8 +4,8 @@ Data local: 18/11/2026, America/Boa_Vista
 Branch: `desenvolvimento-login-supabase`  
 Base verificada antes da alteração: `c6e360e93092e9f72eb527e8bea3c401f693dfdc`  
 CI da base: execução #280, concluída com sucesso  
-Commit funcional: a registrar após a atualização protegida da branch  
-CI do commit funcional: a registrar após a execução remota
+Commit funcional: `8a33d21242a7493a525a711eca1e068a25f44acf`  
+CI do commit funcional: execução #281 (`44342065340`), concluída com sucesso
 
 ## Funcionalidade entregue
 
