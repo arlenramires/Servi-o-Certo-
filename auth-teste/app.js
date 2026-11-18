@@ -943,7 +943,7 @@ el('exportRequestsJson').onclick=()=>{
     payload={version:1,exportedAt:now.toISOString(),context:{filter,search,sort,role},services:exportableRequests.map(r=>({id:r.id,profession:r.profession,status:r.status,statusLabel:labels[r.status]||r.status,role,unreadMessages:exportableUnread.get(r.id)||0,description:r.description,city:r.city,state:r.state,urgent:!!r.is_urgent,scheduledFor:r.scheduled_for||null,createdAt:r.created_at}))},blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
   link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);message(`JSON preparado: ${exportableRequests.length} ${exportableRequests.length===1?'serviço':'serviços'} em ${filename}.`);
 };
-el('messageForm').onsubmit=event=>{event.preventDefault();busy('sendMessage',async()=>{
+el('messageForm').onsubmit=event=>{event.preventDefault();if(el('sendMessage').disabled)return;busy('sendMessage',async()=>{
   if(!selected||!user)throw new InputError('Selecione um serviço aceito.');
   const body=el('message').value.trim();if(!body)throw new InputError('Escreva uma mensagem.');
   const request=selected;check(await api.from('service_messages').insert({request_id:request.id,sender_id:user.id,body}));el('message').value='';await openConversation(request);
