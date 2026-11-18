@@ -20,6 +20,7 @@ class Query {
     if(this.operation==='select'&&this.table==='provider_applications'&&state.providerApplicationsSelectError)return {data:null,error:state.providerApplicationsSelectError};
     if(this.operation==='insert'){
       if(this.table==='provider_applications'&&state.applications.some(application=>application.user_id===this.payload.user_id&&application.profession===this.payload.profession))return {data:null,error:{code:'23505',message:'duplicate key value violates unique constraint'}};
+      if(this.table==='provider_applications'&&state.ambiguousProviderApplicationInsert){state.ambiguousProviderApplicationInsert=false;state.applications.push({id:'application-ambiguous',created_at:new Date().toISOString(),status:'pendente',...this.payload});return {data:null,error:{code:'request_timeout',message:'timeout after commit'}};}
       const item={id:'request-'+Date.now(),created_at:new Date().toISOString(),status:'aberto',...this.payload};
       if(this.table==='service_requests')state.requests.push(item);
       if(this.table==='service_messages')state.messages.push(item);

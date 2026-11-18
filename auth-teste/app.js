@@ -809,16 +809,22 @@ el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvide
   if(experience.length>1500){experienceField.setAttribute('aria-invalid','true');experienceField.focus();throw new InputError('Resuma sua experiência em até 1500 caracteres. A profissão foi preservada e nenhuma candidatura foi enviada.');}
   const existing=providerApplications.find(application=>application.profession===profession);
   if(existing){professionField.setAttribute('aria-invalid','true');professionField.focus();throw new InputError(`Já existe uma candidatura para ${profession} (${providerApplicationStatusLabel(existing.status)}). Escolha outra profissão ou acompanhe a solicitação existente. Sua experiência foi preservada.`);}
+  let reconciled=false;
   try{check(await api.from('provider_applications').insert({user_id:user.id,profession,experience_summary:experience||null}));}
   catch(error){
-    if(error?.code!=='23505')throw error;
-    const applications=check(await api.from('provider_applications').select('profession,status').eq('user_id',user.id).order('created_at',{ascending:false}));
+    let applications;
+    try{applications=check(await api.from('provider_applications').select('profession,status').eq('user_id',user.id).order('created_at',{ascending:false}));}
+    catch(readError){providerApplicationsAvailable=false;throw new InputError('Não foi possível confirmar o envio da candidatura. A profissão e a experiência foram preservadas. Atualize suas candidaturas antes de tentar novamente.');}
     showProviderApplications(applications);
     const concurrent=providerApplications.find(application=>application.profession===profession);
-    professionField.setAttribute('aria-invalid','true');professionField.focus();
-    throw new InputError(`Já existe uma candidatura para ${profession} (${concurrent?providerApplicationStatusLabel(concurrent.status):'Registrada'}). Escolha outra profissão ou acompanhe a solicitação existente. Sua experiência foi preservada.`);
+    if(error?.code==='23505'){
+      professionField.setAttribute('aria-invalid','true');professionField.focus();
+      throw new InputError(`Já existe uma candidatura para ${profession} (${concurrent?providerApplicationStatusLabel(concurrent.status):'Registrada'}). Escolha outra profissão ou acompanhe a solicitação existente. Sua experiência foi preservada.`);
+    }
+    if(!concurrent){professionField.focus();throw new InputError('Não foi possível enviar a candidatura. A profissão e a experiência foram preservadas. Tente novamente.');}
+    reconciled=true;
   }
-  await loadAccount(user);experienceField.value='';professionField.focus();message('Solicitação enviada para análise. O acesso de prestador ainda não foi liberado.');
+  await loadAccount(user);experienceField.value='';professionField.focus();message(reconciled?'Solicitação confirmada após verificar suas candidaturas. O acesso de prestador ainda não foi liberado.':'Solicitação enviada para análise. O acesso de prestador ainda não foi liberado.');
 });};
 el('requestForm').onsubmit=event=>{event.preventDefault();busy('createRequest',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
