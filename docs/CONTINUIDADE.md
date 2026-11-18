@@ -241,6 +241,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 235. [Estados legíveis da candidatura a prestador](ENTREGA-2026-11-12-ESTADOS-LEGIVEIS-CANDIDATURA-PRESTADOR.md). A lista e a seleção de profissões apresentam os quatro estados permitidos da candidatura em português claro — Pendente, Em análise, Aprovada e Recusada — sem expor códigos internos, alterar registros ou conceder acesso de prestador.
 236. [Atualização manual das candidaturas a prestador](ENTREGA-2026-11-18-ATUALIZACAO-CANDIDATURAS-PRESTADOR.md). O cliente pode consultar novamente os estados das próprias candidaturas sem sair da conta, preservando profissão e experiência ainda não enviadas; a ação somente lê registros autorizados e não altera candidatura, perfil ou permissões.
 237. [Contenção de sessão encerrada na atualização das candidaturas](ENTREGA-2026-11-18-CONTENCAO-SESSAO-ATUALIZACAO-CANDIDATURAS.md). Se a sessão terminar enquanto a consulta manual está em andamento, a resposta atrasada é descartada e não repopula a lista privada nem substitui a orientação de novo login; nenhuma repetição ou alteração é executada.
+238. [Recuperação de falha na atualização das candidaturas](ENTREGA-2026-11-18-RECUPERACAO-FALHA-ATUALIZACAO-CANDIDATURAS.md). Se a leitura manual falhar, a interface preserva a lista já exibida, a profissão e a experiência ainda não enviada, apresenta orientação específica e libera uma nova tentativa; a repetição bem-sucedida atualiza o estado sem inserir candidatura nem conceder acesso.
 
 ## Próximas entregas prioritárias
 

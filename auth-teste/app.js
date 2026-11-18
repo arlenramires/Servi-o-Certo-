@@ -787,7 +787,12 @@ el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut({s
 el('refreshApplications').onclick=()=>busy('refreshApplications',async()=>{
   if(profile?.role!=='cliente'||!user)throw new InputError('Entre com um perfil de cliente.');
   const accountId=user.id,ticket=generation;
-  if(await loadProviderApplications(accountId,ticket))message('Candidaturas atualizadas. Nenhuma permissão foi alterada.');
+  try{
+    if(await loadProviderApplications(accountId,ticket))message('Candidaturas atualizadas. Nenhuma permissão foi alterada.');
+  }catch(error){
+    if(ticket!==generation||user?.id!==accountId)return;
+    throw new InputError('Não foi possível atualizar as candidaturas. Os dados exibidos e o rascunho foram preservados. Tente novamente.');
+  }
 });
 el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
