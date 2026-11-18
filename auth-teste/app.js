@@ -793,9 +793,13 @@ el('cancelRecovery').onclick=()=>busy('cancelRecovery',async()=>{
 el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut({scope:'local'}));recovery=false;await loadAccount(null);message('Sessão encerrada.');});
 el('refreshApplications').onclick=()=>busy('refreshApplications',async()=>{
   if(profile?.role!=='cliente'||!user)throw new InputError('Entre com um perfil de cliente.');
-  const accountId=user.id,ticket=generation;
+  const accountId=user.id,ticket=generation,professionField=el('profession'),draftProfession=professionField.value;
   try{
-    if(await loadProviderApplications(accountId,ticket))message('Candidaturas atualizadas. Nenhuma permissão foi alterada.');
+    if(await loadProviderApplications(accountId,ticket)){
+      if(draftProfession&&providerApplications.some(application=>application.profession===draftProfession)){
+        professionField.value='';professionField.focus();message(`Candidaturas atualizadas. ${draftProfession} já possui uma candidatura e foi removida do rascunho; sua experiência foi preservada. Nenhuma permissão foi alterada.`);
+      }else message('Candidaturas atualizadas. Nenhuma permissão foi alterada.');
+    }
   }catch(error){
     if(ticket!==generation||user?.id!==accountId)return;
     throw new InputError('Não foi possível atualizar as candidaturas. Os dados exibidos e o rascunho foram preservados. Tente novamente.');
