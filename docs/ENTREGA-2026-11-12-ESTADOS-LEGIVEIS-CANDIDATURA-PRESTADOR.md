@@ -22,9 +22,9 @@ Data local: 12/11/2026 13:50 (Boa Vista, UTC-4)
 ## Registro GitHub
 
 - Base lida antes da alteração: `e83ae405bfc91f4611449af2283af2f31ee566de`.
-- Commit funcional: a preencher após atualização protegida da branch.
-- CI do commit funcional: a preencher após conclusão.
-- O HEAD final e o CI final serão informados no encerramento da rodada.
+- Commit funcional: `6eb5078d265cad31ec12a67a1c8e2787fca39304`.
+- CI do commit funcional: execução `43273871380`, concluída com sucesso.
+- O HEAD final desta rodada é o commit documental que incorpora estas evidências; seu SHA e o CI final são informados no encerramento da rodada após a validação remota.
 
 ## Preservações
 
