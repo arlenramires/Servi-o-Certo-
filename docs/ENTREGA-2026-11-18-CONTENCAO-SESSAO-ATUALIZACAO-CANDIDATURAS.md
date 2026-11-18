@@ -28,7 +28,8 @@ Referências oficiais atuais:
 
 ## Registro GitHub
 
-- O commit funcional e seu CI são registrados nesta seção depois da validação remota.
+- Commit funcional: `d68581fe93537089b381acb7bf9ee162190abb00`.
+- CI do commit funcional: execução #275 (`44294000653`), concluída com sucesso.
 - O HEAD final e o CI final são informados no encerramento da rodada após a publicação deste relatório atualizado.
 
 ## Preservações
