@@ -17,7 +17,7 @@ const invalidLinkedRequest = linkedRequestParams.length > 1 || (linkedRequestPar
 let linkedRequestId = invalidLinkedRequest ? '' : normalizedLinkedRequest;
 if(invalidLinkedRequest){const url=new URL(location.href);url.searchParams.delete('servico');history.replaceState(null,'',url.pathname+url.search+url.hash);}
 let linkedRequestNeedsFocus = Boolean(linkedRequestId);
-let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map(), providerApplications = [];
+let user = null, profile = null, generation = 0, selected = null, conversationGeneration = 0, requestPageSize = 10, requestDisplayLimit = 10, exportableRequests = [], exportableUnread = new Map(), providerApplications = [], providerApplicationsAvailable = false;
 let pendingConfirmationEmail = '';
 let resetRequestBlockedMessage = '';
 const resetRequestBlockedEmails = new Map();
@@ -310,7 +310,7 @@ async function busy(id, task) {
   try { await task(); } catch(error) { message(friendly(error)); } finally { el(id).disabled=false; }
 }
 function clearWorkspace() {
-  profile=null; selected=null; exportableRequests=[]; exportableUnread=new Map(); providerApplications=[]; requestPageSize=10; requestDisplayLimit=requestPageSize; el('requestPageSize').value=String(requestPageSize); ++conversationGeneration;
+  profile=null; selected=null; exportableRequests=[]; exportableUnread=new Map(); providerApplications=[]; providerApplicationsAvailable=false; requestPageSize=10; requestDisplayLimit=requestPageSize; el('requestPageSize').value=String(requestPageSize); ++conversationGeneration;
   closeRequestLinksPreview();closeRequestSummariesPreview();
   contracts.reset();
   execution.reset();
@@ -335,6 +335,7 @@ function authView() {
 const providerApplicationStatusLabels=Object.freeze({pendente:'Pendente',em_analise:'Em análise',aprovado:'Aprovada',rejeitado:'Recusada'});
 const providerApplicationStatusLabel=status=>providerApplicationStatusLabels[status]||'Status indisponível';
 function showProviderApplications(applications) {
+  providerApplicationsAvailable=true;
   providerApplications=applications||[];
   el('applications').textContent=providerApplications.length?providerApplications.map(application=>application.profession+' — '+providerApplicationStatusLabel(application.status)).join('; '):'Nenhuma solicitação enviada.';
   for(const option of el('profession').options) {
@@ -375,9 +376,14 @@ async function loadAccount(nextUser) {
     for(const p of professions)el(id).add(new Option(p.name,p.name));
   }
   if(profile.role==='cliente') {
-    const applications=check(await api.from('provider_applications').select('profession,status').eq('user_id',accountId).order('created_at',{ascending:false}));
-    if(ticket!==generation)return;
-    showProviderApplications(applications);
+    try{
+      const applications=check(await api.from('provider_applications').select('profession,status').eq('user_id',accountId).order('created_at',{ascending:false}));
+      if(ticket!==generation)return;
+      showProviderApplications(applications);
+    }catch(error){
+      if(ticket!==generation||user?.id!==accountId)return;
+      providerApplicationsAvailable=false;providerApplications=[];el('applications').textContent='Candidaturas temporariamente indisponíveis.';
+    }
   }
   if(profile.role==='prestador') {
     el('available').checked=profile.is_available;
@@ -387,6 +393,7 @@ async function loadAccount(nextUser) {
   }
   if(linkedRequestId)el('requestSearch').value=linkedRequestId;
   await refresh(ticket);
+  if(ticket===generation&&profile?.role==='cliente'&&!providerApplicationsAvailable)message('Não foi possível carregar suas candidaturas. Seus serviços continuam disponíveis; atualize as candidaturas antes de enviar uma nova solicitação.');
 }
 async function loadRequests(ticket) {
   const requests=[];
@@ -797,6 +804,7 @@ el('refreshApplications').onclick=()=>busy('refreshApplications',async()=>{
 el('applicationForm').onsubmit=event=>{event.preventDefault();busy('applyProvider',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
   const professionField=el('profession'),profession=professionField.value,experienceField=el('experience'),experience=experienceField.value.trim();professionField.removeAttribute('aria-invalid');experienceField.removeAttribute('aria-invalid');
+  if(!providerApplicationsAvailable){professionField.focus();throw new InputError('Atualize suas candidaturas antes de enviar uma nova solicitação. A profissão e a experiência foram preservadas.');}
   if(!profession){professionField.setAttribute('aria-invalid','true');professionField.focus();throw new InputError('Selecione a profissão que deseja exercer. Sua experiência foi preservada.');}
   if(experience.length>1500){experienceField.setAttribute('aria-invalid','true');experienceField.focus();throw new InputError('Resuma sua experiência em até 1500 caracteres. A profissão foi preservada e nenhuma candidatura foi enviada.');}
   const existing=providerApplications.find(application=>application.profession===profession);
