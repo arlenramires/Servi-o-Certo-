@@ -24,7 +24,8 @@ Referência oficial atual: https://supabase.com/docs/reference/javascript/select
 
 ## Registro GitHub
 
-- O commit funcional e seu CI são registrados nesta seção depois da validação remota.
+- Commit funcional: `9a11fb2132dd1a24686358e7527fa82b88683fd1`.
+- CI do commit funcional: execução #273 (`44283709584`), concluída com sucesso.
 - O HEAD final da rodada e o CI final são informados no encerramento após a publicação deste relatório atualizado.
 
 ## Preservações
