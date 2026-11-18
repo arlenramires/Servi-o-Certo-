@@ -15,6 +15,7 @@ class Query {
   then(resolve,reject){return this.execute().then(resolve,reject);}
   async execute(){
     state.calls.push({table:this.table,operation:this.operation,payload:this.payload,range:this.rangeBounds});
+    if(this.operation==='select'&&this.table==='profiles'&&state.profileSelectError)return {data:null,error:state.profileSelectError};
     if(this.operation==='select'&&this.table==='provider_applications'&&state.delayProviderApplicationsSelect)await state.delayProviderApplicationsSelect;
     if(this.operation==='select'&&this.table==='provider_applications'&&window.providerApplicationsInitiallyUnavailable){window.providerApplicationsInitiallyUnavailable=false;return {data:null,error:{code:'PGRST000',message:'temporary failure'}};}
     if(this.operation==='select'&&this.table==='provider_applications'&&state.providerApplicationsSelectError)return {data:null,error:state.providerApplicationsSelectError};

@@ -1,1658 +1,2099 @@
-import { test, expect } from '@playwright/test';
-import { readFile } from 'node:fs/promises';
-const mock=await readFile(new URL('./mock-supabase.js',import.meta.url),'utf8');
-test.beforeEach(async({page})=>{
-  await page.route('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/+esm',route=>route.fulfill({contentType:'text/javascript',body:mock}));
-});
-async function login(page){await page.goto('/auth-teste/');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('validpass123');await page.locator('#submit').click();await expect(page.locator('#workspace')).toBeVisible();}
-
-test('login errors do not open workspace',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('wrongpass');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('E-mail ou senha incorretos.');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();
-});
-test('server validation failures keep access forms ready for correction',async({page})=>{
-  await page.goto('/auth-teste/?servico=validation-service');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('invalid-login-data');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Confira os dados informados e tente novamente.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('teste@example.invalid');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('validation-service');
-  await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Pessoa de teste');await page.locator('#role').selectOption('prestador');await page.locator('#email').fill('cadastro@example.invalid');await page.locator('#password').fill('invalid-signup-data');await page.locator('#passwordConfirmation').fill('invalid-signup-data');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Confira os dados informados e tente novamente.');await expect(page.locator('#action')).toHaveValue('signup');await expect(page.locator('#name')).toHaveValue('Pessoa de teste');await expect(page.locator('#role')).toHaveValue('prestador');await expect(page.locator('#email')).toHaveValue('cadastro@example.invalid');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordConfirmation')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();
-  expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','signup']);
-});
-test('missing user login is indistinguishable from invalid credentials',async({page})=>{
-  await page.goto('/auth-teste/?servico=missing-user-service');await page.locator('#email').fill('nao-cadastrado@example.invalid');await page.locator('#password').fill('missing-user-pass');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('E-mail ou senha incorretos.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('nao-cadastrado@example.invalid');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('missing-user-service');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=missing-user-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login']);
-});
-test('unconfirmed email login offers a controlled confirmation resend',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#email').fill('pendente@example.invalid');await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Confirme seu e-mail antes de entrar.');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#resendConfirmation')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();
-  await page.locator('#email').fill('outro@example.invalid');await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('Novo e-mail de confirmaÃ§Ã£o solicitado. Aguarde antes de tentar novamente.');await expect(page.locator('#resendConfirmation')).toBeHidden();const calls=await page.evaluate(()=>window.testState.calls.filter(x=>x.auth));expect(calls.map(x=>x.auth)).toEqual(['login','resend']);expect(calls[1].values).toEqual({type:'signup',email:'pendente@example.invalid',options:{emailRedirectTo:'http://127.0.0.1:4173/auth-teste/'}});await expect(page.locator('#accountPanel')).toBeHidden();
-});
-test('unavailable confirmation resend is contained without another request',async({page})=>{
-  for(const scenario of [
-    {email:'unauthorized-confirmation@example.invalid',message:'NÃ£o foi possÃ­vel enviar e-mail para este endereÃ§o. Informe outro e-mail ou fale com o suporte.'},
-    {email:'disabled-confirmation@example.invalid',message:'O envio de confirmaÃ§Ã£o por e-mail estÃ¡ temporariamente indisponÃ­vel. Tente novamente mais tarde.'}
-  ]){
-    await page.goto('/auth-teste/');await page.locator('#email').fill(scenario.email);await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-    await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText(scenario.message);await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();
-    const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-  }
-});
-test('failed CAPTCHA consumes the pending confirmation resend',async({page})=>{
-  await page.goto('/auth-teste/?servico=captcha-confirmation-service');await page.locator('#email').fill('captcha-confirmation@example.invalid');await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-  await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel confirmar a verificaÃ§Ã£o de seguranÃ§a. Recarregue a pÃ¡gina e tente novamente.');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('captcha-confirmation-service');
-  const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-});
-test('banned account consumes the pending confirmation resend',async({page})=>{
-  await page.goto('/auth-teste/?servico=banned-confirmation-service');await page.locator('#email').fill('banned-confirmation@example.invalid');await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-  await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('Este acesso estÃ¡ temporariamente indisponÃ­vel. Tente novamente mais tarde ou fale com o suporte.');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('banned-confirmation-service');
-  const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-});
-test('missing account ends confirmation resend without enumeration or another request',async({page})=>{
-  await page.goto('/auth-teste/?servico=missing-confirmation-service');await page.locator('#email').fill('missing-confirmation@example.invalid');await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-  await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel concluir o reenvio. Reabra o acesso para entrar ou criar uma conta.');await expect(page.locator('#status')).not.toContainText('nÃ£o existe');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('missing-confirmation-service');
-  const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-});
-test('invalid confirmation address requires a new signup without another resend',async({page})=>{
-  await page.goto('/auth-teste/?servico=invalid-confirmation-service');await page.locator('#email').fill('invalid-confirmation@example.invalid');await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-  await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('O endereÃ§o usado na confirmaÃ§Ã£o nÃ£o Ã© vÃ¡lido. Crie a conta novamente com outro e-mail.');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('invalid-confirmation-service');
-  const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-});
-test('weak password login moves safely to recovery with its protected context',async({page})=>{
-  await page.goto('/auth-teste/?servico=weak-password-service');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('weak-login-password');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Sua senha nÃ£o atende mais aos requisitos de seguranÃ§a. Solicite a recuperaÃ§Ã£o para criar uma senha mais forte.');await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toHaveValue('teste@example.invalid');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordArea')).toBeHidden();await expect(page.locator('#submit')).toHaveText('Enviar instruÃ§Ãµes');await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('weak-password-service');await expect(page.locator('#workspace')).toBeHidden();await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=weak-password-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login']);
-});
-test('switching access mode clears stale feedback and names the selected action',async({page})=>{
-  await page.goto('/auth-teste/');await expect(page.locator('#submit')).toHaveText('Entrar');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('wrongpass');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('E-mail ou senha incorretos.');const callsAfterLogin=await page.evaluate(()=>window.testState.calls.length);
-  await page.locator('#action').selectOption('signup');await expect(page.locator('#status')).toBeEmpty();await expect(page.locator('#submit')).toHaveText('Criar conta');await expect(page.locator('#registration')).toBeVisible();await expect(page.locator('#passwordConfirmationArea')).toBeVisible();await page.locator('#password').fill('temporary-password');await page.locator('#passwordConfirmation').fill('temporary-password');
-  await page.locator('#action').selectOption('reset');await expect(page.locator('#status')).toBeEmpty();await expect(page.locator('#submit')).toHaveText('Enviar instruÃ§Ãµes');await expect(page.locator('#registration')).toBeHidden();await expect(page.locator('#passwordArea')).toBeHidden();await expect(page.locator('#passwordConfirmationArea')).toBeHidden();await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordConfirmation')).toHaveValue('');
-  await page.locator('#action').selectOption('login');await expect(page.locator('#submit')).toHaveText('Entrar');await expect(page.locator('#passwordArea')).toBeVisible();expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsAfterLogin);
-});
-test('leaving signup clears unsubmitted registration details without calling Supabase',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#email').fill('teste@example.invalid');await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Nome ainda nÃ£o enviado');await page.locator('#role').selectOption('prestador');const callsBeforeSwitch=await page.evaluate(()=>window.testState.calls.length);
-  await page.locator('#action').selectOption('login');await expect(page.locator('#registration')).toBeHidden();await expect(page.locator('#name')).toHaveValue('');await expect(page.locator('#role')).toHaveValue('cliente');await expect(page.locator('#email')).toHaveValue('teste@example.invalid');
-  await page.locator('#action').selectOption('signup');await expect(page.locator('#registration')).toBeVisible();await expect(page.locator('#name')).toHaveValue('');await expect(page.locator('#role')).toHaveValue('cliente');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeSwitch);
-});
-test('password visibility stays local and resets across access modes',async({page})=>{
-  await page.goto('/auth-teste/');const callsBefore=await page.evaluate(()=>window.testState.calls.length);
-  await expect(page.locator('#password')).toHaveAttribute('type','password');await page.locator('#togglePassword').click();await expect(page.locator('#password')).toHaveAttribute('type','text');await expect(page.locator('#togglePassword')).toHaveText('Ocultar senha');await expect(page.locator('#togglePassword')).toHaveAttribute('aria-pressed','true');
-  await page.locator('#action').selectOption('signup');await expect(page.locator('#password')).toHaveAttribute('type','password');await page.locator('#togglePasswordConfirmation').click();await expect(page.locator('#passwordConfirmation')).toHaveAttribute('type','text');await expect(page.locator('#togglePasswordConfirmation')).toHaveText('Ocultar confirmaÃ§Ã£o');
-  await page.locator('#action').selectOption('reset');await page.locator('#action').selectOption('signup');await expect(page.locator('#passwordConfirmation')).toHaveAttribute('type','password');await expect(page.locator('#togglePasswordConfirmation')).toHaveText('Mostrar confirmaÃ§Ã£o');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBefore);
-});
-test('access passwords warn about Caps Lock only while a password field is active',async({page})=>{
-  await page.goto('/auth-teste/');const warning=page.locator('#authCapsLockWarning');await expect(warning).toBeHidden();await page.locator('#password').focus();
-  await page.locator('#password').evaluate(field=>{const event=new KeyboardEvent('keydown',{key:'A',bubbles:true});Object.defineProperty(event,'getModifierState',{value:key=>key==='CapsLock'});field.dispatchEvent(event);});await expect(warning).toBeVisible();await expect(warning).toHaveText('Caps Lock estÃ¡ ativado.');
-  await page.locator('#email').focus();await expect(warning).toBeHidden();await page.locator('#action').selectOption('signup');await page.locator('#passwordConfirmation').focus();await page.locator('#passwordConfirmation').evaluate(field=>{const event=new KeyboardEvent('keyup',{key:'A',bubbles:true});Object.defineProperty(event,'getModifierState',{value:()=>false});field.dispatchEvent(event);});await expect(warning).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([]);
-});
-test('access modes focus the first useful field without calling Supabase',async({page})=>{
-  await page.goto('/auth-teste/');await expect(page.locator('#email')).toBeFocused();const callsBefore=await page.evaluate(()=>window.testState.calls.length);
-  await page.locator('#action').selectOption('signup');await expect(page.locator('#name')).toBeFocused();await page.locator('#action').selectOption('login');await expect(page.locator('#email')).toBeFocused();await page.locator('#action').selectOption('reset');await expect(page.locator('#email')).toBeFocused();expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBefore);
-});
-test('access actions send one normalized email to Supabase',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#email').fill('LOGIN@EXAMPLE.INVALID');await page.locator('#password').fill('wrongpass');await page.locator('#submit').click();await expect(page.locator('#email')).toHaveValue('login@example.invalid');expect(await page.evaluate(()=>window.testState.calls.find(call=>call.auth==='login').values.email)).toBe('login@example.invalid');
-  await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Pessoa de teste');await page.locator('#email').fill('CADASTRO@EXAMPLE.INVALID');await page.locator('#password').fill('invalid-signup-data');await page.locator('#passwordConfirmation').fill('invalid-signup-data');await page.locator('#submit').click();await expect(page.locator('#email')).toHaveValue('cadastro@example.invalid');expect(await page.evaluate(()=>window.testState.calls.find(call=>call.auth==='signup').values.email)).toBe('cadastro@example.invalid');
-  await page.locator('#action').selectOption('reset');await page.locator('#email').fill('RECUPERACAO@EXAMPLE.INVALID');await page.locator('#submit').click();await expect(page.locator('#email')).toHaveValue('recuperacao@example.invalid');expect(await page.evaluate(()=>window.testState.calls.find(call=>call.auth==='reset').email)).toBe('recuperacao@example.invalid');await expect(page.locator('#workspace')).toBeHidden();
-});
-test('confirmation resend request limit is consumed without repeated calls',async({page})=>{
-  await page.goto('/auth-teste/?servico=request-limited-confirmation-service');await page.locator('#email').fill('request-limited-confirmation@example.invalid');await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-  await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('request-limited-confirmation-service');
-  const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-});
-test('confirmation resend hook timeout is consumed without duplicate delivery attempts',async({page})=>{
-  for(const email of ['hook-timeout-confirmation@example.invalid','hook-retry-timeout-confirmation@example.invalid']){
-    await page.goto('/auth-teste/?servico=hook-timeout-confirmation-service');await page.locator('#email').fill(email);await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-    await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de acesso demorou para responder. Aguarde um momento e tente novamente.');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('hook-timeout-confirmation-service');
-    const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-  }
-});
-test('confirmation resend contains invalid email hook payload responses',async({page})=>{
-  for(const email of ['hook-oversize-confirmation@example.invalid','hook-content-type-confirmation@example.invalid']){
-    await page.goto('/auth-teste/?servico=hook-payload-confirmation-service');await page.locator('#email').fill(email);await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-    await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de confirmaÃ§Ã£o recusou a solicitaÃ§Ã£o. Tente novamente mais tarde.');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('hook-payload-confirmation-service');
-    const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-  }
-});
-test('confirmation resend Auth degradation is consumed without repeated calls',async({page})=>{
-  await page.goto('/auth-teste/?servico=degraded-confirmation-service');await page.locator('#email').fill('degraded-confirmation@example.invalid');await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-  await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de acesso estÃ¡ temporariamente indisponÃ­vel. Tente novamente mais tarde.');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('degraded-confirmation-service');
-  const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-});
-test('confirmation resend request timeout is consumed without duplicate attempts',async({page})=>{
-  await page.goto('/auth-teste/?servico=timeout-confirmation-service');await page.locator('#email').fill('timeout-confirmation@example.invalid');await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-  await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('A solicitaÃ§Ã£o demorou mais que o esperado. Tente novamente.');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('timeout-confirmation-service');
-  const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-});
-test('confirmation resend conflict is consumed without concurrent retries',async({page})=>{
-  await page.goto('/auth-teste/?servico=conflict-confirmation-service');await page.locator('#email').fill('conflict-confirmation@example.invalid');await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-  await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('Outra atualizaÃ§Ã£o de acesso estÃ¡ em andamento. Aguarde um momento e tente novamente.');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('conflict-confirmation-service');
-  const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-});
-test('confirmation resend validation failure requires reopening the flow',async({page})=>{
-  await page.goto('/auth-teste/?servico=validation-confirmation-service');await page.locator('#email').fill('validation-confirmation@example.invalid');await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-  await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel validar o reenvio. Entre novamente com seu e-mail para solicitar outra confirmaÃ§Ã£o.');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('validation-confirmation-service');
-  const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-});
-test('confirmation resend malformed body response requires reopening the flow',async({page})=>{
-  await page.goto('/auth-teste/?servico=bad-json-confirmation-service');await page.locator('#email').fill('bad-json-confirmation@example.invalid');await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();
-  await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de acesso recusou os dados da solicitaÃ§Ã£o. Reabra o fluxo e tente novamente.');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('bad-json-confirmation-service');
-  const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendConfirmation').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login','resend']);
-});
-test('signup requires email confirmation and sends no authoritative role',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Pessoa de teste');await page.locator('#role').selectOption('prestador');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('validpass123');await page.locator('#passwordConfirmation').fill('validpass123');await page.locator('#submit').click();await expect(page.locator('#status')).toContainText('Verifique seu e-mail');
-  const call=await page.evaluate(()=>window.testState.calls.find(x=>x.auth==='signup'));expect(call.values.options.data).toEqual({full_name:'Pessoa de teste',requested_role:'prestador'});expect(call.values.options.emailRedirectTo).toBe('http://127.0.0.1:4173/auth-teste/');await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#registration')).toBeHidden();await expect(page.locator('#name')).toHaveValue('');await expect(page.locator('#role')).toHaveValue('cliente');await expect(page.locator('#email')).toHaveValue('teste@example.invalid');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();expect(await page.evaluate(()=>window.testState.calls.filter(x=>x.auth).map(x=>x.auth))).toEqual(['signup']);
-  await page.locator('#email').fill('outro@example.invalid');await expect(page.locator('#resendConfirmation')).toBeVisible();await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('Novo e-mail de confirmaÃ§Ã£o solicitado. Aguarde antes de tentar novamente.');await expect(page.locator('#resendConfirmation')).toBeHidden();const resend=await page.evaluate(()=>window.testState.calls.find(x=>x.auth==='resend'));expect(resend.values).toEqual({type:'signup',email:'teste@example.invalid',options:{emailRedirectTo:'http://127.0.0.1:4173/auth-teste/'}});expect(await page.evaluate(()=>window.testState.calls.filter(x=>x.auth).map(x=>x.auth))).toEqual(['signup','resend']);await expect(page.locator('#accountPanel')).toBeHidden();
-});
-test('signup rejects mismatched password confirmation before Supabase',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Pessoa de teste');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('validpass123');await page.locator('#passwordConfirmation').fill('differentpass123');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('As senhas nÃ£o coincidem.');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordConfirmation')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([]);
-});
-test('signup explains a password rejected by server security rules',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Pessoa de teste');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('weak-password123');await page.locator('#passwordConfirmation').fill('weak-password123');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Use uma senha mais forte que atenda aos requisitos de seguranÃ§a.');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordConfirmation')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['signup']);
-});
-test('signup explains when the password needs more character variety',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Pessoa de teste');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('weak-characters123');await page.locator('#passwordConfirmation').fill('weak-characters123');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Combine letras, nÃºmeros e sÃ­mbolos para criar uma senha mais forte.');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordConfirmation')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['signup']);
-});
-
-test('server-rejected email returns focus to the address without retrying',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Pessoa de teste');await page.locator('#role').selectOption('prestador');await page.locator('#email').fill('cadastro@example.invalid');await page.locator('#password').fill('invalid-email123');await page.locator('#passwordConfirmation').fill('invalid-email123');await page.locator('#submit').click();
-  await expect(page.locator('#status')).toHaveText('Informe um endereÃ§o de e-mail vÃ¡lido.');await expect(page.locator('#action')).toHaveValue('signup');await expect(page.locator('#email')).toHaveValue('cadastro@example.invalid');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#name')).toHaveValue('Pessoa de teste');await expect(page.locator('#role')).toHaveValue('prestador');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordConfirmation')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();
-  await page.locator('#action').selectOption('reset');await page.locator('#email').fill('invalid-address@example.invalid');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Informe um endereÃ§o de e-mail vÃ¡lido.');await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toHaveValue('invalid-address@example.invalid');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();
-  await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Informe um endereÃ§o de e-mail vÃ¡lido.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['signup','reset']);
-  await page.locator('#email').fill('INVALID-ADDRESS@EXAMPLE.INVALID');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Informe um endereÃ§o de e-mail vÃ¡lido.');await expect(page.locator('#email')).toBeFocused();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['signup','reset']);
-  await page.locator('#email').fill('corrected-address@example.invalid');await page.locator('#submit').click();await expect(page.locator('#status')).toContainText('Se o e-mail estiver cadastrado');await expect(page.locator('#action')).toHaveValue('login');const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets.map(call=>call.email)).toEqual(['invalid-address@example.invalid','corrected-address@example.invalid']);
-});
-
-test('unauthorized email delivery keeps access forms ready without retrying',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Pessoa de teste');await page.locator('#role').selectOption('prestador');await page.locator('#email').fill('cadastro@example.invalid');await page.locator('#password').fill('blocked-delivery-signup');await page.locator('#passwordConfirmation').fill('blocked-delivery-signup');await page.locator('#submit').click();
-  await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel enviar e-mail para este endereÃ§o. Informe outro e-mail ou fale com o suporte.');await expect(page.locator('#action')).toHaveValue('signup');await expect(page.locator('#email')).toHaveValue('cadastro@example.invalid');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#name')).toHaveValue('Pessoa de teste');await expect(page.locator('#role')).toHaveValue('prestador');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordConfirmation')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();
-  await page.locator('#action').selectOption('reset');await page.locator('#email').fill('unauthorized-delivery@example.invalid');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel enviar e-mail para este endereÃ§o. Informe outro e-mail ou fale com o suporte.');await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toHaveValue('unauthorized-delivery@example.invalid');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();
-  await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel enviar e-mail para este endereÃ§o. Informe outro e-mail ou fale com o suporte.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['signup','reset']);
-  await page.locator('#email').fill('authorized-delivery@example.invalid');await page.locator('#submit').click();await expect(page.locator('#status')).toContainText('Se o e-mail estiver cadastrado');await expect(page.locator('#action')).toHaveValue('login');const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets.map(call=>call.email)).toEqual(['unauthorized-delivery@example.invalid','authorized-delivery@example.invalid']);
-});
-
-test('duplicate signup returns safely to login without confirming an existing account',async({page})=>{
-  await page.goto('/auth-teste/');
-  for(const [password,email] of [['existing-user123','conta@example.invalid'],['existing-email123','endereco@example.invalid']]){
-    await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Pessoa de teste');await page.locator('#role').selectOption('prestador');await page.locator('#email').fill(email);await page.locator('#password').fill(password);await page.locator('#passwordConfirmation').fill(password);await page.locator('#submit').click();
-    await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel concluir o cadastro. Entre com sua conta ou use Recuperar senha.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue(email);await expect(page.locator('#registration')).toBeHidden();await expect(page.locator('#name')).toHaveValue('');await expect(page.locator('#role')).toHaveValue('cliente');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordConfirmation')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();
-  }
-  const calls=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth));expect(calls.map(call=>call.auth)).toEqual(['signup','signup']);expect(calls.map(call=>call.values.password)).toEqual(['existing-user123','existing-email123']);
-});
-
-test('disabled email signup returns safely to login without retrying',async({page})=>{
-  await page.goto('/auth-teste/');
-  for(const password of ['disabled-signup123','disabled-email123']){
-    await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Pessoa de teste');await page.locator('#role').selectOption('prestador');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill(password);await page.locator('#passwordConfirmation').fill(password);await page.locator('#submit').click();
-    await expect(page.locator('#status')).toHaveText('Novos cadastros por e-mail estÃ£o temporariamente indisponÃ­veis. Tente entrar se jÃ¡ possui conta.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('teste@example.invalid');await expect(page.locator('#registration')).toBeHidden();await expect(page.locator('#name')).toHaveValue('');await expect(page.locator('#role')).toHaveValue('cliente');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordConfirmation')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();
-  }
-  const calls=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth));expect(calls.map(call=>call.auth)).toEqual(['signup','signup']);expect(calls.map(call=>call.values.password)).toEqual(['disabled-signup123','disabled-email123']);
-});
-
-test('login rate limit asks the user to wait without retrying automatically',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('rate-limited-login');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.');await expect(page.locator('#email')).toHaveValue('teste@example.invalid');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login']);
-});
-
-test('temporarily unavailable access stays signed out without retrying',async({page})=>{
-  await page.goto('/auth-teste/?servico=temporarily-unavailable-service');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('temporarily-blocked');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Este acesso estÃ¡ temporariamente indisponÃ­vel. Tente novamente mais tarde ou fale com o suporte.');await expect(page.locator('#email')).toHaveValue('teste@example.invalid');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('temporarily-unavailable-service');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=temporarily-unavailable-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login']);
-});
-
-test('timed out login remains ready for a manual retry',async({page})=>{
-  await page.goto('/auth-teste/?servico=timeout-service');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('timeout-login');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('A solicitaÃ§Ã£o demorou mais que o esperado. Tente novamente.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('teste@example.invalid');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('timeout-service');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=timeout-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login']);
-});
-
-test('auth hook timeout keeps login ready without exposing internal hooks',async({page})=>{
-  for(const password of ['hook-timeout-login','hook-retry-timeout-login']){
-    await page.goto('/auth-teste/?servico=hook-timeout-service');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill(password);await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de acesso demorou para responder. Aguarde um momento e tente novamente.');await expect(page.locator('#status')).not.toContainText('hook');await expect(page.locator('#email')).toHaveValue('teste@example.invalid');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('hook-timeout-service');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=hook-timeout-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login']);
-  }
-});
-
-test('concurrent auth conflict keeps login ready for a manual retry',async({page})=>{
-  await page.goto('/auth-teste/?servico=auth-conflict-service');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('conflict-login');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Outra atualizaÃ§Ã£o de acesso estÃ¡ em andamento. Aguarde um momento e tente novamente.');await expect(page.locator('#email')).toHaveValue('teste@example.invalid');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('auth-conflict-service');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=auth-conflict-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login']);
-});
-
-test('degraded authentication service keeps login ready for a manual retry',async({page})=>{
-  await page.goto('/auth-teste/?servico=degraded-auth-service');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('unexpected-login-failure');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de acesso estÃ¡ temporariamente indisponÃ­vel. Tente novamente mais tarde.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('teste@example.invalid');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('degraded-auth-service');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=degraded-auth-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['login']);
-});
-
-test('signup rate limit keeps registration ready without retrying automatically',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Pessoa de teste');await page.locator('#role').selectOption('prestador');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('rate-limited-signup');await page.locator('#passwordConfirmation').fill('rate-limited-signup');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.');await expect(page.locator('#action')).toHaveValue('signup');await expect(page.locator('#name')).toHaveValue('Pessoa de teste');await expect(page.locator('#role')).toHaveValue('prestador');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordConfirmation')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['signup']);
-});
-
-test('password reset rate limit keeps the request ready without retrying automatically',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#action').selectOption('reset');await page.locator('#email').fill('rate-limited@example.invalid');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.');await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toHaveValue('rate-limited@example.invalid');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['reset']);
-});
-
-test('email delivery rate limit prevents repeated confirmation requests',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#action').selectOption('signup');await page.locator('#name').fill('Pessoa de teste');await page.locator('#role').selectOption('prestador');await page.locator('#email').fill('cadastro@example.invalid');await page.locator('#password').fill('email-rate-limited');await page.locator('#passwordConfirmation').fill('email-rate-limited');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Aguarde antes de solicitar outro e-mail.');await expect(page.locator('#action')).toHaveValue('signup');await expect(page.locator('#name')).toHaveValue('Pessoa de teste');await expect(page.locator('#role')).toHaveValue('prestador');await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordConfirmation')).toHaveValue('');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#resendConfirmation')).toBeHidden();
-  await page.locator('#action').selectOption('reset');await page.locator('#email').fill('email-rate-limited@example.invalid');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Aguarde antes de solicitar outro e-mail.');await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toBeFocused();await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('Aguarde antes de solicitar outro e-mail.');
-  await page.locator('#action').selectOption('login');await page.locator('#email').fill('limited-confirmation@example.invalid');await page.locator('#password').fill('unconfirmedpass');await page.locator('#submit').click();await expect(page.locator('#resendConfirmation')).toBeVisible();await page.locator('#resendConfirmation').click();await expect(page.locator('#status')).toHaveText('Aguarde antes de solicitar outro e-mail.');await expect(page.locator('#resendConfirmation')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['signup','reset','login','resend']);
-});
-
-test('password update rate limit keeps recovery protected without signing out',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await page.locator('#newPassword').fill('rate-limited-update');await page.locator('#newPasswordConfirmation').fill('rate-limited-update');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.');await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#newPasswordConfirmation')).toHaveValue('');await expect(page.locator('#newPassword')).toBeFocused();await expect(page.locator('#recoveryPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update']);
-});
-test('password reset returns to login with generic confirmation and supports recovery callback',async({page})=>{
-  await page.goto('/auth-teste/');await page.locator('#action').selectOption('reset');await page.locator('#email').fill('unknown@example.invalid');await page.locator('#submit').click();await expect(page.locator('#status')).toContainText('Se o e-mail estiver cadastrado');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('unknown@example.invalid');await expect(page.locator('#passwordArea')).toBeVisible();await expect(page.locator('#password')).toBeFocused();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([{auth:'reset',email:'unknown@example.invalid',options:{redirectTo:'http://127.0.0.1:4173/auth-teste/'}}]);
-  await page.goto('/auth-teste/?callback=test#type=recovery');await expect(page.locator('#recoveryPanel')).toBeVisible();await expect(page.locator('#accountPanel')).toBeHidden();await page.locator('#newPassword').fill('new-password123');await page.locator('#newPasswordConfirmation').fill('new-password123');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Senha atualizada. Por seguranÃ§a, entre novamente neste e nos outros aparelhos.');await expect(page.locator('#authPanel')).toBeVisible();expect(page.url()).not.toContain('#');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).slice(-2))).toEqual([{auth:'update',values:{password:'new-password123'}},{auth:'signout',options:{scope:'global'}}]);
-});
-test('invalid recovery link returns directly to a new generic request',async({page})=>{
-  await page.goto('/auth-teste/?servico=expired-recovery-service#type=recovery');await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#status')).toHaveText('Link de recuperaÃ§Ã£o invÃ¡lido ou expirado. Informe seu e-mail para solicitar outro.');await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('expired-recovery-service');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=expired-recovery-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([]);
-});
-test('password reset keeps missing and blocked accounts indistinguishable',async({page})=>{
-  for(const email of ['missing-reset@example.invalid','banned-reset@example.invalid']){
-    await page.goto('/auth-teste/?servico=neutral-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill(email);await page.locator('#submit').click();
-    await expect(page.locator('#status')).toHaveText('Se o e-mail estiver cadastrado, vocÃª receberÃ¡ as instruÃ§Ãµes de recuperaÃ§Ã£o.');await expect(page.locator('#status')).not.toContainText('bloqueado');await expect(page.locator('#status')).not.toContainText('nÃ£o existe');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue(email);await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('neutral-reset-service');
-    const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe(email);
-  }
-});
-test('password reset hook timeout is consumed without duplicate delivery attempts',async({page})=>{
-  for(const email of ['hook-timeout-reset@example.invalid','hook-retry-timeout-reset@example.invalid']){
-    await page.goto('/auth-teste/?servico=hook-timeout-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill(email);await page.locator('#submit').click();
-    await expect(page.locator('#status')).toHaveText('O envio das instruÃ§Ãµes demorou para responder. Aguarde antes de solicitar novamente.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue(email);await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('hook-timeout-reset-service');
-    await page.locator('#action').selectOption('reset');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('O envio das instruÃ§Ãµes demorou para responder. Aguarde antes de solicitar novamente.');await expect(page.locator('#email')).toBeFocused();
-    const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe(email);
-  }
-});
-test('password reset request timeout is consumed without a duplicate delivery attempt',async({page})=>{
-  await page.goto('/auth-teste/?servico=timeout-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill('timeout-reset@example.invalid');await page.locator('#submit').click();
-  await expect(page.locator('#status')).toHaveText('A solicitaÃ§Ã£o demorou mais que o esperado. Aguarde antes de solicitar novamente.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('timeout-reset@example.invalid');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('timeout-reset-service');
-  await page.locator('#action').selectOption('reset');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('A solicitaÃ§Ã£o demorou mais que o esperado. Aguarde antes de solicitar novamente.');await expect(page.locator('#email')).toBeFocused();
-  const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe('timeout-reset@example.invalid');
-});
-test('degraded password reset service is consumed without a duplicate delivery attempt',async({page})=>{
-  await page.goto('/auth-teste/?servico=degraded-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill('degraded-reset@example.invalid');await page.locator('#submit').click();
-  await expect(page.locator('#status')).toHaveText('O serviÃ§o de recuperaÃ§Ã£o estÃ¡ temporariamente indisponÃ­vel. Tente novamente mais tarde.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('degraded-reset@example.invalid');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('degraded-reset-service');
-  await page.locator('#action').selectOption('reset');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de recuperaÃ§Ã£o estÃ¡ temporariamente indisponÃ­vel. Tente novamente mais tarde.');await expect(page.locator('#email')).toBeFocused();
-  const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe('degraded-reset@example.invalid');
-});
-test('concurrent password reset conflict is consumed without another request',async({page})=>{
-  await page.goto('/auth-teste/?servico=conflict-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill('conflict-reset@example.invalid');await page.locator('#submit').click();
-  await expect(page.locator('#status')).toHaveText('JÃ¡ existe uma solicitaÃ§Ã£o de recuperaÃ§Ã£o em andamento. Aguarde antes de tentar novamente.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('conflict-reset@example.invalid');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('conflict-reset-service');
-  await page.locator('#action').selectOption('reset');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('JÃ¡ existe uma solicitaÃ§Ã£o de recuperaÃ§Ã£o em andamento. Aguarde antes de tentar novamente.');await expect(page.locator('#email')).toBeFocused();
-  const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe('conflict-reset@example.invalid');
-});
-test('invalid password reset hook payload is consumed without duplicate delivery attempts',async({page})=>{
-  for(const email of ['hook-oversize-reset@example.invalid','hook-content-type-reset@example.invalid']){
-    await page.goto('/auth-teste/?servico=hook-payload-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill(email);await page.locator('#submit').click();
-    await expect(page.locator('#status')).toHaveText('O serviÃ§o de recuperaÃ§Ã£o recusou o envio. Tente novamente mais tarde.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue(email);await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('hook-payload-reset-service');
-    await page.locator('#action').selectOption('reset');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de recuperaÃ§Ã£o recusou o envio. Tente novamente mais tarde.');await expect(page.locator('#email')).toBeFocused();
-    const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe(email);
-  }
-});
-test('disabled password reset email provider blocks repeated requests',async({page})=>{
-  await page.goto('/auth-teste/?servico=disabled-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill('disabled-reset@example.invalid');await page.locator('#submit').click();
-  await expect(page.locator('#status')).toHaveText('O envio das instruÃ§Ãµes de recuperaÃ§Ã£o estÃ¡ temporariamente indisponÃ­vel. Tente novamente mais tarde.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('disabled-reset@example.invalid');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('disabled-reset-service');
-  await page.locator('#action').selectOption('reset');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('O envio das instruÃ§Ãµes de recuperaÃ§Ã£o estÃ¡ temporariamente indisponÃ­vel. Tente novamente mais tarde.');await expect(page.locator('#email')).toBeFocused();
-  const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe('disabled-reset@example.invalid');
-});
-test('invalid password reset parameters require reopening the flow without repeating the request',async({page})=>{
-  await page.goto('/auth-teste/?servico=validation-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill('invalid-reset-data@example.invalid');await page.locator('#submit').click();
-  await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel validar a solicitaÃ§Ã£o de recuperaÃ§Ã£o. Reabra o fluxo e confira os dados antes de tentar novamente.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('invalid-reset-data@example.invalid');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('validation-reset-service');
-  await page.locator('#action').selectOption('reset');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel validar a solicitaÃ§Ã£o de recuperaÃ§Ã£o. Reabra o fluxo e confira os dados antes de tentar novamente.');await expect(page.locator('#email')).toBeFocused();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['reset']);
-});
-test('malformed password reset request is consumed without repeating the fixed body',async({page})=>{
-  await page.goto('/auth-teste/?servico=bad-json-reset-service');await page.locator('#action').selectOption('reset');await page.locator('#email').fill('bad-json-reset@example.invalid');await page.locator('#submit').click();
-  await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel processar a solicitaÃ§Ã£o de recuperaÃ§Ã£o. Reabra o fluxo e tente novamente.');await expect(page.locator('#action')).toHaveValue('login');await expect(page.locator('#email')).toHaveValue('bad-json-reset@example.invalid');await expect(page.locator('#password')).toBeFocused();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('bad-json-reset-service');
-  await page.locator('#action').selectOption('reset');await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel processar a solicitaÃ§Ã£o de recuperaÃ§Ã£o. Reabra o fluxo e tente novamente.');await expect(page.locator('#email')).toBeFocused();
-  const resets=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='reset'));expect(resets).toHaveLength(1);expect(resets[0].email).toBe('bad-json-reset@example.invalid');
-});
-test('expired or invalid recovery states return safely to a new request',async({page})=>{
-  for(const callback of ['otp-expired','flow-expired','flow-missing','bad-verifier']){
-    await page.goto(`/auth-teste/?callback=${callback}&servico=recovery-error-service#type=recovery`);await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#status')).toHaveText('Link de recuperaÃ§Ã£o invÃ¡lido ou expirado. Informe seu e-mail para solicitar outro.');await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('recovery-error-service');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=recovery-error-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([]);
-  }
-});
-test('expired or revoked recovery sessions return safely to a new request',async({page})=>{
-  for(const session of ['expired','missing','refresh-missing','refresh-used','bad-jwt']){
-    await page.goto(`/auth-teste/?session=${session}&servico=recovery-session-service#type=recovery`);await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#status')).toHaveText('Link de recuperaÃ§Ã£o invÃ¡lido ou expirado. Informe seu e-mail para solicitar outro.');await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('recovery-session-service');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=recovery-session-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([]);
-  }
-});
-test('password recovery can be cancelled only in the current session',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await page.locator('#newPassword').fill('discarded-password123');await page.locator('#newPasswordConfirmation').fill('discarded-password123');await page.locator('#toggleNewPassword').click();await page.locator('#cancelRecovery').click();
-  await expect(page.locator('#status')).toHaveText('RecuperaÃ§Ã£o cancelada. Entre para continuar.');await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#newPasswordConfirmation')).toHaveValue('');await expect(page.locator('#newPassword')).toHaveAttribute('type','password');await expect(page.locator('#email')).toBeFocused();expect(page.url()).not.toContain('#');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([{auth:'signout',options:{scope:'local'}}]);
-});
-test('recovery callback focuses the new password and returns focus to email',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await expect(page.locator('#recoveryPanel')).toBeVisible();await expect(page.locator('#newPassword')).toBeFocused();await page.locator('#newPassword').fill('new-password123');await page.locator('#newPasswordConfirmation').fill('new-password123');await page.locator('#savePassword').click();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#email')).toBeFocused();
-});
-test('password recovery rejects mismatched confirmation before Supabase',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await page.locator('#newPassword').fill('new-password123');await page.locator('#newPasswordConfirmation').fill('differentpass123');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('As senhas nÃ£o coincidem.');await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#newPasswordConfirmation')).toHaveValue('');await expect(page.locator('#recoveryPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([]);
-});
-test('CAPTCHA rejection keeps authentication flows protected and blocks password reset replay',async({page})=>{
-  const scenarios=[{action:'login',email:'captcha-login@example.com',password:'captcha-failed-login',auth:'login',focus:'#password'},{action:'signup',email:'captcha-signup@example.com',password:'captcha-failed-signup',auth:'signup',focus:'#password'},{action:'reset',email:'captcha-failed@example.invalid',auth:'reset',focus:'#email'}];
-  for(const scenario of scenarios){await page.goto('/auth-teste/?servico=captcha-protected-service');await page.locator('#action').selectOption(scenario.action);await page.locator('#email').fill(scenario.email);if(scenario.action==='signup'){await page.locator('#name').fill('Pessoa protegida');await page.locator('#password').fill(scenario.password);await page.locator('#passwordConfirmation').fill(scenario.password);}else if(scenario.action==='login')await page.locator('#password').fill(scenario.password);await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel confirmar a verificaÃ§Ã£o de seguranÃ§a. Recarregue a pÃ¡gina e tente novamente.');await expect(page.locator('#action')).toHaveValue(scenario.action);await expect(page.locator('#email')).toHaveValue(scenario.email);await expect(page.locator(scenario.focus)).toBeFocused();await expect(page.locator('#password')).toHaveValue('');await expect(page.locator('#passwordConfirmation')).toHaveValue('');await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('captcha-protected-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual([scenario.auth]);if(scenario.action==='reset'){await page.locator('#submit').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel confirmar a verificaÃ§Ã£o de seguranÃ§a. Recarregue a pÃ¡gina e tente novamente.');await expect(page.locator('#email')).toBeFocused();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['reset']);}}
-});
-test('recovery password visibility resets after a rejected local confirmation',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await page.locator('#newPassword').fill('new-password123');await page.locator('#newPasswordConfirmation').fill('differentpass123');await page.locator('#toggleNewPassword').click();await page.locator('#toggleNewPasswordConfirmation').click();
-  await expect(page.locator('#newPassword')).toHaveAttribute('type','text');await expect(page.locator('#newPasswordConfirmation')).toHaveAttribute('type','text');await page.locator('#savePassword').click();
-  await expect(page.locator('#status')).toHaveText('As senhas nÃ£o coincidem.');await expect(page.locator('#newPassword')).toHaveAttribute('type','password');await expect(page.locator('#newPasswordConfirmation')).toHaveAttribute('type','password');await expect(page.locator('#toggleNewPassword')).toHaveText('Mostrar nova senha');await expect(page.locator('#toggleNewPasswordConfirmation')).toHaveText('Mostrar confirmaÃ§Ã£o da nova senha');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([]);
-});
-test('recovery password warns about Caps Lock and hides the warning on blur',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');const warning=page.locator('#recoveryCapsLockWarning');await expect(warning).toBeHidden();await page.locator('#newPassword').evaluate(field=>{const event=new KeyboardEvent('keydown',{key:'A',bubbles:true});Object.defineProperty(event,'getModifierState',{value:key=>key==='CapsLock'});field.dispatchEvent(event);});await expect(warning).toBeVisible();
-  await page.locator('#newPasswordConfirmation').focus();await expect(warning).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([]);
-});
-test('password recovery explains when Supabase rejects a leaked password',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await expect(page.locator('#recoveryPanel')).toBeVisible();await page.locator('#newPassword').fill('rejected-password123');await page.locator('#newPasswordConfirmation').fill('rejected-password123');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Esta senha apareceu em vazamentos conhecidos. Escolha outra senha que vocÃª nÃ£o use em outros serviÃ§os.');await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#newPasswordConfirmation')).toHaveValue('');await expect(page.locator('#newPassword')).toBeFocused();await expect(page.locator('#recoveryPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update']);
-});
-test('password recovery explains a password rejected by server security rules',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await page.locator('#newPassword').fill('weak-password123');await page.locator('#newPasswordConfirmation').fill('weak-password123');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Use uma senha mais forte que atenda aos requisitos de seguranÃ§a.');await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#newPasswordConfirmation')).toHaveValue('');await expect(page.locator('#newPassword')).toBeFocused();await expect(page.locator('#recoveryPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update']);
-});
-test('password recovery explains when Supabase requires a longer password',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await page.locator('#newPassword').fill('weak-length123');await page.locator('#newPasswordConfirmation').fill('weak-length123');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Use uma senha mais longa para atender aos requisitos de seguranÃ§a.');await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#newPasswordConfirmation')).toHaveValue('');await expect(page.locator('#newPassword')).toBeFocused();await expect(page.locator('#recoveryPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update']);
-});
-test('password recovery explains that the current password cannot be reused',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await page.locator('#newPassword').fill('same-password123');await page.locator('#newPasswordConfirmation').fill('same-password123');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('A nova senha deve ser diferente da senha atual.');await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#newPasswordConfirmation')).toHaveValue('');await expect(page.locator('#newPassword')).toBeFocused();await expect(page.locator('#recoveryPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update']);
-});
-test('password recovery completes required reauthentication with the emailed code',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=reauth-service#type=recovery');await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Enviamos um cÃ³digo de verificaÃ§Ã£o. Informe o cÃ³digo e digite a nova senha novamente.');await expect(page.locator('#recoveryNonceArea')).toBeVisible();await expect(page.locator('#recoveryNonce')).toBeFocused();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#newPasswordConfirmation')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();
-  await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('123456');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Senha atualizada. Por seguranÃ§a, entre novamente neste e nos outros aparelhos.');await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=reauth-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([{auth:'update',values:{password:'reauth-required-pass'}},{auth:'reauthenticate'},{auth:'update',values:{password:'reauth-required-pass',nonce:'123456'}},{auth:'signout',options:{scope:'global'}}]);
-});
-test('invalid reauthentication code keeps password recovery protected',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#savePassword').click();await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('000000');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('CÃ³digo de verificaÃ§Ã£o invÃ¡lido. Confira o cÃ³digo enviado e tente novamente.');await expect(page.locator('#recoveryNonceArea')).toBeVisible();await expect(page.locator('#recoveryNonce')).toHaveValue('');await expect(page.locator('#recoveryNonce')).toBeFocused();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#newPasswordConfirmation')).toHaveValue('');await expect(page.locator('#recoveryPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update']);
-});
-test('expired reauthentication code allows one controlled manual resend',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=expired-reauth-service#type=recovery');await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#savePassword').click();await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('expired');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O cÃ³digo de verificaÃ§Ã£o expirou. Solicite um novo cÃ³digo para continuar.');await expect(page.locator('#recoveryNonce')).toHaveValue('');await expect(page.locator('#recoveryNonce')).toBeFocused();await expect(page.locator('#resendRecoveryNonce')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeHidden();
-  await page.locator('#resendRecoveryNonce').click();await expect(page.locator('#status')).toHaveText('Novo cÃ³digo de verificaÃ§Ã£o solicitado. Aguarde o e-mail antes de continuar.');await expect(page.locator('#resendRecoveryNonce')).toBeHidden();await expect(page.locator('#recoveryNonce')).toBeFocused();const callsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);await page.evaluate(()=>document.querySelector('#resendRecoveryNonce').click());expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(callsBefore);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update','reauthenticate']);
-});
-test('initial reauthentication email limit blocks immediate repeated requests',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=limited-reauth-service#type=recovery');await page.locator('#newPassword').fill('reauth-email-limited-pass');await page.locator('#newPasswordConfirmation').fill('reauth-email-limited-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Aguarde antes de solicitar outro e-mail.');await expect(page.locator('#recoveryNonceArea')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#newPasswordConfirmation')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-email-limited-pass');await page.locator('#newPasswordConfirmation').fill('reauth-email-limited-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Aguarde alguns minutos e abra novamente a recuperaÃ§Ã£o para solicitar outro cÃ³digo.');await expect(page.locator('#newPassword')).toHaveValue('');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-});
-test('reauthentication resend email limit consumes the action and blocks bypass',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#savePassword').click();await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('expired-limited');await page.locator('#savePassword').click();await expect(page.locator('#resendRecoveryNonce')).toBeVisible();await page.locator('#resendRecoveryNonce').click();await expect(page.locator('#status')).toHaveText('Aguarde antes de solicitar outro e-mail.');await expect(page.locator('#resendRecoveryNonce')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('expired-limited');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Aguarde alguns minutos e abra novamente a recuperaÃ§Ã£o para solicitar outro cÃ³digo.');await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#recoveryNonce')).toHaveValue('expired-limited');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update','reauthenticate']);
-});
-test('unavailable reauthentication email provider blocks repeated requests',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=disabled-reauth-service#type=recovery');await page.locator('#newPassword').fill('reauth-email-disabled-pass');await page.locator('#newPasswordConfirmation').fill('reauth-email-disabled-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O envio do cÃ³digo de verificaÃ§Ã£o estÃ¡ temporariamente indisponÃ­vel. Abra novamente a recuperaÃ§Ã£o mais tarde.');await expect(page.locator('#recoveryNonceArea')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-email-disabled-pass');await page.locator('#newPasswordConfirmation').fill('reauth-email-disabled-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O envio do cÃ³digo de verificaÃ§Ã£o estÃ¡ temporariamente indisponÃ­vel. Abra novamente a recuperaÃ§Ã£o mais tarde.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-});
-test('unauthorized reauthentication resend is consumed and cannot be bypassed',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#savePassword').click();await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('expired-unauth');await page.locator('#savePassword').click();await expect(page.locator('#resendRecoveryNonce')).toBeVisible();await page.locator('#resendRecoveryNonce').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel enviar o cÃ³digo de verificaÃ§Ã£o para esta conta. Fale com o suporte antes de tentar novamente.');await expect(page.locator('#resendRecoveryNonce')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('expired-unauth');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel enviar o cÃ³digo de verificaÃ§Ã£o para esta conta. Fale com o suporte antes de tentar novamente.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update','reauthenticate']);
-});
-test('initial reauthentication request limit blocks repeated calls',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=request-limited-reauth#type=recovery');await page.locator('#newPassword').fill('reauth-request-limited-pass');await page.locator('#newPasswordConfirmation').fill('reauth-request-limited-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.');await expect(page.locator('#recoveryNonceArea')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-request-limited-pass');await page.locator('#newPasswordConfirmation').fill('reauth-request-limited-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Muitas tentativas foram feitas. Aguarde alguns minutos e abra novamente a recuperaÃ§Ã£o.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-});
-test('failed CAPTCHA during reauthentication requires a fresh page before another request',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=captcha-reauth#type=recovery');await page.locator('#newPassword').fill('reauth-captcha-failed-pass');await page.locator('#newPasswordConfirmation').fill('reauth-captcha-failed-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel confirmar a verificaÃ§Ã£o de seguranÃ§a. Recarregue a pÃ¡gina e tente novamente.');await expect(page.locator('#recoveryNonceArea')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-captcha-failed-pass');await page.locator('#newPasswordConfirmation').fill('reauth-captcha-failed-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('A verificaÃ§Ã£o de seguranÃ§a precisa ser refeita. Recarregue a pÃ¡gina antes de abrir novamente a recuperaÃ§Ã£o.');await expect(page.locator('#newPassword')).toHaveValue('');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-});
-test('failed CAPTCHA during reauthentication resend consumes the action',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=captcha-reauth-resend#type=recovery');await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#savePassword').click();await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('expired-captcha');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O cÃ³digo de verificaÃ§Ã£o expirou. Solicite um novo cÃ³digo para continuar.');await expect(page.locator('#resendRecoveryNonce')).toBeVisible();await page.locator('#resendRecoveryNonce').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel confirmar a verificaÃ§Ã£o de seguranÃ§a. Recarregue a pÃ¡gina e tente novamente.');await expect(page.locator('#resendRecoveryNonce')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('expired-captcha');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('A verificaÃ§Ã£o de seguranÃ§a precisa ser refeita. Recarregue a pÃ¡gina antes de abrir novamente a recuperaÃ§Ã£o.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update','reauthenticate']);
-});
-test('initial reauthentication timeout blocks an uncertain duplicate request',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=timeout-reauth#type=recovery');await page.locator('#newPassword').fill('reauth-timeout-pass');await page.locator('#newPasswordConfirmation').fill('reauth-timeout-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('A solicitaÃ§Ã£o demorou mais que o esperado. Tente novamente.');await expect(page.locator('#recoveryNonceArea')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-timeout-pass');await page.locator('#newPasswordConfirmation').fill('reauth-timeout-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('A solicitaÃ§Ã£o do cÃ³digo demorou mais que o esperado. Abra novamente a recuperaÃ§Ã£o antes de solicitar outro cÃ³digo.');await expect(page.locator('#newPassword')).toHaveValue('');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-});
-test('degraded Auth during reauthentication blocks immediate repeated requests',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=degraded-reauth#type=recovery');await page.locator('#newPassword').fill('reauth-degraded-pass');await page.locator('#newPasswordConfirmation').fill('reauth-degraded-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de acesso estÃ¡ temporariamente indisponÃ­vel. Tente novamente mais tarde.');await expect(page.locator('#recoveryNonceArea')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-degraded-pass');await page.locator('#newPasswordConfirmation').fill('reauth-degraded-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de acesso estÃ¡ temporariamente indisponÃ­vel. Abra novamente a recuperaÃ§Ã£o mais tarde.');await expect(page.locator('#newPassword')).toHaveValue('');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-});
-test('concurrent reauthentication request is consumed without another conflict',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=conflict-reauth#type=recovery');await page.locator('#newPassword').fill('reauth-conflict-pass');await page.locator('#newPasswordConfirmation').fill('reauth-conflict-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Outra atualizaÃ§Ã£o de acesso estÃ¡ em andamento. Aguarde um momento e tente novamente.');await expect(page.locator('#recoveryNonceArea')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-conflict-pass');await page.locator('#newPasswordConfirmation').fill('reauth-conflict-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('HÃ¡ outra solicitaÃ§Ã£o em andamento. Aguarde e abra novamente a recuperaÃ§Ã£o antes de pedir outro cÃ³digo.');await expect(page.locator('#newPassword')).toHaveValue('');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-});
-for(const [label,password] of [['initial','reauth-hook-timeout-pass'],['after retry','reauth-hook-retry-timeout-pass']]){
-  test(`reauthentication hook timeout ${label} is consumed without duplicate delivery attempts`,async({page})=>{
-    await page.goto('/auth-teste/?callback=test&servico=hook-timeout-reauth#type=recovery');await page.locator('#newPassword').fill(password);await page.locator('#newPasswordConfirmation').fill(password);await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de acesso demorou para responder. Aguarde um momento e tente novamente.');await expect(page.locator('#recoveryNonceArea')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-    await page.locator('#newPassword').fill(password);await page.locator('#newPasswordConfirmation').fill(password);await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de acesso demorou para responder. Aguarde e abra novamente a recuperaÃ§Ã£o antes de pedir outro cÃ³digo.');await expect(page.locator('#newPassword')).toHaveValue('');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-  });
-}
-for(const [label,password] of [['oversize','reauth-hook-oversize-pass'],['invalid content type','reauth-hook-content-type-pass']]){
-  test(`reauthentication hook payload ${label} is consumed without duplicate delivery attempts`,async({page})=>{
-    await page.goto('/auth-teste/?callback=test&servico=hook-payload-reauth#type=recovery');await page.locator('#newPassword').fill(password);await page.locator('#newPasswordConfirmation').fill(password);await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de confirmaÃ§Ã£o recusou a solicitaÃ§Ã£o. Tente novamente mais tarde.');await expect(page.locator('#recoveryNonceArea')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-    await page.locator('#newPassword').fill(password);await page.locator('#newPasswordConfirmation').fill(password);await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O serviÃ§o de acesso recusou a solicitaÃ§Ã£o. Abra novamente a recuperaÃ§Ã£o mais tarde.');await expect(page.locator('#newPassword')).toHaveValue('');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-  });
-}
-for(const [label,password,firstMessage] of [['validation','reauth-validation-pass','Confira os dados informados e tente novamente.'],['malformed body','reauth-bad-json-pass','O serviÃ§o de acesso recusou os dados da solicitaÃ§Ã£o. Reabra o fluxo e tente novamente.']]){
-  test(`reauthentication ${label} failure consumes the fixed request`,async({page})=>{
-    await page.goto('/auth-teste/?callback=test&servico=invalid-reauth-request#type=recovery');await page.locator('#newPassword').fill(password);await page.locator('#newPasswordConfirmation').fill(password);await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText(firstMessage);await expect(page.locator('#recoveryNonceArea')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-    await page.locator('#newPassword').fill(password);await page.locator('#newPasswordConfirmation').fill(password);await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel processar a solicitaÃ§Ã£o do cÃ³digo. Abra novamente a recuperaÃ§Ã£o.');await expect(page.locator('#newPassword')).toHaveValue('');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-  });
-}
-test('disabled OTP delivery during reauthentication blocks repeated requests',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=otp-disabled-reauth#type=recovery');await page.locator('#newPassword').fill('reauth-otp-disabled-pass');await page.locator('#newPasswordConfirmation').fill('reauth-otp-disabled-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O envio do cÃ³digo de verificaÃ§Ã£o estÃ¡ temporariamente indisponÃ­vel. Tente novamente mais tarde.');await expect(page.locator('#recoveryNonceArea')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-otp-disabled-pass');await page.locator('#newPasswordConfirmation').fill('reauth-otp-disabled-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O envio do cÃ³digo de verificaÃ§Ã£o estÃ¡ temporariamente indisponÃ­vel. Abra novamente a recuperaÃ§Ã£o mais tarde.');await expect(page.locator('#newPassword')).toHaveValue('');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-});
-test('banned account during reauthentication blocks further requests',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=banned-reauth#type=recovery');await page.locator('#newPassword').fill('reauth-banned-pass');await page.locator('#newPasswordConfirmation').fill('reauth-banned-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Este acesso estÃ¡ temporariamente indisponÃ­vel. Tente novamente mais tarde ou fale com o suporte.');await expect(page.locator('#recoveryNonceArea')).toBeHidden();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#linkedRequestHint')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-banned-pass');await page.locator('#newPasswordConfirmation').fill('reauth-banned-pass');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Este acesso continua temporariamente indisponÃ­vel. Fale com o suporte antes de abrir novamente a recuperaÃ§Ã£o.');await expect(page.locator('#newPassword')).toHaveValue('');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-});
-test('missing authorization during reauthentication requests a new recovery link',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=no-auth-reauth#type=recovery');await page.locator('#newPassword').fill('reauth-no-authorization-pass');await page.locator('#newPasswordConfirmation').fill('reauth-no-authorization-pass');await page.locator('#savePassword').click();await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#status')).toHaveText('Link de recuperaÃ§Ã£o invÃ¡lido ou expirado. Informe seu e-mail para solicitar outro.');await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('no-auth-reauth');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=no-auth-reauth');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-});
-test('missing authorization during reauthentication resend requests a new recovery link',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=no-auth-resend#type=recovery');await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#savePassword').click();await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('expired-noauth');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O cÃ³digo de verificaÃ§Ã£o expirou. Solicite um novo cÃ³digo para continuar.');await expect(page.locator('#resendRecoveryNonce')).toBeVisible();await page.locator('#resendRecoveryNonce').click();await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#status')).toHaveText('Link de recuperaÃ§Ã£o invÃ¡lido ou expirado. Informe seu e-mail para solicitar outro.');await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('no-auth-resend');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=no-auth-resend');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update','reauthenticate']);
-});
-test('session expiration during reauthentication requests a new recovery link',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=expired-reauth#type=recovery');await page.locator('#newPassword').fill('reauth-session-expired-pass');await page.locator('#newPasswordConfirmation').fill('reauth-session-expired-pass');await page.locator('#savePassword').click();await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#status')).toHaveText('Link de recuperaÃ§Ã£o invÃ¡lido ou expirado. Informe seu e-mail para solicitar outro.');await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('expired-reauth');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=expired-reauth');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-});
-test('session expiration during reauthentication resend requests a new recovery link',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=expired-reauth-resend#type=recovery');await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#savePassword').click();await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('expired-session');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O cÃ³digo de verificaÃ§Ã£o expirou. Solicite um novo cÃ³digo para continuar.');await expect(page.locator('#resendRecoveryNonce')).toBeVisible();await page.locator('#resendRecoveryNonce').click();await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#status')).toHaveText('Link de recuperaÃ§Ã£o invÃ¡lido ou expirado. Informe seu e-mail para solicitar outro.');await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('expired-reauth-resend');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=expired-reauth-resend');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update','reauthenticate']);
-});
-test('missing user during reauthentication returns to generic recovery',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=missing-user-reauth#type=recovery');await page.locator('#newPassword').fill('reauth-user-missing-pass');await page.locator('#newPasswordConfirmation').fill('reauth-user-missing-pass');await page.locator('#savePassword').click();await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#status')).toHaveText('Link de recuperaÃ§Ã£o invÃ¡lido ou expirado. Informe seu e-mail para solicitar outro.');await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('missing-user-reauth');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=missing-user-reauth');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate']);
-});
-test('missing user during reauthentication resend returns to generic recovery',async({page})=>{
-  await page.goto('/auth-teste/?callback=test&servico=missing-user-resend#type=recovery');await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#savePassword').click();await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('expired-user');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('O cÃ³digo de verificaÃ§Ã£o expirou. Solicite um novo cÃ³digo para continuar.');await expect(page.locator('#resendRecoveryNonce')).toBeVisible();await page.locator('#resendRecoveryNonce').click();await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#status')).toHaveText('Link de recuperaÃ§Ã£o invÃ¡lido ou expirado. Informe seu e-mail para solicitar outro.');await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('missing-user-resend');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=missing-user-resend');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update','reauthenticate']);
-});
-test('reauthentication resend request limit is consumed and blocks bypass',async({page})=>{
-  await page.goto('/auth-teste/?callback=test#type=recovery');await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#savePassword').click();await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('expired-requests');await page.locator('#savePassword').click();await expect(page.locator('#resendRecoveryNonce')).toBeVisible();await page.locator('#resendRecoveryNonce').click();await expect(page.locator('#status')).toHaveText('Muitas tentativas foram feitas. Aguarde alguns minutos antes de tentar novamente.');await expect(page.locator('#resendRecoveryNonce')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update','reauthenticate']);
-  await page.locator('#newPassword').fill('reauth-required-pass');await page.locator('#newPasswordConfirmation').fill('reauth-required-pass');await page.locator('#recoveryNonce').fill('expired-requests');await page.locator('#savePassword').click();await expect(page.locator('#status')).toHaveText('Muitas tentativas foram feitas. Aguarde alguns minutos e abra novamente a recuperaÃ§Ã£o.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update','reauthenticate','update','reauthenticate']);
-});
-test('session expiration while saving a password requests a new recovery email',async({page})=>{
-  for(const password of ['expired-update-pass','missing-update-pass','refresh-missing-pass','refresh-used-pass','bad-jwt-update-pass']){
-    await page.goto('/auth-teste/?callback=test&servico=recovery-update-service#type=recovery');await page.locator('#newPassword').fill(password);await page.locator('#newPasswordConfirmation').fill(password);await page.locator('#savePassword').click();await expect(page.locator('#recoveryPanel')).toBeHidden();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#action')).toHaveValue('reset');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#newPassword')).toHaveValue('');await expect(page.locator('#newPasswordConfirmation')).toHaveValue('');await expect(page.locator('#status')).toHaveText('Link de recuperaÃ§Ã£o invÃ¡lido ou expirado. Informe seu e-mail para solicitar outro.');await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('recovery-update-service');await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=recovery-update-service');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).map(call=>call.auth))).toEqual(['update']);
-  }
-});
-test('client creates persisted request, safe text chat and logout clears data',async({page})=>{
-  await login(page);await expect(page.locator('#providerPanel')).toBeHidden();await expect(page.locator('#adminPanel')).toBeHidden();await page.locator('#serviceProfession').selectOption('Pintor');await page.locator('#description').fill('<img src=x onerror="window.injected=true"> Pintar sala');await page.locator('#createRequest').click();await expect(page.locator('#requests')).toContainText('Pintar sala');expect(await page.evaluate(()=>window.injected)).toBeUndefined();await expect(page.locator('#requests img')).toHaveCount(0);
-  await page.evaluate(()=>window.testState.requests[0].status='aceito');await page.locator('#refresh').click();await page.getByRole('button',{name:'Abrir conversa'}).click();await page.locator('#message').fill('Podemos negociar o orÃ§amento?');await page.locator('#sendMessage').click();await expect(page.locator('#messages')).toContainText('Podemos negociar o orÃ§amento?');await page.locator('#logout').click();await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#requests')).toBeEmpty();await expect(page.locator('#messages')).toBeEmpty();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth==='signout'))).toEqual([{auth:'signout',options:{scope:'local'}}]);
-});
-test('client corrects the profession and experience and avoids a duplicate provider application',async({page})=>{
-  await login(page);await expect(page.locator('#providerApply')).toBeVisible();await page.locator('#experience').fill('AtuaÃ§Ã£o residencial supervisionada, sem envio de documentos pessoais.');await page.locator('#applyProvider').click();
-  await expect(page.locator('#status')).toHaveText('Selecione a profissÃ£o que deseja exercer. Sua experiÃªncia foi preservada.');await expect(page.locator('#profession')).toBeFocused();await expect(page.locator('#profession')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#experience')).toHaveValue('AtuaÃ§Ã£o residencial supervisionada, sem envio de documentos pessoais.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='insert'))).toHaveLength(0);
-  await page.locator('#profession').selectOption('Eletricista');await expect(page.locator('#profession')).not.toHaveAttribute('aria-invalid','true');await page.locator('#experience').evaluate(field=>{field.value='x'.repeat(1501);field.dispatchEvent(new Event('input',{bubbles:true}));});await page.locator('#applyProvider').click();await expect(page.locator('#status')).toHaveText('Resuma sua experiÃªncia em atÃ© 1500 caracteres. A profissÃ£o foi preservada e nenhuma candidatura foi enviada.');await expect(page.locator('#experience')).toBeFocused();await expect(page.locator('#experience')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#profession')).toHaveValue('Eletricista');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='insert'))).toHaveLength(0);
-  await page.locator('#experience').fill('AtuaÃ§Ã£o residencial supervisionada, sem envio de documentos pessoais.');await expect(page.locator('#experience')).not.toHaveAttribute('aria-invalid','true');await page.locator('#applyProvider').click();await expect(page.locator('#status')).toHaveText('SolicitaÃ§Ã£o enviada para anÃ¡lise. O acesso de prestador ainda nÃ£o foi liberado.');await expect(page.locator('#applications')).toHaveText('Eletricista â€” Pendente');await expect(page.locator('#profession option[value="Eletricista"]')).toBeDisabled();await expect(page.locator('#profession option[value="Eletricista"]')).toHaveText('Eletricista â€” Pendente');await expect(page.locator('#profession option[value="Pintor"]')).toBeEnabled();await expect(page.locator('#profession')).toHaveValue('');await expect(page.locator('#profession')).toBeFocused();await expect(page.locator('#experience')).toHaveValue('');await expect(page.locator('#clientPanel')).toBeVisible();await expect(page.locator('#providerPanel')).toBeHidden();const inserts=await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='insert'));expect(inserts).toHaveLength(1);expect(inserts[0].payload).toMatchObject({profession:'Eletricista',experience_summary:'AtuaÃ§Ã£o residencial supervisionada, sem envio de documentos pessoais.'});
-  await page.locator('#profession option[value="Eletricista"]').evaluate(option=>{option.disabled=false;});await page.locator('#profession').selectOption('Eletricista');await page.locator('#experience').fill('Nova experiÃªncia para a mesma profissÃ£o ainda em anÃ¡lise.');await page.locator('#applyProvider').click();await expect(page.locator('#status')).toHaveText('JÃ¡ existe uma candidatura para Eletricista (Pendente). Escolha outra profissÃ£o ou acompanhe a solicitaÃ§Ã£o existente. Sua experiÃªncia foi preservada.');await expect(page.locator('#profession')).toBeFocused();await expect(page.locator('#profession')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#experience')).toHaveValue('Nova experiÃªncia para a mesma profissÃ£o ainda em anÃ¡lise.');await expect(page.locator('#applications')).toHaveText('Eletricista â€” Pendente');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='insert'))).toHaveLength(1);
-  await page.locator('#profession').selectOption('Pintor');await page.locator('#experience').fill('ExperiÃªncia preservada apÃ³s uma candidatura concorrente.');await page.evaluate(()=>window.testState.applications.push({id:'application-concurrent',user_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',status:'pendente',created_at:new Date().toISOString()}));await page.locator('#applyProvider').click();await expect(page.locator('#status')).toHaveText('JÃ¡ existe uma candidatura para Pintor (Pendente). Escolha outra profissÃ£o ou acompanhe a solicitaÃ§Ã£o existente. Sua experiÃªncia foi preservada.');await expect(page.locator('#profession')).toBeFocused();await expect(page.locator('#profession')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#experience')).toHaveValue('ExperiÃªncia preservada apÃ³s uma candidatura concorrente.');await expect(page.locator('#applications')).toContainText('Eletricista â€” Pendente');await expect(page.locator('#applications')).toContainText('Pintor â€” Pendente');await expect(page.locator('#profession option[value="Pintor"]')).toBeDisabled();await expect(page.locator('#profession option[value="Pintor"]')).toHaveText('Pintor â€” Pendente');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='insert'))).toHaveLength(2);expect(await page.evaluate(()=>window.testState.applications)).toHaveLength(2);await expect(page.locator('#clientPanel')).toBeVisible();await expect(page.locator('#providerPanel')).toBeHidden();
-});
-test('client reconciles an uncertain provider application insert without retrying it',async({page})=>{
-  await login(page);await expect(page.locator('#providerApply')).toBeVisible();await page.locator('#profession').selectOption('Pintor');await page.locator('#experience').fill('ExperiÃªncia confirmada apÃ³s resposta incerta do serviÃ§o.');await page.evaluate(()=>{window.testState.ambiguousProviderApplicationInsert=true;});await page.locator('#applyProvider').click();
-  await expect(page.locator('#status')).toHaveText('SolicitaÃ§Ã£o confirmada apÃ³s verificar suas candidaturas. O acesso de prestador ainda nÃ£o foi liberado.');await expect(page.locator('#applications')).toHaveText('Pintor â€” Pendente');await expect(page.locator('#profession option[value="Pintor"]')).toBeDisabled();await expect(page.locator('#profession option[value="Pintor"]')).toHaveText('Pintor â€” Pendente');await expect(page.locator('#profession')).toHaveValue('');await expect(page.locator('#profession')).toBeFocused();await expect(page.locator('#experience')).toHaveValue('');await expect(page.locator('#clientPanel')).toBeVisible();await expect(page.locator('#providerPanel')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='insert'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.applications)).toHaveLength(1);
-});
-test('client sees readable statuses for every provider application stage',async({page})=>{
-  await page.addInitScript(()=>{window.testApplications=[{user_id:'10000000-0000-4000-8000-000000000001',profession:'Eletricista',status:'em_analise'},{user_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',status:'rejeitado'},{user_id:'10000000-0000-4000-8000-000000000001',profession:'Pedreiro',status:'aprovado'},{user_id:'10000000-0000-4000-8000-000000000001',profession:'Encanador',status:'pendente'}];});await login(page);
-  await expect(page.locator('#applications')).toHaveText('Eletricista â€” Em anÃ¡lise; Pintor â€” Recusada; Pedreiro â€” Aprovada; Encanador â€” Pendente');await expect(page.locator('#applications')).not.toContainText('em_analise');await expect(page.locator('#applications')).not.toContainText('rejeitado');await expect(page.locator('#profession option[value="Eletricista"]')).toBeDisabled();await expect(page.locator('#profession option[value="Eletricista"]')).toHaveText('Eletricista â€” Em anÃ¡lise');await expect(page.locator('#profession option[value="Pintor"]')).toBeDisabled();await expect(page.locator('#profession option[value="Pintor"]')).toHaveText('Pintor â€” Recusada');await expect(page.locator('#clientPanel')).toBeVisible();await expect(page.locator('#providerPanel')).toBeHidden();
-});
-test('client refreshes provider applications without losing a draft or gaining access',async({page})=>{
-  await page.addInitScript(()=>{window.testApplications=[{user_id:'10000000-0000-4000-8000-000000000001',profession:'Eletricista',status:'pendente'}];});await login(page);await page.locator('#profession').selectOption('Pintor');await page.locator('#experience').fill('ExperiÃªncia ainda nÃ£o enviada, preservada durante a consulta.');
-  await page.evaluate(()=>{window.testState.applications[0].status='em_analise';});await page.locator('#refreshApplications').click();await expect(page.locator('#status')).toHaveText('Candidaturas atualizadas. Nenhuma permissÃ£o foi alterada.');await expect(page.locator('#applications')).toHaveText('Eletricista â€” Em anÃ¡lise');await expect(page.locator('#profession option[value="Eletricista"]')).toBeDisabled();await expect(page.locator('#profession option[value="Eletricista"]')).toHaveText('Eletricista â€” Em anÃ¡lise');await expect(page.locator('#profession')).toHaveValue('Pintor');await expect(page.locator('#experience')).toHaveValue('ExperiÃªncia ainda nÃ£o enviada, preservada durante a consulta.');await expect(page.locator('#clientPanel')).toBeVisible();await expect(page.locator('#providerPanel')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='select'))).toHaveLength(2);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='insert'))).toHaveLength(0);
-});
-test('client recovers an unavailable initial provider application list before submitting',async({page})=>{
-  await page.addInitScript(()=>{window.testApplications=[{user_id:'10000000-0000-4000-8000-000000000001',profession:'Eletricista',status:'pendente'}];window.providerApplicationsInitiallyUnavailable=true;});await login(page);
-  await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel carregar suas candidaturas. Seus serviÃ§os continuam disponÃ­veis; atualize as candidaturas antes de enviar uma nova solicitaÃ§Ã£o.');await expect(page.locator('#applications')).toHaveText('Candidaturas temporariamente indisponÃ­veis.');await expect(page.locator('#requests')).toBeVisible();await page.locator('#profession').selectOption('Pintor');await page.locator('#experience').fill('Rascunho preservado atÃ© a recuperaÃ§Ã£o da consulta.');await page.locator('#applyProvider').click();await expect(page.locator('#status')).toHaveText('Atualize suas candidaturas antes de enviar uma nova solicitaÃ§Ã£o. A profissÃ£o e a experiÃªncia foram preservadas.');await expect(page.locator('#profession')).toHaveValue('Pintor');await expect(page.locator('#experience')).toHaveValue('Rascunho preservado atÃ© a recuperaÃ§Ã£o da consulta.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='insert'))).toHaveLength(0);
-  await page.locator('#refreshApplications').click();await expect(page.locator('#status')).toHaveText('Candidaturas atualizadas. Nenhuma permissÃ£o foi alterada.');await expect(page.locator('#applications')).toHaveText('Eletricista â€” Pendente');await expect(page.locator('#profession option[value="Eletricista"]')).toBeDisabled();await expect(page.locator('#profession')).toHaveValue('Pintor');await expect(page.locator('#experience')).toHaveValue('Rascunho preservado atÃ© a recuperaÃ§Ã£o da consulta.');await expect(page.locator('#clientPanel')).toBeVisible();await expect(page.locator('#providerPanel')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='insert'))).toHaveLength(0);
-});
-test('client retries a failed provider application refresh without losing displayed data or draft',async({page})=>{
-  await page.addInitScript(()=>{window.testApplications=[{user_id:'10000000-0000-4000-8000-000000000001',profession:'Eletricista',status:'pendente'}];});await login(page);await page.locator('#profession').selectOption('Pintor');await page.locator('#experience').fill('Rascunho preservado durante uma falha temporÃ¡ria.');
-  await page.evaluate(()=>{window.testState.providerApplicationsSelectError={code:'PGRST000',message:'temporary failure'};});await page.locator('#refreshApplications').click();await expect(page.locator('#status')).toHaveText('NÃ£o foi possÃ­vel atualizar as candidaturas. Os dados exibidos e o rascunho foram preservados. Tente novamente.');await expect(page.locator('#applications')).toHaveText('Eletricista â€” Pendente');await expect(page.locator('#profession')).toHaveValue('Pintor');await expect(page.locator('#experience')).toHaveValue('Rascunho preservado durante uma falha temporÃ¡ria.');await expect(page.locator('#refreshApplications')).toBeEnabled();await expect(page.locator('#clientPanel')).toBeVisible();await expect(page.locator('#providerPanel')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='insert'))).toHaveLength(0);
-  await page.evaluate(()=>{window.testState.providerApplicationsSelectError=null;window.testState.applications[0].status='em_analise';});await page.locator('#refreshApplications').click();await expect(page.locator('#status')).toHaveText('Candidaturas atualizadas. Nenhuma permissÃ£o foi alterada.');await expect(page.locator('#applications')).toHaveText('Eletricista â€” Em anÃ¡lise');await expect(page.locator('#profession')).toHaveValue('Pintor');await expect(page.locator('#experience')).toHaveValue('Rascunho preservado durante uma falha temporÃ¡ria.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='select'))).toHaveLength(3);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='insert'))).toHaveLength(0);
-});
-test('late provider application refresh cannot repopulate a signed-out workspace',async({page})=>{
-  await page.addInitScript(()=>{window.testApplications=[{user_id:'10000000-0000-4000-8000-000000000001',profession:'Eletricista',status:'pendente'}];});await login(page);await expect(page.locator('#applications')).toHaveText('Eletricista â€” Pendente');await page.evaluate(()=>{window.testState.delayProviderApplicationsSelect=new Promise(resolve=>{window.testState.releaseProviderApplicationsSelect=resolve;});});await page.locator('#refreshApplications').click();await expect(page.locator('#refreshApplications')).toBeDisabled();
-  await page.evaluate(()=>window.testState.emitAuth('SIGNED_OUT'));await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#applications')).toBeEmpty();await page.evaluate(()=>window.testState.releaseProviderApplicationsSelect());await expect(page.locator('#status')).toHaveText('Sua sessÃ£o terminou. Entre novamente para continuar.');await expect(page.locator('#applications')).toBeEmpty();await expect(page.locator('#workspace')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_applications'&&call.operation==='select'))).toHaveLength(2);
-});
-test('client corrects the profession, description and past preferred time without losing the service request',async({page})=>{
-  await login(page);await page.locator('#description').fill('InstalaÃ§Ã£o elÃ©trica residencial com horÃ¡rio preferido.');await page.locator('#city').fill('Boa Vista');await page.locator('#state').fill('RR');await page.locator('#scheduled').fill('2020-01-01T10:00');await page.locator('#createRequest').click();
-  await expect(page.locator('#status')).toHaveText('Selecione uma profissÃ£o. Os demais dados do pedido foram preservados.');await expect(page.locator('#serviceProfession')).toBeFocused();await expect(page.locator('#serviceProfession')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#description')).toHaveValue('InstalaÃ§Ã£o elÃ©trica residencial com horÃ¡rio preferido.');await expect(page.locator('#city')).toHaveValue('Boa Vista');await expect(page.locator('#state')).toHaveValue('RR');await expect(page.locator('#scheduled')).toHaveValue('2020-01-01T10:00');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='service_requests'&&call.operation==='insert'))).toHaveLength(0);
-  await page.locator('#serviceProfession').selectOption('Eletricista');await expect(page.locator('#serviceProfession')).not.toHaveAttribute('aria-invalid','true');await page.locator('#description').fill('Curta');await page.locator('#createRequest').click();
-  await expect(page.locator('#status')).toHaveText('Descreva o serviÃ§o com 10 a 3000 caracteres. Os demais dados do pedido foram preservados.');await expect(page.locator('#description')).toBeFocused();await expect(page.locator('#description')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#serviceProfession')).toHaveValue('Eletricista');await expect(page.locator('#city')).toHaveValue('Boa Vista');await expect(page.locator('#state')).toHaveValue('RR');await expect(page.locator('#scheduled')).toHaveValue('2020-01-01T10:00');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='service_requests'&&call.operation==='insert'))).toHaveLength(0);
-  await page.locator('#description').fill('InstalaÃ§Ã£o elÃ©trica residencial com horÃ¡rio preferido.');await expect(page.locator('#description')).not.toHaveAttribute('aria-invalid','true');await page.locator('#createRequest').click();
-  await expect(page.locator('#status')).toHaveText('Escolha um horÃ¡rio futuro. Os demais dados do pedido foram preservados.');await expect(page.locator('#scheduled')).toBeFocused();await expect(page.locator('#scheduled')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#serviceProfession')).toHaveValue('Eletricista');await expect(page.locator('#description')).toHaveValue('InstalaÃ§Ã£o elÃ©trica residencial com horÃ¡rio preferido.');await expect(page.locator('#city')).toHaveValue('Boa Vista');await expect(page.locator('#state')).toHaveValue('RR');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='service_requests'&&call.operation==='insert'))).toHaveLength(0);
-  const future=await page.evaluate(()=>{const date=new Date(Date.now()+86400000);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);});await page.locator('#scheduled').fill(future);await expect(page.locator('#scheduled')).not.toHaveAttribute('aria-invalid','true');await page.locator('#createRequest').click();await expect(page.locator('#status')).toContainText('Pedido registrado');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='service_requests'&&call.operation==='insert'))).toHaveLength(1);
-});
-test('client corrects an incomplete and unknown state and creates one normalized service request',async({page})=>{
-  await login(page);await page.locator('#serviceProfession').selectOption('Eletricista');await page.locator('#description').fill('InstalaÃ§Ã£o elÃ©trica residencial com regiÃ£o corrigida.');await page.locator('#city').fill('A');await page.locator('#state').fill('rr');await expect(page.locator('#state')).toHaveValue('RR');await page.locator('#createRequest').click();await expect(page.locator('#status')).toHaveText('Informe uma cidade com 2 a 100 caracteres. Os demais dados do pedido foram preservados.');await expect(page.locator('#city')).toBeFocused();await expect(page.locator('#city')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#state')).toHaveValue('RR');await expect(page.locator('#serviceProfession')).toHaveValue('Eletricista');await expect(page.locator('#description')).toHaveValue('InstalaÃ§Ã£o elÃ©trica residencial com regiÃ£o corrigida.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='service_requests'&&call.operation==='insert'))).toHaveLength(0);
-  await page.locator('#city').fill('Boa Vista');await expect(page.locator('#city')).not.toHaveAttribute('aria-invalid','true');await page.locator('#state').fill('r');await expect(page.locator('#state')).toHaveValue('R');await page.locator('#createRequest').click();await expect(page.locator('#status')).toHaveText('Informe a UF com 2 letras. Os demais dados do pedido foram preservados.');await expect(page.locator('#state')).toBeFocused();await expect(page.locator('#state')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#serviceProfession')).toHaveValue('Eletricista');await expect(page.locator('#description')).toHaveValue('InstalaÃ§Ã£o elÃ©trica residencial com regiÃ£o corrigida.');await expect(page.locator('#city')).toHaveValue('Boa Vista');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='service_requests'&&call.operation==='insert'))).toHaveLength(0);
-  await page.locator('#state').fill('zz');await expect(page.locator('#state')).toHaveValue('ZZ');await expect(page.locator('#state')).not.toHaveAttribute('aria-invalid','true');await page.locator('#createRequest').click();await expect(page.locator('#status')).toHaveText('Informe uma UF brasileira vÃ¡lida. Os demais dados do pedido foram preservados.');await expect(page.locator('#state')).toBeFocused();await expect(page.locator('#state')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#serviceProfession')).toHaveValue('Eletricista');await expect(page.locator('#description')).toHaveValue('InstalaÃ§Ã£o elÃ©trica residencial com regiÃ£o corrigida.');await expect(page.locator('#city')).toHaveValue('Boa Vista');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='service_requests'&&call.operation==='insert'))).toHaveLength(0);
-  await page.locator('#state').fill('rr');await expect(page.locator('#state')).toHaveValue('RR');await expect(page.locator('#state')).not.toHaveAttribute('aria-invalid','true');await page.locator('#createRequest').click();await expect(page.locator('#status')).toContainText('Pedido registrado');const inserts=await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='service_requests'&&call.operation==='insert'));expect(inserts).toHaveLength(1);expect(inserts[0].payload).toMatchObject({profession:'Eletricista',city:'Boa Vista',state:'RR'});
-});
-test('unexpected session end clears private data and asks for login again',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push({id:'expired-session-service',profession:'Pintor',description:'ConteÃºdo privado da sessÃ£o encerrada',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));await page.locator('#refresh').click();await expect(page.locator('#requests')).toContainText('ConteÃºdo privado da sessÃ£o encerrada');const authCallsBefore=await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length);
-  await page.evaluate(()=>window.testState.emitAuth('SIGNED_OUT'));await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#requests')).toBeEmpty();await expect(page.locator('#messages')).toBeEmpty();await expect(page.locator('#status')).toHaveText('Sua sessÃ£o terminou. Entre novamente para continuar.');await expect(page.locator('#email')).toBeFocused();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth).length)).toBe(authCallsBefore);
-});
-test('expired or revoked startup sessions return safely to login',async({page})=>{
-  for(const session of ['expired','missing','refresh-missing','refresh-used']){
-    await page.goto(`/auth-teste/?session=${session}&servico=startup-session-service`);await expect(page.locator('#authPanel')).toBeVisible();await expect(page.locator('#accountPanel')).toBeHidden();await expect(page.locator('#workspace')).toBeHidden();await expect(page.locator('#requests')).toBeEmpty();await expect(page.locator('#messages')).toBeEmpty();await expect(page.locator('#status')).toHaveText('Sua sessÃ£o expirou. Entre novamente para continuar.');await expect(page.locator('#email')).toBeFocused();await expect(page.locator('#linkedRequestHint')).toBeVisible();await expect(page.locator('#linkedRequestHint')).not.toContainText('startup-session-service');await expect(page).toHaveURL(`http://127.0.0.1:4173/auth-teste/?session=${session}&servico=startup-session-service`);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.auth))).toEqual([]);
-  }
-});
-test('authorized user copies a visible service code after modern clipboard permission is denied',async({page})=>{
-  await page.addInitScript(()=>{
-    Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{window.modernClipboardAttempts=(window.modernClipboardAttempts||0)+1;throw new DOMException('Permission denied','NotAllowedError');}}});
-    document.execCommand=command=>{if(command!=='copy')return false;window.copiedServiceCode=document.querySelector('textarea[readonly]')?.value;return true;};
-  });
-  await login(page);await page.evaluate(()=>window.testState.requests.push({id:'service-reference-123',profession:'Eletricista',description:'ServiÃ§o com cÃ³digo para atendimento',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const card=page.locator('[data-request="service-reference-123"]');
-  await expect(card.locator('.service-code')).toHaveText('CÃ³digo: service-reference-123');await card.getByRole('button',{name:'Copiar cÃ³digo'}).click();
-  await expect(page.locator('#status')).toHaveText('CÃ³digo do serviÃ§o copiado: service-reference-123');expect(await page.evaluate(()=>window.modernClipboardAttempts)).toBe(1);expect(await page.evaluate(()=>window.copiedServiceCode)).toBe('service-reference-123');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('authenticated service link locates only an authorized request and can be copied',async({page})=>{
-  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedServiceLink=value;}}}));
-  await page.goto('/auth-teste/?servico=linked-service-123');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('validpass123');await page.locator('#submit').click();await expect(page.locator('#workspace')).toBeVisible();
-  await expect(page.locator('#requestSearch')).toHaveValue('linked-service-123');await page.evaluate(()=>window.testState.requests.push(
-    {id:'linked-service-123',profession:'Eletricista',description:'ServiÃ§o autorizado pelo link',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
-    {id:'different-service',profession:'Pintor',description:'Outro serviÃ§o autorizado',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
-    {id:'description-match',profession:'Pedreiro',description:'ReferÃªncia textual linked-service-123',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}
-  ));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await expect(page.locator('#requests .service')).toHaveCount(1);
-  const card=page.locator('[data-request="linked-service-123"]');await expect(card).toBeVisible();await expect(page.locator('[data-request="different-service"]')).toHaveCount(0);await expect(page.locator('[data-request="description-match"]')).toHaveCount(0);const callsBeforeCopy=await page.evaluate(()=>window.testState.calls.length);await card.getByRole('button',{name:'Copiar link'}).click();
-  await expect(page.locator('#status')).toHaveText('Link do serviÃ§o copiado. O acesso continua protegido pela conta.');expect(await page.evaluate(()=>window.copiedServiceLink)).toBe('http://127.0.0.1:4173/auth-teste/?servico=linked-service-123');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeCopy);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-  await page.locator('#clearRequestSearch').click();await expect(page).toHaveURL('http://127.0.0.1:4173/auth-teste/');await expect(page.locator('#requestSearch')).toHaveValue('');await expect(page.locator('#requests .service')).toHaveCount(3);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('authorized user opens an authenticated service link in a protected new tab',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push({id:'open-service-link',profession:'Encanador',description:'DescriÃ§Ã£o privada fora do endereÃ§o',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeOpen=await page.evaluate(()=>window.testState.calls.length),link=page.locator('[data-request="open-service-link"]').getByRole('link',{name:'Abrir link'});
-  await expect(link).toHaveAttribute('href','http://127.0.0.1:4173/auth-teste/?servico=open-service-link');await expect(link).toHaveAttribute('target','_blank');await expect(link).toHaveAttribute('rel','noopener noreferrer');await expect(link).not.toHaveAttribute('href',/DescriÃ§Ã£o privada/);const popupPromise=page.waitForEvent('popup');await link.click();const popup=await popupPromise;await expect(popup).toHaveURL('http://127.0.0.1:4173/auth-teste/?servico=open-service-link');await popup.close();expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeOpen);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('authorized user downloads an authenticated service link from its card',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push({id:'download-service-link',profession:'Encanador',description:'DescriÃ§Ã£o privada fora do arquivo',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeDownload=await page.evaluate(()=>window.testState.calls.length),[download]=await Promise.all([page.waitForEvent('download'),page.locator('[data-request="download-service-link"]').getByRole('button',{name:'Baixar link'}).click()]);
-  expect(download.suggestedFilename()).toBe('servico-download-service-link-link.txt');expect(await readFile(await download.path(),'utf8')).toBe('http://127.0.0.1:4173/auth-teste/?servico=download-service-link');await expect(page.locator('#status')).toHaveText('Link autenticado preparado em servico-download-service-link-link.txt.');expect(await readFile(await download.path(),'utf8')).not.toContain('DescriÃ§Ã£o privada');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeDownload);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('authorized user shares an authenticated service link with the device',async({page})=>{
-  await page.addInitScript(()=>Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.sharedServiceLink=data;}}));await login(page);
-  await page.evaluate(()=>window.testState.requests.push({id:'shared-service-link',profession:'Eletricista',description:'DescriÃ§Ã£o privada fora do compartilhamento',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('[data-request="shared-service-link"]').getByRole('button',{name:'Compartilhar link'}).click();await expect(page.locator('#status')).toHaveText('Link autenticado enviado ao compartilhamento do aparelho.');
-  expect(await page.evaluate(()=>window.sharedServiceLink)).toEqual({title:'ServiÃ§o Certo â€” Eletricista',text:'Acesse este serviÃ§o com uma conta participante.',url:'http://127.0.0.1:4173/auth-teste/?servico=shared-service-link'});expect(JSON.stringify(await page.evaluate(()=>window.sharedServiceLink))).not.toContain('DescriÃ§Ã£o privada');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('sharing an authenticated service link falls back to copying it',async({page})=>{
-  await page.addInitScript(()=>{Object.defineProperty(navigator,'share',{configurable:true,value:undefined});Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.sharedServiceLinkFallback=value;}}});});await login(page);
-  await page.evaluate(()=>window.testState.requests.push({id:'shared-service-link-fallback',profession:'Pintor',description:'Detalhe privado fora da cÃ³pia',status:'concluido',city:'Boa Vista',state:'RR',created_at:new Date().toISOString()}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('[data-request="shared-service-link-fallback"]').getByRole('button',{name:'Compartilhar link'}).click();await expect(page.locator('#status')).toHaveText('Compartilhamento indisponÃ­vel. Link autenticado copiado.');
-  expect(await page.evaluate(()=>window.sharedServiceLinkFallback)).toBe('http://127.0.0.1:4173/auth-teste/?servico=shared-service-link-fallback');expect(await page.evaluate(()=>window.sharedServiceLinkFallback)).not.toContain('Detalhe privado');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('authenticated service link hides whether an unavailable code exists',async({page})=>{
-  await page.goto('/auth-teste/?servico=not-authorized-here');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('validpass123');await page.locator('#submit').click();await expect(page.locator('#workspace')).toBeVisible();
-  await page.evaluate(()=>window.testState.requests.push({id:'authorized-service',profession:'Eletricista',description:'ServiÃ§o disponÃ­vel nesta conta',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await expect(page.locator('#requests .service')).toHaveCount(0);await expect(page.locator('#requests')).toContainText('ServiÃ§o nÃ£o encontrado nesta conta. Confira o link ou entre com a conta participante.');await expect(page.getByRole('button',{name:'Ver todos os serviÃ§os'})).toBeVisible();await expect(page.getByRole('button',{name:'Entrar com outra conta'})).toBeVisible();expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('authorized user copies a safe service summary without private description',async({page})=>{
-  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedServiceSummary=value;}}}));await login(page);
-  await page.evaluate(()=>window.testState.requests.push({id:'summary-service',profession:'Eletricista',description:'Detalhe privado que nÃ£o deve ser copiado',status:'aceito',city:'Manaus',state:'AM',is_urgent:true,scheduled_for:'2026-10-26T15:00:00.000Z',created_at:'2026-10-24T20:00:00.000Z'}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeCopy=await page.evaluate(()=>window.testState.calls.length);await page.locator('[data-request="summary-service"]').getByRole('button',{name:'Copiar resumo'}).click();await expect(page.locator('#status')).toHaveText('Resumo do serviÃ§o copiado sem descriÃ§Ã£o ou dados dos participantes.');
-  const copied=await page.evaluate(()=>window.copiedServiceSummary),dates=await page.evaluate(()=>({created:new Date('2026-10-24T20:00:00.000Z').toLocaleString('pt-BR'),scheduled:new Date('2026-10-26T15:00:00.000Z').toLocaleString('pt-BR')}));expect(copied).toBe(`ServiÃ§o Certo\nCÃ³digo: summary-service\nProfissÃ£o: Eletricista\nSituaÃ§Ã£o: Profissional aceitou\nRegiÃ£o: Manaus / AM\nUrgente: Sim\nSolicitado em: ${dates.created}\nHorÃ¡rio preferido: ${dates.scheduled}\nLink autenticado: http://127.0.0.1:4173/auth-teste/?servico=summary-service`);expect(copied).not.toContain('Detalhe privado');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeCopy);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('authorized user previews and hides the safe service summary',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push({id:'summary-preview',profession:'Encanador',description:'Telefone e endereÃ§o privados nÃ£o devem aparecer',status:'aceito',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-24T23:00:00.000Z'}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforePreview=await page.evaluate(()=>window.testState.calls.length),card=page.locator('[data-request="summary-preview"]'),toggle=card.locator('[aria-controls="request-summary-summary-preview"]'),preview=card.locator('#request-summary-summary-preview');
-  await expect(preview).toBeHidden();await expect(toggle).toHaveText('Ver resumo');await expect(toggle).toHaveAttribute('aria-expanded','false');await toggle.click();await expect(preview).toBeVisible();await expect(toggle).toHaveText('Ocultar resumo');await expect(toggle).toHaveAttribute('aria-expanded','true');await expect(preview).toContainText('CÃ³digo: summary-preview');await expect(preview).toContainText('SituaÃ§Ã£o: Profissional aceitou');await expect(preview).toContainText('RegiÃ£o: Manaus / AM');await expect(preview).not.toContainText('Telefone e endereÃ§o privados');
-  await toggle.click();await expect(preview).toBeHidden();await expect(toggle).toHaveText('Ver resumo');await expect(toggle).toHaveAttribute('aria-expanded','false');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforePreview);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('authorized user downloads the safe service summary as text',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push({id:'summary-download',profession:'Pintor',description:'EndereÃ§o e detalhes privados nÃ£o devem sair no arquivo',status:'em_andamento',city:'Boa Vista',state:'RR',is_urgent:false,scheduled_for:null,created_at:'2026-10-24T21:00:00.000Z'}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeDownload=await page.evaluate(()=>window.testState.calls.length),downloadPromise=page.waitForEvent('download');await page.locator('[data-request="summary-download"]').getByRole('button',{name:'Baixar resumo'}).click();const download=await downloadPromise;
-  expect(download.suggestedFilename()).toBe('servico-summary-download-resumo.txt');const content=await readFile(await download.path(),'utf8'),created=await page.evaluate(()=>new Date('2026-10-24T21:00:00.000Z').toLocaleString('pt-BR'));expect(content).toBe(`ServiÃ§o Certo\nCÃ³digo: summary-download\nProfissÃ£o: Pintor\nSituaÃ§Ã£o: Em andamento\nRegiÃ£o: Boa Vista / RR\nUrgente: NÃ£o\nSolicitado em: ${created}\nLink autenticado: http://127.0.0.1:4173/auth-teste/?servico=summary-download`);expect(content).not.toContain('EndereÃ§o e detalhes privados');await expect(page.locator('#status')).toHaveText('Resumo seguro preparado em servico-summary-download-resumo.txt.');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeDownload);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('authorized user shares the safe service summary with the device',async({page})=>{
-  await page.addInitScript(()=>Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.sharedServiceSummary=data;}}));await login(page);await page.evaluate(()=>window.testState.requests.push({id:'summary-share',profession:'Eletricista',description:'InformaÃ§Ã£o privada fora do compartilhamento',status:'aceito',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-24T22:00:00.000Z'}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('[data-request="summary-share"]').getByRole('button',{name:'Compartilhar resumo'}).click();await expect(page.locator('#status')).toHaveText('Resumo seguro enviado ao compartilhamento do aparelho.');
-  const shared=await page.evaluate(()=>window.sharedServiceSummary),created=await page.evaluate(()=>new Date('2026-10-24T22:00:00.000Z').toLocaleString('pt-BR'));expect(shared).toEqual({title:'ServiÃ§o Certo â€” Eletricista',text:`ServiÃ§o Certo\nCÃ³digo: summary-share\nProfissÃ£o: Eletricista\nSituaÃ§Ã£o: Profissional aceitou\nRegiÃ£o: Manaus / AM\nUrgente: Sim\nSolicitado em: ${created}\nLink autenticado: http://127.0.0.1:4173/auth-teste/?servico=summary-share`});expect(shared.text).not.toContain('InformaÃ§Ã£o privada');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('authorized user shares the safe service summary as a text file when supported',async({page})=>{
-  await page.addInitScript(()=>{Object.defineProperty(navigator,'canShare',{configurable:true,value:data=>data.files?.length===1});Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{const file=data.files[0];window.sharedServiceSummaryFile={title:data.title,text:data.text,name:file.name,type:file.type,content:await file.text()};}});});await login(page);await page.evaluate(()=>window.testState.requests.push({id:'summary-file-share',profession:'Encanador',description:'Telefone privado fora do arquivo',status:'em_andamento',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-25T04:30:00.000Z'}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('[data-request="summary-file-share"]').getByRole('button',{name:'Compartilhar resumo'}).click();await expect(page.locator('#status')).toHaveText('Arquivo de resumo seguro enviado ao compartilhamento do aparelho.');
-  const shared=await page.evaluate(()=>window.sharedServiceSummaryFile);expect(shared).toMatchObject({title:'ServiÃ§o Certo â€” Encanador',text:'Resumo seguro do serviÃ§o em arquivo de texto.',name:'servico-summary-file-share-resumo.txt',type:'text/plain;charset=utf-8'});expect(shared.content).toContain('CÃ³digo: summary-file-share');expect(shared.content).toContain('SituaÃ§Ã£o: Em andamento');expect(shared.content).not.toContain('Telefone privado');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('file sharing rejection retries the safe summary as text',async({page})=>{
-  await page.addInitScript(()=>{window.shareAttempts=[];Object.defineProperty(navigator,'canShare',{configurable:true,value:data=>data.files?.length===1});Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.shareAttempts.push({hasFiles:Boolean(data.files?.length),text:data.text});if(data.files?.length)throw new TypeError('File target unavailable');window.sharedTextAfterFileRejection=data.text;}});});await login(page);await page.evaluate(()=>window.testState.requests.push({id:'summary-file-retry',profession:'Eletricista',description:'EndereÃ§o privado fora das tentativas',status:'aceito',city:'Boa Vista',state:'RR',is_urgent:true,created_at:'2026-10-25T05:40:00.000Z'}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('[data-request="summary-file-retry"]').getByRole('button',{name:'Compartilhar resumo'}).click();await expect(page.locator('#status')).toHaveText('Resumo seguro enviado ao compartilhamento do aparelho.');
-  const result=await page.evaluate(()=>({attempts:window.shareAttempts,text:window.sharedTextAfterFileRejection}));expect(result.attempts).toHaveLength(2);expect(result.attempts[0]).toMatchObject({hasFiles:true,text:'Resumo seguro do serviÃ§o em arquivo de texto.'});expect(result.attempts[1].hasFiles).toBe(false);expect(result.text).toContain('CÃ³digo: summary-file-retry');expect(result.text).not.toContain('EndereÃ§o privado');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('file and text sharing rejections copy the safe service summary',async({page})=>{
-  await page.addInitScript(()=>{window.rejectedSummaryShareAttempts=[];Object.defineProperty(navigator,'canShare',{configurable:true,value:data=>data.files?.length===1});Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.rejectedSummaryShareAttempts.push({hasFiles:Boolean(data.files?.length),text:data.text});throw new TypeError('Share target unavailable');}});Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedSummaryAfterShareRejections=value;}}});});await login(page);await page.evaluate(()=>window.testState.requests.push({id:'summary-double-rejection',profession:'Eletricista',description:'Contato privado fora da recuperaÃ§Ã£o',status:'aceito',city:'Boa Vista',state:'RR',is_urgent:true,created_at:'2026-10-25T18:30:00.000Z'}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('[data-request="summary-double-rejection"]').getByRole('button',{name:'Compartilhar resumo'}).click();await expect(page.locator('#status')).toHaveText('Arquivo e texto recusados. Resumo seguro copiado.');
-  const result=await page.evaluate(()=>({attempts:window.rejectedSummaryShareAttempts,text:window.copiedSummaryAfterShareRejections}));expect(result.attempts).toHaveLength(2);expect(result.attempts[0]).toMatchObject({hasFiles:true,text:'Resumo seguro do serviÃ§o em arquivo de texto.'});expect(result.attempts[1].hasFiles).toBe(false);expect(result.text).toContain('CÃ³digo: summary-double-rejection');expect(result.text).toContain('RegiÃ£o: Boa Vista / RR');expect(result.text).not.toContain('Contato privado');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('native sharing rejection copies the safe summary automatically',async({page})=>{
-  await page.addInitScript(()=>{Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{throw new TypeError('Share target unavailable');}});Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedAfterShareRejection=value;}}});});await login(page);await page.evaluate(()=>window.testState.requests.push({id:'summary-share-rejected',profession:'Eletricista',description:'Contato privado nÃ£o pode ser copiado',status:'aceito',city:'Boa Vista',state:'RR',is_urgent:false,created_at:'2026-10-25T07:30:00.000Z'}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('[data-request="summary-share-rejected"]').getByRole('button',{name:'Compartilhar resumo'}).click();await expect(page.locator('#status')).toHaveText('Compartilhamento recusado. Resumo seguro copiado.');const copied=await page.evaluate(()=>window.copiedAfterShareRejection);expect(copied).toContain('CÃ³digo: summary-share-rejected');expect(copied).toContain('RegiÃ£o: Boa Vista / RR');expect(copied).not.toContain('Contato privado');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('native sharing cancellation does not copy without user intent',async({page})=>{
-  await page.addInitScript(()=>{Object.defineProperty(navigator,'share',{configurable:true,value:async()=>{throw new DOMException('Cancelled','AbortError');}});Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedAfterShareCancellation=value;}}});});await login(page);await page.evaluate(()=>window.testState.requests.push({id:'summary-share-cancelled',profession:'Pintor',description:'DescriÃ§Ã£o privada fora da aÃ§Ã£o',status:'aceito',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-25T07:35:00.000Z'}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('[data-request="summary-share-cancelled"]').getByRole('button',{name:'Compartilhar resumo'}).click();await expect(page.locator('#status')).toHaveText('Compartilhamento cancelado.');expect(await page.evaluate(()=>window.copiedAfterShareCancellation)).toBeUndefined();expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('sharing falls back to copying the safe summary when native sharing is unavailable',async({page})=>{
-  await page.addInitScript(()=>{Object.defineProperty(navigator,'share',{configurable:true,value:undefined});Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.sharedSummaryFallback=value;}}});});await login(page);await page.evaluate(()=>window.testState.requests.push({id:'summary-share-fallback',profession:'Pintor',description:'DescriÃ§Ã£o privada nÃ£o pode ser copiada',status:'concluido',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-24T22:10:00.000Z'}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('[data-request="summary-share-fallback"]').getByRole('button',{name:'Compartilhar resumo'}).click();await expect(page.locator('#status')).toHaveText('Compartilhamento indisponÃ­vel. Resumo seguro copiado.');const copied=await page.evaluate(()=>window.sharedSummaryFallback);expect(copied).toContain('CÃ³digo: summary-share-fallback');expect(copied).toContain('SituaÃ§Ã£o: ConcluÃ­do');expect(copied).not.toContain('DescriÃ§Ã£o privada');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('client marks a request urgent and sees the persisted priority',async({page})=>{
-  await login(page);await page.locator('#serviceProfession').selectOption('Eletricista');await page.locator('#description').fill('Reparo imediato no quadro elÃ©trico da residÃªncia.');await page.locator('#urgent').check();await page.locator('#createRequest').click();
-  await expect(page.locator('#status')).toContainText('Pedido urgente registrado');await expect(page.locator('#requests')).toContainText('Atendimento urgente');await expect(page.locator('#urgent')).not.toBeChecked();
-  expect(await page.evaluate(()=>window.testState.calls.find(c=>c.table==='service_requests'&&c.operation==='insert').payload)).toMatchObject({profession:'Eletricista',is_urgent:true,city:'Manaus',state:'AM'});
-});
-test('client changes urgency while an unassigned request remains open',async({page})=>{
-  await login(page);await page.locator('#serviceProfession').selectOption('Pintor');await page.locator('#description').fill('Pintura completa da sala e acabamento das paredes.');await page.locator('#createRequest').click();
-  const card=page.locator('#requests .service').first();await card.getByRole('button',{name:'Marcar como urgente'}).click();await expect(card).toContainText('Atendimento urgente');await expect(page.locator('#status')).toContainText('marcado como urgente');
-  await card.getByRole('button',{name:'Remover urgÃªncia'}).click();await expect(card).not.toContainText('Atendimento urgente');await expect(page.locator('#status')).toContainText('UrgÃªncia removida');
-  expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_request_urgency').map(c=>c.args))).toEqual([{p_request_id:expect.any(String),p_urgent:true},{p_request_id:expect.any(String),p_urgent:false}]);
-});
-test('client corrects a past schedule then removes it while a request remains open',async({page})=>{
-  await login(page);await page.locator('#serviceProfession').selectOption('Pintor');await page.locator('#description').fill('Pintura da sala com preferÃªncia de horÃ¡rio para atendimento.');await page.locator('#createRequest').click();
-  const card=page.locator('#requests .service').first(),schedule=card.getByLabel('HorÃ¡rio preferido');
-  await schedule.fill('2020-01-15T14:30');await card.getByRole('button',{name:'Atualizar horÃ¡rio'}).click();
-  await expect(page.locator('#status')).toHaveText('Escolha um horÃ¡rio futuro. O pedido foi preservado.');await expect(schedule).toBeFocused();await expect(schedule).toHaveAttribute('aria-invalid','true');await expect(card).toContainText('Pintura da sala com preferÃªncia de horÃ¡rio para atendimento.');expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_open_request_schedule'))).toHaveLength(0);
-  await schedule.fill('2027-01-15T14:30');await card.getByRole('button',{name:'Atualizar horÃ¡rio'}).click();
-  await expect(page.locator('#status')).toContainText('HorÃ¡rio preferido atualizado');await expect(card).toContainText('HorÃ¡rio preferido:');await expect(card).not.toContainText('Agendado:');
-  await card.getByLabel('HorÃ¡rio preferido').fill('');await card.getByRole('button',{name:'Atualizar horÃ¡rio'}).click();
-  await expect(page.locator('#status')).toContainText('HorÃ¡rio preferido removido');await expect(card).not.toContainText('HorÃ¡rio preferido:');
-  expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_open_request_schedule').map(c=>c.args))).toEqual([{p_request_id:expect.any(String),p_scheduled_for:expect.any(String)},{p_request_id:expect.any(String),p_scheduled_for:null}]);
-});
-test('client corrects the description while a request remains open',async({page})=>{
-  await login(page);await page.locator('#serviceProfession').selectOption('Eletricista');await page.locator('#description').fill('Trocar tomada antiga da sala.');await page.locator('#createRequest').click();
-  const card=page.locator('#requests .service').first(),description=card.getByLabel('DescriÃ§Ã£o do pedido');
-  await description.fill('Curta');await card.getByRole('button',{name:'Atualizar descriÃ§Ã£o'}).click();
-  await expect(page.locator('#status')).toHaveText('Descreva o serviÃ§o com 10 a 3000 caracteres. O pedido foi preservado.');await expect(description).toBeFocused();await expect(description).toHaveAttribute('aria-invalid','true');await expect(card).toContainText('Trocar tomada antiga da sala.');expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_open_request_description'))).toHaveLength(0);
-  await description.fill('Trocar duas tomadas antigas da sala e revisar a fiaÃ§Ã£o prÃ³xima.');await card.getByRole('button',{name:'Atualizar descriÃ§Ã£o'}).click();
-  await expect(page.locator('#status')).toContainText('DescriÃ§Ã£o do pedido atualizada');await expect(card).toContainText('Trocar duas tomadas antigas');
-  expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='set_open_request_description').args)).toEqual({p_request_id:expect.any(String),p_description:'Trocar duas tomadas antigas da sala e revisar a fiaÃ§Ã£o prÃ³xima.'});
-});
-test('client corrects the city and an unknown state while a request remains open',async({page})=>{
-  await login(page);await page.locator('#serviceProfession').selectOption('Eletricista');await page.locator('#description').fill('Instalar iluminaÃ§Ã£o em uma residÃªncia.');await page.locator('#createRequest').click();
-  const card=page.locator('#requests .service').first(),city=card.getByLabel('Cidade do pedido'),state=card.getByLabel('UF do pedido');await city.fill('A');await state.fill('am');await card.getByRole('button',{name:'Atualizar regiÃ£o'}).click();
-  await expect(page.locator('#status')).toHaveText('Informe uma cidade com 2 a 100 caracteres. A UF foi preservada.');await expect(city).toBeFocused();await expect(city).toHaveAttribute('aria-invalid','true');await expect(state).toHaveValue('AM');expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_open_request_location'))).toHaveLength(0);
-  await city.fill('Parintins');await expect(city).not.toHaveAttribute('aria-invalid','true');await state.fill('zz');await expect(state).toHaveValue('ZZ');await card.getByRole('button',{name:'Atualizar regiÃ£o'}).click();
-  await expect(page.locator('#status')).toHaveText('Informe uma UF brasileira vÃ¡lida. A cidade foi preservada.');await expect(state).toBeFocused();await expect(state).toHaveAttribute('aria-invalid','true');await expect(city).toHaveValue('Parintins');expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_open_request_location'))).toHaveLength(0);
-  await state.fill('am');await expect(state).toHaveValue('AM');await expect(state).not.toHaveAttribute('aria-invalid','true');await card.getByRole('button',{name:'Atualizar regiÃ£o'}).click();
-  await expect(page.locator('#status')).toContainText('RegiÃ£o do pedido atualizada');await expect(card).toContainText('Parintins / AM');
-  const calls=await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_open_request_location'));expect(calls).toHaveLength(1);expect(calls[0].args).toEqual({p_request_id:expect.any(String),p_city:'Parintins',p_state:'AM'});
-});
-test('client changes the profession while a request remains open',async({page})=>{
-  await login(page);await page.locator('#serviceProfession').selectOption('Pintor');await page.locator('#description').fill('Pintura de uma sala com correÃ§Ã£o do acabamento.');await page.locator('#createRequest').click();
-  const card=page.locator('#requests .service').first();await card.getByLabel('ProfissÃ£o do pedido').selectOption('Eletricista');await card.getByRole('button',{name:'Atualizar profissÃ£o'}).click();
-  await expect(page.locator('#status')).toContainText('ProfissÃ£o do pedido atualizada');await expect(card.getByRole('heading')).toHaveText('Eletricista');
-  expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='set_open_request_profession').args)).toEqual({p_request_id:expect.any(String),p_profession:'Eletricista'});
-});
-test('incoming messages show an unread count that clears when conversation opens',async({page})=>{
-  await login(page);
-  await page.evaluate(()=>{
-    const now=Date.now();
-    window.testState.requests.push({id:'unread-service',client_id:'10000000-0000-4000-8000-000000000001',provider_id:'provider-id',profession:'Pintor',description:'Pintura com conversa',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(now-3000).toISOString()});
-    window.testState.messages.push(
-      {id:'incoming-1',request_id:'unread-service',sender_id:'provider-id',body:'Primeira mensagem',created_at:new Date(now-2000).toISOString()},
-      {id:'incoming-2',request_id:'unread-service',sender_id:'provider-id',body:'Segunda mensagem',created_at:new Date(now-1000).toISOString()},
-      {id:'own',request_id:'unread-service',sender_id:'10000000-0000-4000-8000-000000000001',body:'Mensagem prÃ³pria',created_at:new Date(now).toISOString()}
-    );
-  });
-  await page.locator('#refresh').click();
-  const card=page.locator('[data-request="unread-service"]');
-  await expect(card).toContainText('2 novas mensagens');
-  await card.getByRole('button',{name:'Abrir conversa'}).click();
-  await expect(card.locator('.unread-count')).toHaveCount(0);
-  expect(await page.evaluate(()=>window.testState.messageReads)).toEqual([expect.objectContaining({request_id:'unread-service',user_id:'10000000-0000-4000-8000-000000000001'})]);
-});
-test('client filters services with unread messages and refreshes the count after reading',async({page})=>{
-  await login(page);
-  await page.evaluate(()=>{
-    const now=Date.now(),client='10000000-0000-4000-8000-000000000001';
-    window.testState.requests.push(
-      {id:'unread-filter-service',client_id:client,provider_id:'provider-id',profession:'Eletricista',description:'ServiÃ§o com mensagem nova',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(now-2000).toISOString()},
-      {id:'read-filter-service',client_id:client,provider_id:'provider-id',profession:'Pintor',description:'ServiÃ§o sem mensagem nova',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(now-1000).toISOString()}
-    );
-    window.testState.messages.push({id:'unread-filter-message',request_id:'unread-filter-service',sender_id:'provider-id',body:'Posso chegar pela manhÃ£.',created_at:new Date(now).toISOString()});
-  });
-  await page.locator('#refresh').click();
-  await expect(page.locator('#requestFilter option[value="unread"]')).toHaveText('Mensagens novas (1)');
-  await page.locator('#requestFilter').selectOption('unread');
-  await expect(page.locator('#requests .service')).toHaveCount(1);
-  await expect(page.locator('#requests')).toContainText('ServiÃ§o com mensagem nova');
-  await expect(page.locator('#requests')).not.toContainText('ServiÃ§o sem mensagem nova');
-  await page.getByRole('button',{name:'Abrir conversa'}).click();
-  await page.locator('#refresh').click();
-  await expect(page.locator('#requestFilter option[value="unread"]')).toHaveText('Mensagens novas (0)');
-  await expect(page.locator('#requests .service')).toHaveCount(0);
-  await expect(page.locator('#requests')).toContainText('Nenhum serviÃ§o nesta categoria.');
-});
-test('client filters services without unread messages and combines the category with search',async({page})=>{
-  await login(page);
-  await page.evaluate(()=>{
-    const now=Date.now(),client='10000000-0000-4000-8000-000000000001';
-    window.testState.requests.push(
-      {id:'without-unread-electrician',client_id:client,provider_id:'provider-id',profession:'Eletricista',description:'RevisÃ£o sem mensagem nova',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(now-3000).toISOString()},
-      {id:'without-unread-painter',client_id:client,provider_id:'provider-id',profession:'Pintor',description:'Pintura jÃ¡ conferida',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(now-2000).toISOString()},
-      {id:'with-unread-electrician',client_id:client,provider_id:'provider-id',profession:'Eletricista',description:'InstalaÃ§Ã£o com mensagem nova',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(now-1000).toISOString()}
-    );
-    window.testState.messages.push({id:'without-unread-filter-message',request_id:'with-unread-electrician',sender_id:'provider-id',body:'Preciso confirmar o horÃ¡rio.',created_at:new Date(now).toISOString()});
-  });
-  await page.locator('#refresh').click();
-  await expect(page.locator('#requestFilter option[value="withoutUnread"]')).toHaveText('Sem mensagens novas (2)');
-  await page.locator('#requestFilter').selectOption('withoutUnread');
-  await expect(page.locator('#requests .service')).toHaveCount(2);
-  await expect(page.locator('#requests')).not.toContainText('InstalaÃ§Ã£o com mensagem nova');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();
-  await expect(page.locator('#requests .service')).toHaveCount(1);
-  await expect(page.locator('#requests')).toContainText('RevisÃ£o sem mensagem nova');
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['without-unread-electrician','without-unread-painter','with-unread-electrician']);
-});
-test('client filters urgent services and combines the category with search',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'urgent-electrician',profession:'Eletricista',description:'Trocar quadro com risco',status:'aberto',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-21T10:00:00.000Z'},
-    {id:'urgent-painter',profession:'Pintor',description:'Pintura urgente apÃ³s infiltraÃ§Ã£o',status:'concluido',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-20T10:00:00.000Z'},
-    {id:'regular-electrician',profession:'Eletricista',description:'RevisÃ£o preventiva',status:'aceito',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-19T10:00:00.000Z'}
-  ));
-  await page.locator('#refresh').click();await expect(page.locator('#requestFilter option[value="urgent"]')).toHaveText('Urgentes (2)');await page.locator('#requestFilter').selectOption('urgent');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Trocar quadro com risco');await expect(page.locator('#requests')).toContainText('Pintura urgente');await expect(page.locator('#requests')).not.toContainText('RevisÃ£o preventiva');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Trocar quadro com risco');expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['urgent-electrician','urgent-painter','regular-electrician']);
-});
-test('client filters services with a preferred time without implying confirmation',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'scheduled-electrician',profession:'Eletricista',description:'InstalaÃ§Ã£o com horÃ¡rio indicado',status:'aberto',city:'Manaus',state:'AM',scheduled_for:'2026-10-23T14:00:00.000Z',created_at:'2026-10-21T11:00:00.000Z'},
-    {id:'scheduled-painter',profession:'Pintor',description:'Pintura com preferÃªncia de manhÃ£',status:'concluido',city:'Manaus',state:'AM',scheduled_for:'2026-10-20T12:00:00.000Z',created_at:'2026-10-20T11:00:00.000Z'},
-    {id:'unscheduled-electrician',profession:'Eletricista',description:'RevisÃ£o sem horÃ¡rio',status:'aceito',city:'Manaus',state:'AM',scheduled_for:null,created_at:'2026-10-19T11:00:00.000Z'}
-  ));
-  await page.locator('#refresh').click();await expect(page.locator('#requestFilter option[value="scheduled"]')).toHaveText('Com horÃ¡rio preferido (2)');await page.locator('#requestFilter').selectOption('scheduled');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('InstalaÃ§Ã£o com horÃ¡rio indicado');await expect(page.locator('#requests')).toContainText('Pintura com preferÃªncia');await expect(page.locator('#requests')).not.toContainText('RevisÃ£o sem horÃ¡rio');
-  await page.locator('#requestSearch').fill('pintor');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Pintura com preferÃªncia');expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['scheduled-electrician','scheduled-painter','unscheduled-electrician']);
-});
-test('client filters future preferred times without implying confirmed appointments',async({page})=>{
-  await login(page);await page.evaluate(()=>{const hour=60*60*1000;window.testState.requests.push(
-    {id:'upcoming-electrician',profession:'Eletricista',description:'InstalaÃ§Ã£o com preferÃªncia futura',status:'aberto',city:'Manaus',state:'AM',scheduled_for:new Date(Date.now()+24*hour).toISOString(),created_at:new Date(Date.now()-hour).toISOString()},
-    {id:'upcoming-painter',profession:'Pintor',description:'Pintura com preferÃªncia futura',status:'aceito',city:'Manaus',state:'AM',scheduled_for:new Date(Date.now()+48*hour).toISOString(),created_at:new Date(Date.now()-2*hour).toISOString()},
-    {id:'past-preference',profession:'Eletricista',description:'PreferÃªncia jÃ¡ passada',status:'concluido',city:'Manaus',state:'AM',scheduled_for:new Date(Date.now()-hour).toISOString(),created_at:new Date(Date.now()-3*hour).toISOString()},
-    {id:'invalid-preference',profession:'Pedreiro',description:'PreferÃªncia invÃ¡lida',status:'aberto',city:'Manaus',state:'AM',scheduled_for:'data-invalida',created_at:new Date(Date.now()-4*hour).toISOString()},
-    {id:'no-preference',profession:'Encanador',description:'ServiÃ§o sem preferÃªncia',status:'aberto',city:'Manaus',state:'AM',scheduled_for:null,created_at:new Date(Date.now()-5*hour).toISOString()}
-  );});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestFilter').selectOption('upcoming');await expect(page.locator('#requestFilter option[value="upcoming"]')).toHaveText('HorÃ¡rio preferido futuro (2)');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('InstalaÃ§Ã£o com preferÃªncia futura');await expect(page.locator('#requests')).toContainText('Pintura com preferÃªncia futura');await expect(page.locator('#requests')).not.toContainText('PreferÃªncia jÃ¡ passada');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','upcoming-electrician');
-  await expect(page.locator('#requests')).toContainText('HorÃ¡rio preferido:');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('client filters past preferred times without implying confirmed appointments',async({page})=>{
-  await login(page);await page.evaluate(()=>{const hour=60*60*1000;window.testState.requests.push(
-    {id:'past-preferred-electrician',profession:'Eletricista',description:'RevisÃ£o com preferÃªncia anterior',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString(),scheduled_for:new Date(Date.now()-hour).toISOString()},
-    {id:'past-preferred-painter',profession:'Pintor',description:'Pintura com preferÃªncia anterior',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString(),scheduled_for:new Date(Date.now()-2*hour).toISOString()},
-    {id:'future-preferred-plumber',profession:'Encanador',description:'Reparo com preferÃªncia futura',status:'aberto',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString(),scheduled_for:new Date(Date.now()+hour).toISOString()},
-    {id:'invalid-past-preferred',profession:'Pedreiro',description:'PreferÃªncia invÃ¡lida',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString(),scheduled_for:'data-invalida'},
-    {id:'missing-past-preferred',profession:'Marceneiro',description:'Sem preferÃªncia',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-4000).toISOString(),scheduled_for:null}
-  );});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestFilter').selectOption('pastPreferred');await expect(page.locator('#requestFilter option[value="pastPreferred"]')).toHaveText('HorÃ¡rio preferido passado (2)');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('RevisÃ£o com preferÃªncia anterior');await expect(page.locator('#requests')).toContainText('Pintura com preferÃªncia anterior');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','past-preferred-electrician');
-  expect(await page.locator('#requests').innerText()).not.toContain('Agendado');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('client filters preferred times for the local day without implying confirmed appointments',async({page})=>{
-  await login(page);await page.evaluate(()=>{const todayMorning=new Date(),todayEvening=new Date(),yesterday=new Date(),tomorrow=new Date();
-    todayMorning.setHours(8,30,0,0);todayEvening.setHours(18,15,0,0);yesterday.setDate(yesterday.getDate()-1);yesterday.setHours(23,59,0,0);tomorrow.setDate(tomorrow.getDate()+1);tomorrow.setHours(0,1,0,0);
-    window.testState.requests.push(
-      {id:'preferred-today-electrician',profession:'Eletricista',description:'RevisÃ£o com preferÃªncia hoje cedo',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString(),scheduled_for:todayMorning.toISOString()},
-      {id:'preferred-today-painter',profession:'Pintor',description:'Pintura com preferÃªncia hoje Ã  tarde',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString(),scheduled_for:todayEvening.toISOString()},
-      {id:'preferred-yesterday',profession:'Pedreiro',description:'PreferÃªncia de ontem',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString(),scheduled_for:yesterday.toISOString()},
-      {id:'preferred-tomorrow',profession:'Encanador',description:'PreferÃªncia de amanhÃ£',status:'aberto',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString(),scheduled_for:tomorrow.toISOString()},
-      {id:'preferred-invalid-today',profession:'Marceneiro',description:'PreferÃªncia invÃ¡lida',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-4000).toISOString(),scheduled_for:'data-invalida'}
-    );
-  });
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestFilter').selectOption('preferredToday');await expect(page.locator('#requestFilter option[value="preferredToday"]')).toHaveText('HorÃ¡rio preferido hoje (2)');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('RevisÃ£o com preferÃªncia hoje cedo');await expect(page.locator('#requests')).toContainText('Pintura com preferÃªncia hoje Ã  tarde');await expect(page.locator('#requests')).not.toContainText('PreferÃªncia de ontem');await expect(page.locator('#requests')).not.toContainText('PreferÃªncia de amanhÃ£');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-today-electrician');
-  await expect(page.locator('#requests')).toContainText('HorÃ¡rio preferido:');expect(await page.locator('#requests').innerText()).not.toContain('Agendado');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('client filters preferred times for tomorrow in the local day without changing requests',async({page})=>{
-  await login(page);await page.evaluate(()=>{const todayEvening=new Date(),tomorrowMorning=new Date(),tomorrowEvening=new Date(),dayAfterTomorrow=new Date();
-    todayEvening.setHours(23,59,0,0);tomorrowMorning.setDate(tomorrowMorning.getDate()+1);tomorrowMorning.setHours(0,1,0,0);tomorrowEvening.setDate(tomorrowEvening.getDate()+1);tomorrowEvening.setHours(22,30,0,0);dayAfterTomorrow.setDate(dayAfterTomorrow.getDate()+2);dayAfterTomorrow.setHours(0,0,0,0);
-    window.testState.requests.push(
-      {id:'preferred-tomorrow-electrician',profession:'Eletricista',description:'RevisÃ£o com preferÃªncia amanhÃ£ cedo',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString(),scheduled_for:tomorrowMorning.toISOString()},
-      {id:'preferred-tomorrow-painter',profession:'Pintor',description:'Pintura com preferÃªncia amanhÃ£ Ã  noite',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString(),scheduled_for:tomorrowEvening.toISOString()},
-      {id:'preferred-today-limit',profession:'Pedreiro',description:'PreferÃªncia ainda hoje',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString(),scheduled_for:todayEvening.toISOString()},
-      {id:'preferred-after-tomorrow',profession:'Encanador',description:'PreferÃªncia depois de amanhÃ£',status:'aberto',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString(),scheduled_for:dayAfterTomorrow.toISOString()},
-      {id:'preferred-invalid-tomorrow',profession:'Marceneiro',description:'PreferÃªncia invÃ¡lida',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-4000).toISOString(),scheduled_for:'data-invalida'}
-    );
-  });
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestFilter').selectOption('preferredTomorrow');await expect(page.locator('#requestFilter option[value="preferredTomorrow"]')).toHaveText('HorÃ¡rio preferido amanhÃ£ (2)');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('RevisÃ£o com preferÃªncia amanhÃ£ cedo');await expect(page.locator('#requests')).toContainText('Pintura com preferÃªncia amanhÃ£ Ã  noite');await expect(page.locator('#requests')).not.toContainText('PreferÃªncia ainda hoje');await expect(page.locator('#requests')).not.toContainText('PreferÃªncia depois de amanhÃ£');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-tomorrow-electrician');
-  await expect(page.locator('#requests')).toContainText('HorÃ¡rio preferido:');expect(await page.locator('#requests').innerText()).not.toContain('Agendado');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('client filters preferred times in the next seven days without changing requests',async({page})=>{
-  await login(page);await page.evaluate(()=>{const hour=60*60*1000,day=24*hour;window.testState.requests.push(
-    {id:'preferred-week-electrician',profession:'Eletricista',description:'RevisÃ£o com preferÃªncia em uma hora',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString(),scheduled_for:new Date(Date.now()+hour).toISOString()},
-    {id:'preferred-week-painter',profession:'Pintor',description:'Pintura com preferÃªncia em seis dias',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString(),scheduled_for:new Date(Date.now()+6*day).toISOString()},
-    {id:'preferred-after-week',profession:'Encanador',description:'PreferÃªncia depois da janela',status:'aberto',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString(),scheduled_for:new Date(Date.now()+7*day+hour).toISOString()},
-    {id:'preferred-week-past',profession:'Pedreiro',description:'PreferÃªncia jÃ¡ passada',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString(),scheduled_for:new Date(Date.now()-hour).toISOString()},
-    {id:'preferred-week-invalid',profession:'Marceneiro',description:'PreferÃªncia invÃ¡lida',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-4000).toISOString(),scheduled_for:'data-invalida'}
-  );});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestFilter').selectOption('preferredWeek');await expect(page.locator('#requestFilter option[value="preferredWeek"]')).toHaveText('HorÃ¡rio preferido nos prÃ³ximos 7 dias (2)');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('RevisÃ£o com preferÃªncia em uma hora');await expect(page.locator('#requests')).toContainText('Pintura com preferÃªncia em seis dias');await expect(page.locator('#requests')).not.toContainText('PreferÃªncia depois da janela');await expect(page.locator('#requests')).not.toContainText('PreferÃªncia jÃ¡ passada');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-week-electrician');
-  await expect(page.locator('#requests')).toContainText('HorÃ¡rio preferido:');expect(await page.locator('#requests').innerText()).not.toContain('Agendado');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('client filters preferred times after seven days without changing requests',async({page})=>{
-  await login(page);await page.evaluate(()=>{const hour=60*60*1000,day=24*hour;window.testState.requests.push(
-    {id:'preferred-later-electrician',profession:'Eletricista',description:'RevisÃ£o com preferÃªncia em oito dias',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString(),scheduled_for:new Date(Date.now()+8*day).toISOString()},
-    {id:'preferred-later-painter',profession:'Pintor',description:'Pintura com preferÃªncia em dez dias',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString(),scheduled_for:new Date(Date.now()+10*day).toISOString()},
-    {id:'preferred-inside-week',profession:'Encanador',description:'PreferÃªncia ainda dentro da janela',status:'aberto',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString(),scheduled_for:new Date(Date.now()+7*day-hour).toISOString()},
-    {id:'preferred-later-past',profession:'Pedreiro',description:'PreferÃªncia jÃ¡ passada',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString(),scheduled_for:new Date(Date.now()-hour).toISOString()},
-    {id:'preferred-later-invalid',profession:'Marceneiro',description:'PreferÃªncia invÃ¡lida',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-4000).toISOString(),scheduled_for:'data-invalida'}
-  );});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestFilter').selectOption('preferredLater');await expect(page.locator('#requestFilter option[value="preferredLater"]')).toHaveText('HorÃ¡rio preferido apÃ³s 7 dias (2)');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('RevisÃ£o com preferÃªncia em oito dias');await expect(page.locator('#requests')).toContainText('Pintura com preferÃªncia em dez dias');await expect(page.locator('#requests')).not.toContainText('PreferÃªncia ainda dentro da janela');await expect(page.locator('#requests')).not.toContainText('PreferÃªncia jÃ¡ passada');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-later-electrician');
-  await expect(page.locator('#requests')).toContainText('HorÃ¡rio preferido:');expect(await page.locator('#requests').innerText()).not.toContain('Agendado');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('client filters services without a preferred time without changing requests',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'without-preferred-electrician',profession:'Eletricista',description:'RevisÃ£o sem preferÃªncia definida',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString(),scheduled_for:null},
-    {id:'without-preferred-painter',profession:'Pintor',description:'Pintura sem preferÃªncia definida',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()},
-    {id:'with-preferred-electrician',profession:'Eletricista',description:'InstalaÃ§Ã£o com preferÃªncia definida',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString(),scheduled_for:new Date(Date.now()+60*60*1000).toISOString()},
-    {id:'invalid-preferred-plumber',profession:'Encanador',description:'PreferÃªncia preenchida mas invÃ¡lida',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString(),scheduled_for:'data-invalida'}
-  ));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestFilter').selectOption('withoutPreferred');await expect(page.locator('#requestFilter option[value="withoutPreferred"]')).toHaveText('Sem horÃ¡rio preferido (2)');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('RevisÃ£o sem preferÃªncia definida');await expect(page.locator('#requests')).toContainText('Pintura sem preferÃªncia definida');await expect(page.locator('#requests')).not.toContainText('InstalaÃ§Ã£o com preferÃªncia definida');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','without-preferred-electrician');
-  await expect(page.locator('#requests')).not.toContainText('HorÃ¡rio preferido:');expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-test('provider handles an already claimed opportunity without false success',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await expect(page.locator('#clientPanel')).toBeHidden();await expect(page.locator('#providerApply')).toBeHidden();await page.getByRole('button',{name:'Aceitar chamado'}).click();await expect(page.locator('#status')).toContainText('nÃ£o estÃ¡ mais disponÃ­vel');
-});
-test('provider corrects the city and an unknown state before saving one service area',async({page})=>{
-  await page.addInitScript(()=>{window.testRole='prestador';});await login(page);await page.locator('#providerCity').fill('A');await page.locator('#providerState').fill('rr');await expect(page.locator('#providerState')).toHaveValue('RR');await page.locator('#saveArea').click();await expect(page.locator('#status')).toHaveText('Informe uma cidade com 2 a 100 caracteres. A UF foi preservada.');await expect(page.locator('#providerCity')).toBeFocused();await expect(page.locator('#providerCity')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#providerState')).toHaveValue('RR');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_service_areas'&&call.operation==='upsert'))).toHaveLength(0);
-  await page.locator('#providerCity').fill('Boa Vista');await expect(page.locator('#providerCity')).not.toHaveAttribute('aria-invalid','true');await page.locator('#providerState').fill('zz');await expect(page.locator('#providerState')).toHaveValue('ZZ');await page.locator('#saveArea').click();await expect(page.locator('#status')).toHaveText('Informe uma UF brasileira vÃ¡lida. A cidade foi preservada.');await expect(page.locator('#providerState')).toBeFocused();await expect(page.locator('#providerState')).toHaveAttribute('aria-invalid','true');await expect(page.locator('#providerCity')).toHaveValue('Boa Vista');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_service_areas'&&call.operation==='upsert'))).toHaveLength(0);
-  await page.locator('#providerState').fill('rr');await expect(page.locator('#providerState')).toHaveValue('RR');await expect(page.locator('#providerState')).not.toHaveAttribute('aria-invalid','true');await page.locator('#saveArea').click();await expect(page.locator('#status')).toHaveText('RegiÃ£o de atendimento atualizada.');const upserts=await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='provider_service_areas'&&call.operation==='upsert'));expect(upserts).toHaveLength(1);expect(upserts[0].payload).toMatchObject({city:'Boa Vista',state:'RR'});
-});
-test('provider sees safe location, urgency and schedule context before accepting',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);const opportunities=page.locator('#opportunities');
-  await expect(opportunities).toContainText('Urgente Â· Manaus / AM');await expect(opportunities).toContainText('PreferÃªncia:');
-  await expect(opportunities).not.toContainText('cliente');await expect(opportunities).not.toContainText('coordenada');
-  expect(await page.evaluate(()=>window.testState.calls.some(c=>c.rpc==='available_request_context'))).toBe(true);
-});
-test('provider declines an opportunity without removing it for others',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await page.getByRole('button',{name:'NÃ£o tenho interesse'}).click();
-  await expect(page.locator('#status')).toContainText('Outros profissionais ainda podem aceitÃ¡-lo');await expect(page.locator('#opportunities')).toContainText('Nenhum chamado compatÃ­vel');
-  expect(await page.evaluate(()=>({declined:window.testState.declinedRequests,call:window.testState.calls.find(c=>c.rpc==='decline_request').args}))).toEqual({declined:['open-request'],call:{p_request_id:'open-request'}});
-});
-test('provider restores a personally hidden opportunity',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await page.getByRole('button',{name:'NÃ£o tenho interesse'}).click();
-  await expect(page.getByRole('heading',{name:'Ocultados por vocÃª'})).toBeVisible();await page.getByRole('button',{name:'Mostrar novamente'}).click();
-  await expect(page.locator('#status')).toContainText('devolvido Ã  sua lista');await expect(page.getByRole('button',{name:'Aceitar chamado'})).toBeVisible();
-  expect(await page.evaluate(()=>({declined:window.testState.declinedRequests,call:window.testState.calls.find(c=>c.rpc==='restore_request_interest').args}))).toEqual({declined:[],call:{p_request_id:'open-request'}});
-});
-test('missing server profile keeps workspace closed',async({page})=>{
-  await page.addInitScript(()=>window.missingProfile=true);await page.goto('/auth-teste/');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('validpass123');await page.locator('#submit').click();await expect(page.locator('#status')).toContainText('permanece bloqueado');await expect(page.locator('#workspace')).toBeHidden();
-});
-test('layout fits viewport',async({page})=>{
-  await login(page);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-});
-
-test('client reuses a finished request only after reviewing a new form',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'repeat-cancelled',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pintar novamente a sala e corrigir o acabamento.',status:'cancelado',city:'Parintins',state:'AM',scheduled_for:'2026-10-20T15:00:00.000Z',is_urgent:true,created_at:new Date().toISOString()},
-    {id:'repeat-completed',client_id:'10000000-0000-4000-8000-000000000001',profession:'Eletricista',description:'Revisar instalaÃ§Ã£o elÃ©trica concluÃ­da anteriormente.',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()}
-  ));
-  await page.locator('#refresh').click();await expect(page.getByRole('button',{name:'Solicitar novamente'})).toHaveCount(2);
-  const original=page.locator('[data-request="repeat-cancelled"]');await original.getByRole('button',{name:'Solicitar novamente'}).click();
-  await expect(page.locator('#status')).toContainText('Revise as informaÃ§Ãµes');await expect(page.locator('#serviceProfession')).toHaveValue('Pintor');await expect(page.locator('#description')).toHaveValue('Pintar novamente a sala e corrigir o acabamento.');await expect(page.locator('#city')).toHaveValue('Parintins');await expect(page.locator('#state')).toHaveValue('AM');await expect(page.locator('#scheduled')).toHaveValue('');await expect(page.locator('#urgent')).not.toBeChecked();
-  await page.locator('#createRequest').click();await expect(page.locator('#status')).toContainText('Pedido registrado');
-  const result=await page.evaluate(()=>({original:window.testState.requests.find(r=>r.id==='repeat-cancelled'),created:window.testState.requests.at(-1)}));
-  expect(result).toMatchObject({original:{status:'cancelado'},created:{status:'aberto',profession:'Pintor',description:'Pintar novamente a sala e corrigir o acabamento.',city:'Parintins',state:'AM',scheduled_for:null,is_urgent:false}});expect(result.created).not.toHaveProperty('provider_id');
-});
-
-test('client filters active services and history without changing requests',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'filter-open',profession:'Pintor',description:'Pedido aberto',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
-    {id:'filter-accepted',profession:'Eletricista',description:'Pedido aceito',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()},
-    {id:'filter-completed',profession:'Pintor',description:'Pedido concluÃ­do',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString()},
-    {id:'filter-cancelled',profession:'Eletricista',description:'Pedido cancelado',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString()}
-  ));
-  await page.locator('#refresh').click();await expect(page.locator('#requests .service')).toHaveCount(4);
-  await page.locator('#requestFilter').selectOption('active');await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Pedido aberto');await expect(page.locator('#requests')).toContainText('Pedido aceito');await expect(page.locator('#requests')).not.toContainText('Pedido concluÃ­do');
-  await page.locator('#requestFilter').selectOption('history');await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('Pedido concluÃ­do');await expect(page.locator('#requests')).toContainText('Pedido cancelado');await expect(page.locator('#requests')).not.toContainText('Pedido aberto');
-  await page.locator('#requestFilter').selectOption('all');await expect(page.locator('#requests .service')).toHaveCount(4);expect(await page.evaluate(()=>window.testState.requests.map(r=>r.status))).toEqual(['aberto','aceito','concluido','cancelado']);
-});
-
-test('client filters requests waiting for a professional without changing them',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'waiting-electrician',profession:'Eletricista',description:'Revisar quadro aguardando profissional',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'},
-    {id:'waiting-painter',profession:'Pintor',description:'Pintar sala aguardando profissional',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
-    {id:'accepted-electrician',profession:'Eletricista',description:'InstalaÃ§Ã£o jÃ¡ aceita',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'}
-  ));
-  await page.locator('#refresh').click();await expect(page.locator('#requestFilter option[value="waiting"]')).toHaveText('Aguardando profissional (2)');await page.locator('#requestFilter').selectOption('waiting');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).not.toContainText('InstalaÃ§Ã£o jÃ¡ aceita');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Revisar quadro aguardando profissional');
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['waiting-electrician','waiting-painter','accepted-electrician']);
-});
-
-test('client filters services being attended without changing them',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'servicing-accepted',profession:'Eletricista',description:'InstalaÃ§Ã£o com profissional aceito',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'},
-    {id:'servicing-progress',profession:'Pintor',description:'Pintura em andamento',status:'em_andamento',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
-    {id:'servicing-open',profession:'Pintor',description:'Pintura ainda aguardando',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'}
-  ));
-  await page.locator('#refresh').click();await expect(page.locator('#requestFilter option[value="servicing"]')).toHaveText('Em atendimento (2)');await page.locator('#requestFilter').selectOption('servicing');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).not.toContainText('Pintura ainda aguardando');
-  await page.locator('#requestSearch').fill('pintor');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Pintura em andamento');
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['servicing-accepted','servicing-progress','servicing-open']);
-});
-
-test('client separates accepted services from services already in progress',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'stage-accepted-electrician',profession:'Eletricista',description:'InstalaÃ§Ã£o aceita aguardando inÃ­cio',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-22T12:00:00.000Z'},
-    {id:'stage-accepted-painter',profession:'Pintor',description:'Pintura aceita aguardando inÃ­cio',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'},
-    {id:'stage-progress-electrician',profession:'Eletricista',description:'InstalaÃ§Ã£o elÃ©trica em execuÃ§Ã£o',status:'em_andamento',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
-    {id:'stage-completed',profession:'Pintor',description:'Pintura jÃ¡ concluÃ­da',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'}
-  ));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await expect(page.locator('#requestFilter option[value="accepted"]')).toHaveText('Aceitos (2)');await expect(page.locator('#requestFilter option[value="inProgress"]')).toHaveText('Em andamento (1)');
-  await page.locator('#requestFilter').selectOption('accepted');await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).not.toContainText('InstalaÃ§Ã£o elÃ©trica em execuÃ§Ã£o');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','stage-accepted-electrician');
-  await page.locator('#requestSearch').fill('');await page.locator('#searchRequests').click();await page.locator('#requestFilter').selectOption('inProgress');await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','stage-progress-electrician');
-  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client filters completed services without mixing cancelled history',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'completed-electrician',profession:'Eletricista',description:'InstalaÃ§Ã£o finalizada',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'},
-    {id:'completed-painter',profession:'Pintor',description:'Pintura finalizada',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
-    {id:'cancelled-painter',profession:'Pintor',description:'Pintura cancelada',status:'cancelado',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'}
-  ));
-  await page.locator('#refresh').click();await expect(page.locator('#requestFilter option[value="completed"]')).toHaveText('ConcluÃ­dos (2)');await page.locator('#requestFilter').selectOption('completed');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).not.toContainText('Pintura cancelada');
-  await page.locator('#requestSearch').fill('pintor');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Pintura finalizada');
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['completed-electrician','completed-painter','cancelled-painter']);
-});
-
-test('client filters cancelled services without mixing completed history',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'cancelled-electrician',profession:'Eletricista',description:'InstalaÃ§Ã£o cancelada',status:'cancelado',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'},
-    {id:'cancelled-painter',profession:'Pintor',description:'Pintura cancelada pelo cliente',status:'cancelado',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
-    {id:'completed-painter',profession:'Pintor',description:'Pintura concluÃ­da',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'}
-  ));
-  await page.locator('#refresh').click();await expect(page.locator('#requestFilter option[value="cancelled"]')).toHaveText('Cancelados (2)');await page.locator('#requestFilter').selectOption('cancelled');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).not.toContainText('Pintura concluÃ­da');
-  await page.locator('#requestSearch').fill('pintor');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Pintura cancelada pelo cliente');
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['cancelled-electrician','cancelled-painter','completed-painter']);
-});
-
-test('client searches services by profession or description and combines status filter',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'search-active',profession:'Eletricista',description:'Revisar fiaÃ§Ã£o da cozinha',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
-    {id:'search-history',profession:'Eletricista',description:'Trocar disjuntor antigo',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()},
-    {id:'search-painter',profession:'Pintor',description:'Pintura completa da sala',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString()}
-  ));
-  await page.locator('#refresh').click();
-  await page.locator('#requestSearch').fill('ELETRICISTA');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).not.toContainText('Pintura completa');
-  await page.locator('#requestFilter').selectOption('history');await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Trocar disjuntor antigo');
-  await page.locator('#requestSearch').fill('fiacao');await page.locator('#searchRequests').click();await expect(page.locator('#requests')).toContainText('Nenhum serviÃ§o corresponde Ã  busca');
-  await page.locator('#requestFilter').selectOption('active');await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests')).toContainText('Revisar fiaÃ§Ã£o da cozinha');
-  await page.locator('#clearRequestSearch').click();await expect(page.locator('#requestSearch')).toHaveValue('');await expect(page.locator('#requestFilter')).toHaveValue('active');await expect(page.locator('#requests .service')).toHaveCount(1);
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['search-active','search-history','search-painter']);
-});
-
-test('client locates an authorized service by its code without changing requests',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'service-code-8f31',profession:'Eletricista',description:'Revisar instalaÃ§Ã£o da cozinha',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
-    {id:'service-code-42ac',profession:'Eletricista',description:'Revisar instalaÃ§Ã£o da sala',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()}
-  ));
-  const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
-  await expect(page.locator('label[for="requestSearch"]')).toHaveText('Buscar por cÃ³digo, profissÃ£o, descriÃ§Ã£o, regiÃ£o, situaÃ§Ã£o ou data da solicitaÃ§Ã£o/preferÃªncia');
-  await page.locator('#requestSearch').fill('8F31');await page.locator('#searchRequests').click();
-  await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','service-code-8f31');
-  await expect(page.locator('#requests')).toContainText('CÃ³digo: service-code-8f31');await expect(page.locator('#requests')).not.toContainText('CÃ³digo: service-code-42ac');
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
-});
-
-test('client searches authorized services by city or state without changing requests',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'region-sao-paulo',profession:'Eletricista',description:'Revisar instalaÃ§Ã£o residencial',status:'aberto',city:'SÃ£o Paulo',state:'SP',created_at:new Date().toISOString()},
-    {id:'region-boa-vista',profession:'Eletricista',description:'Revisar instalaÃ§Ã£o residencial',status:'aceito',city:'Boa Vista',state:'RR',created_at:new Date(Date.now()-1000).toISOString()}
-  ));
-  const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
-  await expect(page.locator('label[for="requestSearch"]')).toHaveText('Buscar por cÃ³digo, profissÃ£o, descriÃ§Ã£o, regiÃ£o, situaÃ§Ã£o ou data da solicitaÃ§Ã£o/preferÃªncia');
-  await page.locator('#requestSearch').fill('sao paulo');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','region-sao-paulo');
-  await page.locator('#requestSearch').fill('RR');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','region-boa-vista');
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
-});
-
-test('client searches authorized services by exact status without changing requests',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'status-accepted',profession:'Eletricista',description:'Revisar instalaÃ§Ã£o residencial',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
-    {id:'status-progress',profession:'Eletricista',description:'Revisar instalaÃ§Ã£o residencial',status:'em_andamento',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()},
-    {id:'status-completed',profession:'Eletricista',description:'Revisar instalaÃ§Ã£o residencial',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString()}
-  ));
-  const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
-  await page.locator('#requestSearch').fill('aceito');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','status-accepted');
-  await page.locator('#requestSearch').fill('em andamento');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','status-progress');
-  await page.locator('#requestSearch').fill('concluido');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','status-completed');
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
-});
-
-test('client sees when an authorized service was requested without changing it',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'requested-at-service',profession:'Eletricista',description:'Revisar instalaÃ§Ã£o residencial',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:30:00.000Z'}
-  ));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  const requestedAt=page.locator('[data-request="requested-at-service"] time.request-created');
-  await expect(requestedAt).toBeVisible();await expect(requestedAt).toHaveAttribute('datetime','2026-10-19T12:30:00.000Z');await expect(requestedAt).toContainText('Solicitado em');
-  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client searches authorized services by request date without changing them',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'date-october-19',profession:'Eletricista',description:'RevisÃ£o residencial',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:30:00.000Z'},
-    {id:'date-october-20',profession:'Pintor',description:'Pintura residencial',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-20T12:30:00.000Z'}
-  ));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestSearch').fill('19/10/2026');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','date-october-19');
-  await page.locator('#requestSearch').fill('2026-10-20');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','date-october-20');
-  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client searches authorized services by preferred date without changing them',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'preferred-april-15',profession:'Eletricista',description:'RevisÃ£o residencial',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:30:00.000Z',scheduled_for:'2030-04-15T18:00:00.000Z'},
-    {id:'preferred-may-20',profession:'Pintor',description:'Pintura residencial',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-20T12:30:00.000Z',scheduled_for:'2030-05-20T18:00:00.000Z'},
-    {id:'preferred-invalid',profession:'Pedreiro',description:'Registro com preferÃªncia invÃ¡lida',status:'cancelado',city:'Manaus',state:'AM',created_at:'2026-10-21T12:30:00.000Z',scheduled_for:'data-invalida'}
-  ));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  const localizedPreferredDate=await page.evaluate(()=>new Date('2030-04-15T18:00:00.000Z').toLocaleDateString('pt-BR'));
-  await page.locator('#requestSearch').fill(localizedPreferredDate);await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-april-15');
-  await page.locator('#requestFilter').selectOption('scheduled');await page.locator('#requestSearch').fill('2030-05-20');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','preferred-may-20');
-  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client filters services requested in the last seven days without changing them',async({page})=>{
-  await login(page);await page.evaluate(()=>{const day=24*60*60*1000;window.testState.requests.push(
-    {id:'recent-request',profession:'Eletricista',description:'RevisÃ£o elÃ©trica recente',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-6*day).toISOString()},
-    {id:'old-request',profession:'Eletricista',description:'RevisÃ£o elÃ©trica antiga',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-8*day).toISOString()},
-    {id:'undated-request',profession:'Pintor',description:'Registro legado sem data',status:'cancelado',city:'Manaus',state:'AM'}
-  );});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestFilter').selectOption('recent');await expect(page.locator('#requestFilter option[value="recent"]')).toHaveText('Solicitados nos Ãºltimos 7 dias (1)');
-  await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','recent-request');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);
-  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client filters services requested in the last thirty days without changing them',async({page})=>{
-  await login(page);await page.evaluate(()=>{const day=24*60*60*1000;window.testState.requests.push(
-    {id:'month-electrician',profession:'Eletricista',description:'RevisÃ£o solicitada neste mÃªs',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-29*day).toISOString()},
-    {id:'month-painter',profession:'Pintor',description:'Pintura solicitada recentemente',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-10*day).toISOString()},
-    {id:'older-than-month',profession:'Eletricista',description:'RevisÃ£o antiga',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-31*day).toISOString()},
-    {id:'future-month',profession:'Encanador',description:'Registro futuro invÃ¡lido',status:'aberto',city:'Manaus',state:'AM',created_at:new Date(Date.now()+day).toISOString()},
-    {id:'undated-month',profession:'Pedreiro',description:'Registro legado sem data',status:'cancelado',city:'Manaus',state:'AM'}
-  );});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestFilter').selectOption('month');await expect(page.locator('#requestFilter option[value="month"]')).toHaveText('Solicitados nos Ãºltimos 30 dias (2)');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('RevisÃ£o solicitada neste mÃªs');await expect(page.locator('#requests')).toContainText('Pintura solicitada recentemente');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','month-electrician');
-  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client filters services requested more than thirty days ago without changing them',async({page})=>{
-  await login(page);await page.evaluate(()=>{const day=24*60*60*1000;window.testState.requests.push(
-    {id:'older-electrician',profession:'Eletricista',description:'RevisÃ£o solicitada hÃ¡ dois meses',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-60*day).toISOString()},
-    {id:'older-painter',profession:'Pintor',description:'Pintura solicitada hÃ¡ trinta e um dias',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-31*day).toISOString()},
-    {id:'within-month',profession:'Eletricista',description:'RevisÃ£o solicitada recentemente',status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.now()-29*day).toISOString()},
-    {id:'future-older',profession:'Encanador',description:'Registro futuro invÃ¡lido',status:'aberto',city:'Manaus',state:'AM',created_at:new Date(Date.now()+day).toISOString()},
-    {id:'undated-older',profession:'Pedreiro',description:'Registro legado sem data',status:'cancelado',city:'Manaus',state:'AM'}
-  );});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestFilter').selectOption('older');await expect(page.locator('#requestFilter option[value="older"]')).toHaveText('Solicitados hÃ¡ mais de 30 dias (2)');
-  await expect(page.locator('#requests .service')).toHaveCount(2);await expect(page.locator('#requests')).toContainText('RevisÃ£o solicitada hÃ¡ dois meses');await expect(page.locator('#requests')).toContainText('Pintura solicitada hÃ¡ trinta e um dias');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','older-electrician');
-  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client filters services requested today and combines the result with search',async({page})=>{
-  await login(page);await page.evaluate(()=>{const now=new Date(),todayStart=new Date(now);todayStart.setHours(0,0,0,0);const today=new Date(todayStart.getTime()+Math.max(1,Math.floor((now.getTime()-todayStart.getTime())/2))),yesterday=new Date(todayStart.getTime()-1);window.testState.requests.push(
-    {id:'today-electrician',profession:'Eletricista',description:'RevisÃ£o solicitada hoje',status:'aceito',city:'Manaus',state:'AM',created_at:today.toISOString()},
-    {id:'yesterday-painter',profession:'Pintor',description:'Pintura solicitada ontem',status:'concluido',city:'Manaus',state:'AM',created_at:yesterday.toISOString()},
-    {id:'today-undated',profession:'Encanador',description:'Registro antigo sem data',status:'cancelado',city:'Manaus',state:'AM'}
-  );});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  await page.locator('#requestFilter').selectOption('today');await expect(page.locator('#requestFilter option[value="today"]')).toHaveText('Solicitados hoje (1)');
-  await expect(page.locator('#requests .service')).toHaveCount(1);await expect(page.locator('#requests .service')).toHaveAttribute('data-request','today-electrician');
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);
-  await page.locator('#requestSearch').fill('pintor');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(0);
-  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client orders services by date or urgency without changing requests',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'sort-oldest',profession:'Pintor',description:'Primeiro pedido comum',status:'concluido',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-18T12:00:00.000Z'},
-    {id:'sort-urgent',profession:'Eletricista',description:'Segundo pedido urgente',status:'aberto',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-19T12:00:00.000Z'},
-    {id:'sort-newest',profession:'Encanador',description:'Terceiro pedido comum',status:'aceito',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-20T12:00:00.000Z'}
-  ));
-  const order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));
-  await page.locator('#refresh').click();expect(await order()).toEqual(['sort-newest','sort-urgent','sort-oldest']);
-  await page.locator('#requestSort').selectOption('oldest');expect(await order()).toEqual(['sort-oldest','sort-urgent','sort-newest']);
-  await page.locator('#requestSort').selectOption('urgent');expect(await order()).toEqual(['sort-urgent','sort-newest','sort-oldest']);
-  await page.locator('#requestFilter').selectOption('active');expect(await order()).toEqual(['sort-urgent','sort-newest']);
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['sort-oldest','sort-urgent','sort-newest']);
-});
-
-test('client orders services alphabetically by profession with recent ties first',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'profession-painter',profession:'Pintor',description:'Pintura residencial',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
-    {id:'profession-electrician-old',profession:'Eletricista',description:'InstalaÃ§Ã£o antiga',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'},
-    {id:'profession-butcher',profession:'AÃ§ougueiro',description:'PreparaÃ§Ã£o profissional',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-18T12:00:00.000Z'},
-    {id:'profession-electrician-new',profession:'Eletricista',description:'InstalaÃ§Ã£o recente',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'}
-  ));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests)),order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));await page.locator('#refresh').click();
-  await page.locator('#requestSort').selectOption('profession');expect(await order()).toEqual(['profession-butcher','profession-electrician-new','profession-electrician-old','profession-painter']);
-  await page.locator('#requestFilter').selectOption('active');expect(await order()).toEqual(['profession-butcher','profession-electrician-new','profession-electrician-old']);
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();expect(await order()).toEqual(['profession-electrician-new','profession-electrician-old']);
-  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client orders services alphabetically by city and state with recent ties first',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'region-sao-luis',profession:'Pintor',description:'Pintura maranhense',status:'cancelado',city:'SÃ£o LuÃ­s',state:'MA',created_at:'2026-10-23T12:00:00.000Z'},
-    {id:'region-manaus-old',profession:'Eletricista',description:'InstalaÃ§Ã£o antiga em Manaus',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'},
-    {id:'region-belem',profession:'Encanador',description:'Reparo paraense',status:'concluido',city:'BelÃ©m',state:'PA',created_at:'2026-10-22T12:00:00.000Z'},
-    {id:'region-acailandia',profession:'Pedreiro',description:'Obra maranhense',status:'aberto',city:'AÃ§ailÃ¢ndia',state:'MA',created_at:'2026-10-18T12:00:00.000Z'},
-    {id:'region-manaus-new',profession:'Eletricista',description:'InstalaÃ§Ã£o recente em Manaus',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'}
-  ));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests)),order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));await page.locator('#refresh').click();
-  await page.locator('#requestSort').selectOption('region');expect(await order()).toEqual(['region-acailandia','region-belem','region-manaus-new','region-manaus-old','region-sao-luis']);
-  await page.locator('#requestFilter').selectOption('active');expect(await order()).toEqual(['region-acailandia','region-manaus-new','region-manaus-old']);
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();expect(await order()).toEqual(['region-manaus-new','region-manaus-old']);
-  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client orders conversations by unread message count with recent ties first',async({page})=>{
-  await login(page);await page.evaluate(()=>{
-    const client='10000000-0000-4000-8000-000000000001',requests=[
-      {id:'unread-sort-none',client_id:client,provider_id:'provider-id',profession:'Pintor',description:'Conversa sem novidade',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-23T12:00:00.000Z'},
-      {id:'unread-sort-one',client_id:client,provider_id:'provider-id',profession:'Encanador',description:'Conversa com uma novidade',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-22T12:00:00.000Z'},
-      {id:'unread-sort-old',client_id:client,provider_id:'provider-id',profession:'Eletricista',description:'Conversa antiga com duas novidades',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'},
-      {id:'unread-sort-new',client_id:client,provider_id:'provider-id',profession:'Eletricista',description:'Conversa recente com duas novidades',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'}
-    ];
-    window.testState.requests.push(...requests);
-    for(const request of requests.slice(1))window.testState.messages.push({id:'message-'+request.id+'-1',request_id:request.id,sender_id:'provider-id',body:'Mensagem recebida',created_at:'2026-10-23T13:00:00.000Z'});
-    for(const request of requests.slice(2))window.testState.messages.push({id:'message-'+request.id+'-2',request_id:request.id,sender_id:'provider-id',body:'Outra mensagem recebida',created_at:'2026-10-23T13:01:00.000Z'});
-  });
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests)),order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));await page.locator('#refresh').click();
-  await page.locator('#requestSort').selectOption('unread');expect(await order()).toEqual(['unread-sort-new','unread-sort-old','unread-sort-one','unread-sort-none']);
-  await page.locator('#requestFilter').selectOption('active');expect(await order()).toEqual(['unread-sort-new','unread-sort-old','unread-sort-one']);
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();expect(await order()).toEqual(['unread-sort-new','unread-sort-old']);
-  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client orders services by workflow stage with recent ties first',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'status-completed',profession:'Pintor',description:'Etapa concluÃ­da',status:'concluido',city:'Manaus',state:'AM',created_at:'2026-10-22T12:00:00.000Z'},
-    {id:'status-open-old',profession:'Eletricista',description:'Chamado antigo',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-19T12:00:00.000Z'},
-    {id:'status-progress',profession:'Encanador',description:'Etapa em andamento',status:'em_andamento',city:'Manaus',state:'AM',created_at:'2026-10-21T12:00:00.000Z'},
-    {id:'status-accepted',profession:'Eletricista',description:'Etapa aceita',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-20T12:00:00.000Z'},
-    {id:'status-cancelled',profession:'Pedreiro',description:'Etapa cancelada',status:'cancelado',city:'Manaus',state:'AM',created_at:'2026-10-23T12:00:00.000Z'},
-    {id:'status-open-new',profession:'Eletricista',description:'Chamado recente',status:'aberto',city:'Manaus',state:'AM',created_at:'2026-10-22T13:00:00.000Z'}
-  ));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests)),order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));await page.locator('#refresh').click();
-  await page.locator('#requestSort').selectOption('status');expect(await order()).toEqual(['status-open-new','status-open-old','status-accepted','status-progress','status-completed','status-cancelled']);
-  await page.locator('#requestFilter').selectOption('active');expect(await order()).toEqual(['status-open-new','status-open-old','status-accepted','status-progress']);
-  await page.locator('#requestSearch').fill('eletricista');await page.locator('#searchRequests').click();expect(await order()).toEqual(['status-open-new','status-open-old','status-accepted']);
-  expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client orders preferred times first without changing requests',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'schedule-later',profession:'Pintor',description:'Pintura com preferÃªncia posterior',status:'concluido',city:'Manaus',state:'AM',scheduled_for:'2026-10-25T14:00:00.000Z',created_at:'2026-10-21T12:00:00.000Z'},
-    {id:'schedule-none',profession:'Eletricista',description:'InstalaÃ§Ã£o sem horÃ¡rio indicado',status:'aberto',city:'Manaus',state:'AM',scheduled_for:null,created_at:'2026-10-22T12:00:00.000Z'},
-    {id:'schedule-earlier',profession:'Encanador',description:'Reparo com preferÃªncia anterior',status:'aceito',city:'Manaus',state:'AM',scheduled_for:'2026-10-23T09:00:00.000Z',created_at:'2026-10-20T12:00:00.000Z'}
-  ));
-  const order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));
-  await page.locator('#refresh').click();await page.locator('#requestSort').selectOption('schedule');
-  expect(await order()).toEqual(['schedule-earlier','schedule-later','schedule-none']);
-  await page.locator('#requestFilter').selectOption('scheduled');expect(await order()).toEqual(['schedule-earlier','schedule-later']);
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['schedule-later','schedule-none','schedule-earlier']);
-});
-
-test('client orders valid preferred times from farthest to nearest and keeps invalid or absent values last',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'schedule-middle',profession:'Pintor',description:'Pintura com preferÃªncia intermediÃ¡ria',status:'concluido',city:'Manaus',state:'AM',scheduled_for:'2026-10-25T14:00:00.000Z',created_at:'2026-10-21T12:00:00.000Z'},
-    {id:'schedule-invalid',profession:'Marceneiro',description:'Reparo com preferÃªncia invÃ¡lida',status:'aberto',city:'Manaus',state:'AM',scheduled_for:'data-invalida',created_at:'2026-10-24T12:00:00.000Z'},
-    {id:'schedule-absent',profession:'Eletricista',description:'InstalaÃ§Ã£o sem horÃ¡rio indicado',status:'aberto',city:'Manaus',state:'AM',scheduled_for:null,created_at:'2026-10-23T12:00:00.000Z'},
-    {id:'schedule-farthest',profession:'Encanador',description:'Reparo com preferÃªncia mais distante',status:'aceito',city:'Manaus',state:'AM',scheduled_for:'2026-11-05T09:00:00.000Z',created_at:'2026-10-20T12:00:00.000Z'},
-    {id:'schedule-nearest',profession:'Pedreiro',description:'Reparo com preferÃªncia mais prÃ³xima',status:'aceito',city:'Manaus',state:'AM',scheduled_for:'2026-10-23T09:00:00.000Z',created_at:'2026-10-22T12:00:00.000Z'}
-  ));
-  const order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));
-  await page.locator('#refresh').click();await page.locator('#requestSort').selectOption('scheduleDesc');
-  expect(await order()).toEqual(['schedule-farthest','schedule-middle','schedule-nearest','schedule-invalid','schedule-absent']);
-  await page.locator('#requestSearch').fill('reparo');await page.locator('#searchRequests').click();
-  expect(await order()).toEqual(['schedule-farthest','schedule-nearest','schedule-invalid']);
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['schedule-middle','schedule-invalid','schedule-absent','schedule-farthest','schedule-nearest']);
-});
-
-test('client clears search, status filter and ordering without changing services',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'clear-oldest',profession:'Pintor',description:'Pintura antiga',status:'concluido',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-18T12:00:00.000Z'},
-    {id:'clear-urgent',profession:'Eletricista',description:'Reparo elÃ©trico urgente',status:'aberto',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-19T12:00:00.000Z'},
-    {id:'clear-newest',profession:'Encanador',description:'Reparo hidrÃ¡ulico recente',status:'aceito',city:'Manaus',state:'AM',is_urgent:false,created_at:'2026-10-20T12:00:00.000Z'}
-  ));
-  const order=()=>page.locator('#requests .service').evaluateAll(cards=>cards.map(card=>card.dataset.request));
-  await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('history');await page.locator('#requestSort').selectOption('oldest');await page.locator('#requestSearch').fill('pintura');await page.locator('#searchRequests').click();
-  await expect(page.locator('#requests .service')).toHaveCount(1);expect(await order()).toEqual(['clear-oldest']);
-  await page.locator('#clearRequestFilters').click();await expect(page.locator('#requestSearch')).toHaveValue('');await expect(page.locator('#requestFilter')).toHaveValue('all');await expect(page.locator('#requestSort')).toHaveValue('recent');
-  await expect(page.locator('#requests .service')).toHaveCount(3);expect(await order()).toEqual(['clear-newest','clear-urgent','clear-oldest']);expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(['clear-oldest','clear-urgent','clear-newest']);
-});
-
-test('service summary counts active, history and currently displayed requests',async({page})=>{
-  await login(page);await page.evaluate(()=>window.testState.requests.push(
-    {id:'summary-open',profession:'Pintor',description:'Pintura ativa',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()},
-    {id:'summary-progress',profession:'Eletricista',description:'InstalaÃ§Ã£o em andamento',status:'em_andamento',city:'Manaus',state:'AM',created_at:new Date(Date.now()-1000).toISOString()},
-    {id:'summary-done',profession:'Pintor',description:'Pintura concluÃ­da',status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.now()-2000).toISOString()},
-    {id:'summary-cancelled',profession:'Encanador',description:'Reparo cancelado',status:'cancelado',city:'Manaus',state:'AM',created_at:new Date(Date.now()-3000).toISOString()}
-  ));
-  await page.locator('#refresh').click();await expect(page.locator('#requestSummary')).toHaveText('Exibindo 4 de 4 serviÃ§os Â· 2 ativos Â· 2 no histÃ³rico Â· 0 com mensagens novas.');
-  await expect(page.locator('#requestFilter option[value="active"]')).toHaveText('Ativos (2)');await expect(page.locator('#requestFilter option[value="history"]')).toHaveText('HistÃ³rico (2)');
-  await page.locator('#requestFilter').selectOption('history');await expect(page.locator('#requestSummary')).toHaveText('Exibindo 2 de 4 serviÃ§os Â· 2 ativos Â· 2 no histÃ³rico Â· 0 com mensagens novas.');
-  await page.locator('#requestSearch').fill('pintura');await page.locator('#searchRequests').click();await expect(page.locator('#requestSummary')).toHaveText('Exibindo 1 de 4 serviÃ§os Â· 2 ativos Â· 2 no histÃ³rico Â· 0 com mensagens novas.');
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.status))).toEqual(['aberto','em_andamento','concluido','cancelado']);
-});
-
-test('client progressively loads a long service list without changing requests',async({page})=>{
-  await login(page);await page.evaluate(()=>{
-    for(let index=0;index<15;index++)window.testState.requests.push({id:`page-${index}`,client_id:'10000000-0000-4000-8000-000000000001',provider_id:'provider-id',profession:index%2?'Pintor':'Eletricista',description:`ServiÃ§o acumulado ${index}`,status:index<12?'aceito':'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.UTC(2026,9,22,12,index)).toISOString()});
-  });
-  const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
-  await expect(page.locator('#requests .service')).toHaveCount(10);await expect(page.locator('#requestSummary')).toContainText('Exibindo 10 de 15 correspondentes');await expect(page.locator('#requestMore')).toHaveText('Mostrar mais (5 restantes)');
-  await page.locator('#requestMore').click();await expect(page.locator('#requests .service')).toHaveCount(15);await expect(page.locator('#requestMore')).toBeHidden();
-  await page.locator('#requestFilter').selectOption('completed');await expect(page.locator('#requests .service')).toHaveCount(3);await expect(page.locator('#requestMore')).toBeHidden();
-  await page.locator('#requestFilter').selectOption('all');await expect(page.locator('#requests .service')).toHaveCount(10);await expect(page.locator('#requestMore')).toHaveText('Mostrar mais (5 restantes)');expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
-});
-
-test('client collapses an expanded service list without losing its current view',async({page})=>{
-  await login(page);await page.evaluate(()=>{
-    for(let index=0;index<15;index++)window.testState.requests.push({id:`collapse-${index}`,client_id:'10000000-0000-4000-8000-000000000001',provider_id:'provider-id',profession:index%2?'Pintor':'Eletricista',description:`ServiÃ§o para recolher ${index}`,status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.UTC(2026,9,22,13,index)).toISOString()});
-  });
-  const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
-  await expect(page.locator('#requestCollapse')).toBeHidden();await page.locator('#requestMore').click();
-  await expect(page.locator('#requests .service')).toHaveCount(15);await expect(page.locator('#requestCollapse')).toBeVisible();
-  await page.locator('#requestCollapse').click();await expect(page.locator('#requests .service')).toHaveCount(10);
-  await expect(page.locator('#requestCollapse')).toBeHidden();await expect(page.locator('#requestMore')).toHaveText('Mostrar mais (5 restantes)');
-  await expect(page.locator('#requestFilter')).toHaveValue('all');await expect(page.locator('#requestSort')).toHaveValue('recent');expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
-});
-
-test('client chooses how many services to show per step without changing requests',async({page})=>{
-  await login(page);await page.evaluate(()=>{
-    for(let index=0;index<30;index++)window.testState.requests.push({id:`page-size-${index}`,client_id:'10000000-0000-4000-8000-000000000001',provider_id:'provider-id',profession:'Eletricista',description:`ServiÃ§o por etapa ${index}`,status:'aceito',city:'Manaus',state:'AM',created_at:new Date(Date.UTC(2026,9,22,14,index)).toISOString()});
-  });
-  const original=await page.evaluate(()=>window.testState.requests.map(r=>r.id));await page.locator('#refresh').click();
-  await expect(page.locator('#requests .service')).toHaveCount(10);await page.locator('#requestPageSize').selectOption('25');
-  await expect(page.locator('#requests .service')).toHaveCount(25);await expect(page.locator('#requestMore')).toHaveText('Mostrar mais (5 restantes)');
-  await page.locator('#requestMore').click();await expect(page.locator('#requests .service')).toHaveCount(30);
-  await page.locator('#requestCollapse').click();await expect(page.locator('#requests .service')).toHaveCount(25);await expect(page.locator('#requestPageSize')).toHaveValue('25');
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>r.id))).toEqual(original);
-});
-
-test('client downloads every filtered safe summary beyond visible pagination',async({page})=>{
-  await login(page);await page.evaluate(()=>{
-    window.testState.requests.push({id:'summary-batch-active',profession:'Eletricista',description:'DescriÃ§Ã£o ativa que deve ficar fora',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-25T07:00:00.000Z'});
-    for(let index=0;index<12;index++)window.testState.requests.push({id:`summary-batch-${index}`,profession:'Pintor',description:`DescriÃ§Ã£o privada em lote ${index}`,status:'concluido',city:'Boa Vista',state:'RR',is_urgent:index===0,created_at:new Date(Date.UTC(2026,9,25,6,index)).toISOString()});
-  });
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');await page.locator('#requestSort').selectOption('oldest');await page.locator('#requestSearch').fill('Pintor');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(10);const callsBeforeDownload=await page.evaluate(()=>window.testState.calls.length),[download]=await Promise.all([page.waitForEvent('download'),page.locator('#downloadRequestSummaries').click()]);
-  const localDay=await page.evaluate(()=>{const now=new Date();return [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');}),filename=`servico-certo-resumos-seguros-concluidos-pintor-mais-antigos-${localDay}.txt`;expect(download.suggestedFilename()).toBe(filename);await expect(page.locator('#status')).toHaveText(`12 resumos seguros preparados em ${filename}.`);const content=await readFile(await download.path(),'utf8');expect(content).toContain('Contexto dos resumos seguros\nFiltro: ConcluÃ­dos\nBusca aplicada: Sim\nOrdenaÃ§Ã£o: Mais antigos\nQuantidade: 12');expect(content).not.toContain('Busca: Pintor');expect(content.match(/ServiÃ§o Certo/g)).toHaveLength(12);expect(content).toContain('CÃ³digo: summary-batch-0');expect(content).toContain('CÃ³digo: summary-batch-11');expect(content).toContain('RegiÃ£o: Boa Vista / RR');expect(content).not.toContain('summary-batch-active');expect(content).not.toContain('DescriÃ§Ã£o privada em lote');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeDownload);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client previews and hides every filtered safe summary beyond visible pagination',async({page})=>{
-  await login(page);await page.evaluate(()=>{
-    window.testState.requests.push({id:'preview-batch-active',profession:'Eletricista',description:'DescriÃ§Ã£o ativa que deve ficar fora',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-25T07:00:00.000Z'});
-    for(let index=0;index<12;index++)window.testState.requests.push({id:`preview-batch-${index}`,profession:'Pintor',description:`DescriÃ§Ã£o privada na prÃ©via ${index}`,status:'concluido',city:'Boa Vista',state:'RR',created_at:new Date(Date.UTC(2026,9,25,6,index)).toISOString()});
-  });
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');await expect(page.locator('#requests .service')).toHaveCount(10);const callsBeforePreview=await page.evaluate(()=>window.testState.calls.length),toggle=page.locator('#previewRequestSummaries'),preview=page.locator('#requestSummariesPreview');
-  await expect(preview).toBeHidden();await expect(toggle).toHaveText('Ver resumos');await expect(toggle).toHaveAttribute('aria-expanded','false');await toggle.click();await expect(preview).toBeVisible();await expect(toggle).toHaveText('Ocultar resumos');await expect(toggle).toHaveAttribute('aria-expanded','true');await expect(preview).toContainText('Filtro: ConcluÃ­dos');await expect(preview).toContainText('Busca aplicada: NÃ£o');await expect(preview).toContainText('OrdenaÃ§Ã£o: Mais recentes');await expect(preview).toContainText('Quantidade: 12');await expect(preview).toContainText('CÃ³digo: preview-batch-0');await expect(preview).toContainText('CÃ³digo: preview-batch-11');await expect(preview).not.toContainText('preview-batch-active');await expect(preview).not.toContainText('DescriÃ§Ã£o privada na prÃ©via');expect(await preview.textContent()).toContain('RegiÃ£o: Boa Vista / RR');expect((await preview.textContent()).match(/ServiÃ§o Certo/g)).toHaveLength(12);
-  await toggle.click();await expect(preview).toBeHidden();await expect(toggle).toHaveText('Ver resumos');await expect(toggle).toHaveAttribute('aria-expanded','false');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforePreview);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client copies every filtered safe summary beyond visible pagination',async({page})=>{
-  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedRequestSummaries=value;}}}));
-  await login(page);await page.evaluate(()=>{
-    window.testState.requests.push({id:'copy-summary-active',profession:'Eletricista',description:'DescriÃ§Ã£o ativa que deve ficar fora',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-25T07:00:00.000Z'});
-    for(let index=0;index<12;index++)window.testState.requests.push({id:`copy-summary-${index}`,profession:'Pintor',description:`DescriÃ§Ã£o privada para cÃ³pia ${index}`,status:'concluido',city:'Boa Vista',state:'RR',is_urgent:index===0,created_at:new Date(Date.UTC(2026,9,25,6,index)).toISOString()});
-  });
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');await expect(page.locator('#requests .service')).toHaveCount(10);
-  const callsBeforeCopy=await page.evaluate(()=>window.testState.calls.length);await page.locator('#copyRequestSummaries').click();await expect(page.locator('#status')).toHaveText('12 resumos seguros copiados da lista filtrada.');const content=await page.evaluate(()=>window.copiedRequestSummaries);
-  expect(content).toContain('Filtro: ConcluÃ­dos\nBusca aplicada: NÃ£o\nOrdenaÃ§Ã£o: Mais recentes\nQuantidade: 12');expect(content.match(/ServiÃ§o Certo/g)).toHaveLength(12);expect(content).toContain('CÃ³digo: copy-summary-0');expect(content).toContain('CÃ³digo: copy-summary-11');expect(content).toContain('RegiÃ£o: Boa Vista / RR');expect(content).not.toContain('copy-summary-active');expect(content).not.toContain('DescriÃ§Ã£o privada para cÃ³pia');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeCopy);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client copies authenticated links for every filtered service beyond visible pagination',async({page})=>{
-  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedFilteredRequestLinks=value;}}}));
-  await login(page);await page.evaluate(()=>{window.testState.requests.push({id:'link-batch-active',profession:'Eletricista',description:'ServiÃ§o ativo fora do filtro',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-25T18:00:00.000Z'});for(let index=0;index<12;index++)window.testState.requests.push({id:`link-batch-${index}`,profession:'Pintor',description:`DescriÃ§Ã£o privada fora dos links ${index}`,status:'concluido',city:'Boa Vista',state:'RR',created_at:new Date(Date.UTC(2026,9,25,17,index)).toISOString()});});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');await expect(page.locator('#requests .service')).toHaveCount(10);const callsBeforeCopy=await page.evaluate(()=>window.testState.calls.length);await page.locator('#copyRequestLinks').click();await expect(page.locator('#status')).toHaveText('12 links autenticados copiados da lista filtrada.');
-  const links=(await page.evaluate(()=>window.copiedFilteredRequestLinks)).split('\n');expect(links).toHaveLength(12);expect(links).toContain('http://127.0.0.1:4173/auth-teste/?servico=link-batch-0');expect(links).toContain('http://127.0.0.1:4173/auth-teste/?servico=link-batch-11');expect(links.join('\n')).not.toContain('link-batch-active');expect(links.join('\n')).not.toContain('DescriÃ§Ã£o privada');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeCopy);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client previews, opens, copies, downloads and shares authenticated links beyond visible pagination',async({page})=>{
-  await page.addInitScript(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedPreviewRequestLink=value;}}});Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.sharedPreviewRequestLink=data;}});});await login(page);await page.evaluate(()=>{window.testState.requests.push({id:'preview-link-active',profession:'Eletricista',description:'ServiÃ§o ativo fora da prÃ©via',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-25T21:00:00.000Z'});for(let index=0;index<12;index++)window.testState.requests.push({id:`preview-link-${index}`,profession:'Pintor',description:`DescriÃ§Ã£o privada fora da prÃ©via ${index}`,status:'concluido',city:'Boa Vista',state:'RR',created_at:new Date(Date.UTC(2026,9,25,20,index)).toISOString()});});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');await expect(page.locator('#requests .service')).toHaveCount(10);const callsBeforePreview=await page.evaluate(()=>window.testState.calls.length),toggle=page.locator('#previewRequestLinks'),preview=page.locator('#requestLinksPreview');await expect(preview).toBeHidden();await expect(toggle).toHaveText('Ver links');await expect(toggle).toHaveAttribute('aria-expanded','false');await toggle.click();await expect(preview).toBeVisible();await expect(toggle).toHaveText('Ocultar links');await expect(toggle).toHaveAttribute('aria-expanded','true');const links=preview.getByRole('link');await expect(links).toHaveCount(12);const hrefs=await links.evaluateAll(nodes=>nodes.map(node=>node.href));expect(hrefs).toContain('http://127.0.0.1:4173/auth-teste/?servico=preview-link-0');expect(hrefs).toContain('http://127.0.0.1:4173/auth-teste/?servico=preview-link-11');expect(hrefs.join('\n')).not.toContain('preview-link-active');expect(await preview.textContent()).not.toContain('DescriÃ§Ã£o privada');await expect(links.first()).toHaveAttribute('target','_blank');await expect(links.first()).toHaveAttribute('rel','noopener noreferrer');const popupPromise=page.waitForEvent('popup');await links.first().click();const popup=await popupPromise;await expect(popup).toHaveURL(hrefs[0]);await popup.close();await preview.getByRole('button',{name:'Copiar link do serviÃ§o preview-link-11'}).click();await expect(page.locator('#status')).toHaveText('Link do serviÃ§o copiado. O acesso continua protegido pela conta.');expect(await page.evaluate(()=>window.copiedPreviewRequestLink)).toBe('http://127.0.0.1:4173/auth-teste/?servico=preview-link-11');const [download]=await Promise.all([page.waitForEvent('download'),preview.getByRole('button',{name:'Baixar link do serviÃ§o preview-link-11'}).click()]);expect(download.suggestedFilename()).toBe('servico-preview-link-11-link.txt');expect(await readFile(await download.path(),'utf8')).toBe('http://127.0.0.1:4173/auth-teste/?servico=preview-link-11');await expect(page.locator('#status')).toHaveText('Link autenticado preparado em servico-preview-link-11-link.txt.');await preview.getByRole('button',{name:'Compartilhar link do serviÃ§o preview-link-11'}).click();await expect(page.locator('#status')).toHaveText('Link autenticado enviado ao compartilhamento do aparelho.');expect(await page.evaluate(()=>window.sharedPreviewRequestLink)).toEqual({title:'ServiÃ§o Certo â€” Pintor',text:'Acesse este serviÃ§o com uma conta participante.',url:'http://127.0.0.1:4173/auth-teste/?servico=preview-link-11'});expect(JSON.stringify(await page.evaluate(()=>window.sharedPreviewRequestLink))).not.toContain('DescriÃ§Ã£o privada');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforePreview);await page.locator('#requestFilter').selectOption('active');await expect(preview).toBeHidden();await expect(toggle).toHaveText('Ver links');await expect(toggle).toHaveAttribute('aria-expanded','false');expect(await page.evaluate(()=>window.testState.calls.length)).toBeGreaterThan(callsBeforePreview);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client downloads authenticated links for every filtered service beyond visible pagination',async({page})=>{
-  await login(page);await page.evaluate(()=>{window.testState.requests.push({id:'download-link-active',profession:'Eletricista',description:'ServiÃ§o ativo fora do arquivo',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-25T19:00:00.000Z'});for(let index=0;index<12;index++)window.testState.requests.push({id:`download-link-${index}`,profession:'Pintor',description:`DescriÃ§Ã£o privada fora do arquivo ${index}`,status:'concluido',city:'Boa Vista',state:'RR',created_at:new Date(Date.UTC(2026,9,25,18,index)).toISOString()});});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');await page.locator('#requestSort').selectOption('oldest');await page.locator('#requestSearch').fill('Pintor');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(10);const callsBeforeDownload=await page.evaluate(()=>window.testState.calls.length),[download]=await Promise.all([page.waitForEvent('download'),page.locator('#downloadRequestLinks').click()]);
-  const localDay=await page.evaluate(()=>{const now=new Date();return [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');}),filename=`servico-certo-links-autenticados-concluidos-pintor-mais-antigos-${localDay}.txt`;expect(download.suggestedFilename()).toBe(filename);await expect(page.locator('#status')).toHaveText(`12 links autenticados preparados em ${filename}.`);const links=(await readFile(await download.path(),'utf8')).split('\n');expect(links).toHaveLength(12);expect(links).toContain('http://127.0.0.1:4173/auth-teste/?servico=download-link-0');expect(links).toContain('http://127.0.0.1:4173/auth-teste/?servico=download-link-11');expect(links.join('\n')).not.toContain('download-link-active');expect(links.join('\n')).not.toContain('DescriÃ§Ã£o privada');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeDownload);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client shares authenticated links for every filtered service as one text file',async({page})=>{
-  await page.addInitScript(()=>{
-    Object.defineProperty(navigator,'canShare',{configurable:true,value:data=>Boolean(data.files?.length)});
-    Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.sharedRequestLinks={title:data.title,text:data.text,name:data.files[0].name,content:await data.files[0].text()};}});
-  });
-  await login(page);await page.evaluate(()=>{window.testState.requests.push({id:'share-link-active',profession:'Eletricista',description:'ServiÃ§o ativo fora do compartilhamento',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-25T20:00:00.000Z'});for(let index=0;index<12;index++)window.testState.requests.push({id:`share-link-${index}`,profession:'Pintor',description:`DescriÃ§Ã£o privada fora do compartilhamento ${index}`,status:'concluido',city:'Boa Vista',state:'RR',created_at:new Date(Date.UTC(2026,9,25,19,index)).toISOString()});});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');await expect(page.locator('#requests .service')).toHaveCount(10);const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('#shareRequestLinks').click();const localDay=await page.evaluate(()=>{const now=new Date();return [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');}),filename=`servico-certo-links-autenticados-concluidos-${localDay}.txt`;
-  await expect(page.locator('#status')).toHaveText(`12 links autenticados compartilhados em ${filename}.`);const shared=await page.evaluate(()=>window.sharedRequestLinks);expect(shared).toMatchObject({title:'ServiÃ§o Certo â€” links autenticados',text:'12 links autenticados em arquivo de texto.',name:filename});const links=shared.content.split('\n');expect(links).toHaveLength(12);expect(links).toContain('http://127.0.0.1:4173/auth-teste/?servico=share-link-0');expect(links).toContain('http://127.0.0.1:4173/auth-teste/?servico=share-link-11');expect(shared.content).not.toContain('share-link-active');expect(shared.content).not.toContain('DescriÃ§Ã£o privada');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('link sharing copies filtered authenticated links when native sharing is unavailable',async({page})=>{
-  await page.addInitScript(()=>{Object.defineProperty(navigator,'share',{configurable:true,value:undefined});Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedSharedRequestLinks=value;}}});});
-  await login(page);await page.evaluate(()=>window.testState.requests.push({id:'share-link-copy',profession:'Pintor',description:'DescriÃ§Ã£o privada fora da cÃ³pia',status:'concluido',city:'Boa Vista',state:'RR',created_at:'2026-10-25T19:00:00.000Z'}));const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('#shareRequestLinks').click();await expect(page.locator('#status')).toHaveText('1 link autenticado copiado porque o compartilhamento nÃ£o estÃ¡ disponÃ­vel.');expect(await page.evaluate(()=>window.copiedSharedRequestLinks)).toBe('http://127.0.0.1:4173/auth-teste/?servico=share-link-copy');expect(await page.evaluate(()=>window.copiedSharedRequestLinks)).not.toContain('DescriÃ§Ã£o privada');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client shares every filtered safe summary as one text file',async({page})=>{
-  await page.addInitScript(()=>{
-    Object.defineProperty(navigator,'canShare',{configurable:true,value:data=>Boolean(data.files?.length)});
-    Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.sharedRequestSummaries={title:data.title,text:data.text,name:data.files[0].name,content:await data.files[0].text()};}});
-  });
-  await login(page);await page.evaluate(()=>{
-    window.testState.requests.push({id:'share-summary-active',profession:'Eletricista',description:'DescriÃ§Ã£o ativa que deve ficar fora',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-25T07:00:00.000Z'});
-    for(let index=0;index<12;index++)window.testState.requests.push({id:`share-summary-${index}`,profession:'Pintor',description:`DescriÃ§Ã£o privada para compartilhar ${index}`,status:'concluido',city:'Boa Vista',state:'RR',created_at:new Date(Date.UTC(2026,9,25,6,index)).toISOString()});
-  });
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');await expect(page.locator('#requests .service')).toHaveCount(10);const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('#shareRequestSummaries').click();const localDay=await page.evaluate(()=>{const now=new Date();return [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');}),filename=`servico-certo-resumos-seguros-concluidos-${localDay}.txt`;
-  await expect(page.locator('#status')).toHaveText(`12 resumos seguros compartilhados em ${filename}.`);const shared=await page.evaluate(()=>window.sharedRequestSummaries);expect(shared).toMatchObject({title:'ServiÃ§o Certo â€” resumos seguros',text:'12 resumos seguros em arquivo de texto.',name:filename});expect(shared.content).toContain('Filtro: ConcluÃ­dos\nBusca aplicada: NÃ£o\nOrdenaÃ§Ã£o: Mais recentes\nQuantidade: 12');expect(shared.content.match(/ServiÃ§o Certo/g)).toHaveLength(12);expect(shared.content).toContain('CÃ³digo: share-summary-0');expect(shared.content).toContain('CÃ³digo: share-summary-11');expect(shared.content).not.toContain('share-summary-active');expect(shared.content).not.toContain('DescriÃ§Ã£o privada para compartilhar');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('batch file sharing rejection retries the safe summaries as text',async({page})=>{
-  await page.addInitScript(()=>{window.batchShareAttempts=[];Object.defineProperty(navigator,'canShare',{configurable:true,value:data=>Boolean(data.files?.length)});Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.batchShareAttempts.push({hasFiles:Boolean(data.files?.length),text:data.text});if(data.files?.length)throw new TypeError('File target unavailable');window.sharedBatchTextAfterFileRejection=data.text;}});});
-  await login(page);await page.evaluate(()=>{window.testState.requests.push({id:'batch-file-retry-active',profession:'Eletricista',description:'DescriÃ§Ã£o ativa fora do compartilhamento',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-25T07:00:00.000Z'});for(let index=0;index<12;index++)window.testState.requests.push({id:`batch-file-retry-${index}`,profession:'Pintor',description:`DescriÃ§Ã£o privada para recuperaÃ§Ã£o ${index}`,status:'concluido',city:'Boa Vista',state:'RR',created_at:new Date(Date.UTC(2026,9,25,6,index)).toISOString()});});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');await expect(page.locator('#requests .service')).toHaveCount(10);const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('#shareRequestSummaries').click();await expect(page.locator('#status')).toHaveText('Arquivo recusado. 12 resumos seguros enviados como texto.');
-  const result=await page.evaluate(()=>({attempts:window.batchShareAttempts,text:window.sharedBatchTextAfterFileRejection}));expect(result.attempts).toHaveLength(2);expect(result.attempts[0]).toMatchObject({hasFiles:true,text:'12 resumos seguros em arquivo de texto.'});expect(result.attempts[1].hasFiles).toBe(false);expect(result.text).toContain('Filtro: ConcluÃ­dos\nBusca aplicada: NÃ£o\nOrdenaÃ§Ã£o: Mais recentes\nQuantidade: 12');expect(result.text.match(/ServiÃ§o Certo/g)).toHaveLength(12);expect(result.text).toContain('CÃ³digo: batch-file-retry-0');expect(result.text).toContain('CÃ³digo: batch-file-retry-11');expect(result.text).not.toContain('batch-file-retry-active');expect(result.text).not.toContain('DescriÃ§Ã£o privada para recuperaÃ§Ã£o');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('batch file and text sharing rejections copy the safe summaries',async({page})=>{
-  await page.addInitScript(()=>{window.batchRejectedShareAttempts=[];Object.defineProperty(navigator,'canShare',{configurable:true,value:data=>Boolean(data.files?.length)});Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.batchRejectedShareAttempts.push({hasFiles:Boolean(data.files?.length),text:data.text});throw new TypeError('Share target unavailable');}});Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedBatchAfterShareRejections=value;}}});});
-  await login(page);await page.evaluate(()=>{window.testState.requests.push({id:'batch-copy-active',profession:'Eletricista',description:'DescriÃ§Ã£o ativa fora da cÃ³pia',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-25T07:00:00.000Z'});for(let index=0;index<12;index++)window.testState.requests.push({id:`batch-copy-retry-${index}`,profession:'Pintor',description:`DescriÃ§Ã£o privada fora da recuperaÃ§Ã£o ${index}`,status:'concluido',city:'Boa Vista',state:'RR',created_at:new Date(Date.UTC(2026,9,25,6,index)).toISOString()});});
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');await expect(page.locator('#requests .service')).toHaveCount(10);const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('#shareRequestSummaries').click();await expect(page.locator('#status')).toHaveText('Arquivo e texto recusados. 12 resumos seguros copiados.');
-  const result=await page.evaluate(()=>({attempts:window.batchRejectedShareAttempts,text:window.copiedBatchAfterShareRejections}));expect(result.attempts).toHaveLength(2);expect(result.attempts[0]).toMatchObject({hasFiles:true,text:'12 resumos seguros em arquivo de texto.'});expect(result.attempts[1].hasFiles).toBe(false);expect(result.text).toContain('Filtro: ConcluÃ­dos\nBusca aplicada: NÃ£o\nOrdenaÃ§Ã£o: Mais recentes\nQuantidade: 12');expect(result.text.match(/ServiÃ§o Certo/g)).toHaveLength(12);expect(result.text).toContain('CÃ³digo: batch-copy-retry-0');expect(result.text).toContain('CÃ³digo: batch-copy-retry-11');expect(result.text).not.toContain('batch-copy-active');expect(result.text).not.toContain('DescriÃ§Ã£o privada fora da recuperaÃ§Ã£o');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('batch summary sharing copies safe content when native sharing is unavailable',async({page})=>{
-  await page.addInitScript(()=>{Object.defineProperty(navigator,'share',{configurable:true,value:undefined});Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedSharedSummaries=value;}}});});
-  await login(page);await page.evaluate(()=>window.testState.requests.push({id:'share-copy-fallback',profession:'Pintor',description:'DescriÃ§Ã£o privada fora da cÃ³pia',status:'concluido',city:'Boa Vista',state:'RR',created_at:'2026-10-25T06:00:00.000Z'}));const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');const callsBeforeShare=await page.evaluate(()=>window.testState.calls.length);await page.locator('#shareRequestSummaries').click();await expect(page.locator('#status')).toHaveText('1 resumo seguro copiado porque o compartilhamento nÃ£o estÃ¡ disponÃ­vel.');const content=await page.evaluate(()=>window.copiedSharedSummaries);expect(content).toContain('CÃ³digo: share-copy-fallback');expect(content).not.toContain('DescriÃ§Ã£o privada fora da cÃ³pia');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeShare);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client downloads filtered services with readable dates as safe CSV',async({page})=>{
-  await page.addInitScript(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedRequestCodes=value;}}}));
-  await login(page);await page.evaluate(()=>{
-    window.testState.requests.push(
-      {id:'export-active',profession:'Eletricista',description:'ServiÃ§o ainda ativo',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-22T12:00:00.000Z'},
-      {id:'export-completed-one',profession:'Pintor',description:'=IMPORTXML("https://example.invalid")',status:'concluido',city:'Manaus',state:'AM',is_urgent:true,created_at:'2026-10-22T11:00:00.000Z'},
-      {id:'export-completed-two',profession:'Encanador',description:'Reparo concluÃ­do',status:'concluido',city:'Manaus',state:'AM',scheduled_for:'2026-10-23T15:00:00.000Z',created_at:'2026-10-22T10:00:00.000Z'}
-    );
-    window.testState.messages.push({id:'export-unread-message',request_id:'export-completed-one',sender_id:'provider-id',body:'Mensagem para acompanhamento',created_at:'2026-10-22T11:30:00.000Z'});
-    for(let index=0;index<10;index++)window.testState.requests.push({id:`export-extra-${index}`,profession:'Pintor',description:`Resultado adicional ${index}`,status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.UTC(2026,9,21,12,index)).toISOString()});
-  });
-  const original=await page.evaluate(()=>JSON.stringify({requests:window.testState.requests,messages:window.testState.messages}));
-  const localDates=await page.evaluate(()=>({scheduled:new Date('2026-10-23T15:00:00.000Z').toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}),createdOne:new Date('2026-10-22T11:00:00.000Z').toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}),createdTwo:new Date('2026-10-22T10:00:00.000Z').toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}));
-  await page.locator('#refresh').click();await page.locator('#requestFilter').selectOption('completed');
-  await expect(page.locator('#requests .service')).toHaveCount(10);
-  const callsBeforeCopy=await page.evaluate(()=>window.testState.calls.length);await page.locator('#copyRequestCodes').click();await expect(page.locator('#status')).toHaveText('12 cÃ³digos copiados da lista filtrada.');
-  const copiedCodes=await page.evaluate(()=>window.copiedRequestCodes.split('\n'));expect(copiedCodes).toEqual(['export-completed-one','export-completed-two',...Array.from({length:10},(_,index)=>`export-extra-${9-index}`)]);expect(copiedCodes).not.toContain('export-active');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeCopy);
-  const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#exportRequests').click()]);
-  const localDay=await page.evaluate(()=>{const now=new Date();return [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');}),defaultFilename=`servicos-concluidos-${localDay}.csv`;expect(download.suggestedFilename()).toBe(defaultFilename);await expect(page.locator('#status')).toHaveText(`Download preparado: 12 serviÃ§os em ${defaultFilename}.`);const stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);const csv=Buffer.concat(chunks).toString('utf8');
-  expect(csv.split('\r\n')).toHaveLength(13);expect(csv).toContain('\ufeff"CÃ³digo","ProfissÃ£o","SituaÃ§Ã£o","SituaÃ§Ã£o (cÃ³digo)","Meu papel","Mensagens novas","DescriÃ§Ã£o"');expect(csv).toContain('"HorÃ¡rio preferido","HorÃ¡rio preferido (ISO)","Solicitado em","Solicitado em (ISO)"');expect(csv).toContain(`"export-completed-one","Pintor","ConcluÃ­do","concluido","Cliente","1","'=IMPORTXML(""https://example.invalid"")","Manaus","AM","Sim","","","${localDates.createdOne}","2026-10-22T11:00:00.000Z"`);expect(csv).toContain(`"export-completed-two","Encanador","ConcluÃ­do","concluido","Cliente","0","Reparo concluÃ­do","Manaus","AM","NÃ£o","${localDates.scheduled}","2026-10-23T15:00:00.000Z","${localDates.createdTwo}","2026-10-22T10:00:00.000Z"`);expect(csv).toContain('"export-extra-9"');expect(csv).not.toContain('"export-active"');expect(csv).not.toContain('ServiÃ§o ainda ativo');
-  expect(csv.indexOf('"export-completed-one","Pintor","ConcluÃ­do","concluido","Cliente","1","\'=IMPORTXML')).toBeLessThan(csv.indexOf('"export-completed-two","Encanador","ConcluÃ­do","concluido","Cliente","0","Reparo concluÃ­do"'));
-  const [jsonDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#exportRequestsJson').click()]),jsonFilename=`servicos-concluidos-${localDay}.json`;expect(jsonDownload.suggestedFilename()).toBe(jsonFilename);await expect(page.locator('#status')).toHaveText(`JSON preparado: 12 serviÃ§os em ${jsonFilename}.`);const jsonStream=await jsonDownload.createReadStream(),jsonChunks=[];for await(const chunk of jsonStream)jsonChunks.push(chunk);const exported=JSON.parse(Buffer.concat(jsonChunks).toString('utf8'));
-  expect(exported).toMatchObject({version:1,context:{filter:'ConcluÃ­dos',search:'',sort:'Mais recentes',role:'Cliente'}});expect(exported.exportedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);expect(exported.services).toHaveLength(12);expect(exported.services.find(r=>r.id==='export-completed-one')).toMatchObject({status:'concluido',statusLabel:'ConcluÃ­do',role:'Cliente',unreadMessages:1,urgent:true});expect(exported.services.some(r=>r.id==='export-active')).toBe(false);
-  expect(await page.evaluate(()=>JSON.stringify({requests:window.testState.requests,messages:window.testState.messages}))).toBe(original);
-  await page.locator('#requestSort').selectOption('oldest');await page.locator('#requestSearch').fill('Reparo concluÃ­do');await page.locator('#searchRequests').click();await expect(page.locator('#requests .service')).toHaveCount(1);
-  const [searchedDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#exportRequests').click()]),searchedFilename=`servicos-concluidos-reparo-concluido-mais-antigos-${localDay}.csv`;expect(searchedDownload.suggestedFilename()).toBe(searchedFilename);await expect(page.locator('#status')).toHaveText(`Download preparado: 1 serviÃ§o em ${searchedFilename}.`);const searchedStream=await searchedDownload.createReadStream(),searchedChunks=[];for await(const chunk of searchedStream)searchedChunks.push(chunk);const searchedCsv=Buffer.concat(searchedChunks).toString('utf8');expect(searchedCsv.split('\r\n')).toHaveLength(2);expect(searchedCsv).toContain('"export-completed-two"');expect(searchedCsv).not.toContain('"export-completed-one"');expect(await page.evaluate(()=>JSON.stringify({requests:window.testState.requests,messages:window.testState.messages}))).toBe(original);
-  await page.locator('#requestSearch').fill('sem resultado');await page.locator('#searchRequests').click();await expect(page.locator('#copyRequestCodes')).toBeDisabled();await expect(page.locator('#previewRequestLinks')).toBeDisabled();await expect(page.locator('#copyRequestLinks')).toBeDisabled();await expect(page.locator('#downloadRequestLinks')).toBeDisabled();await expect(page.locator('#shareRequestLinks')).toBeDisabled();await expect(page.locator('#previewRequestSummaries')).toBeDisabled();await expect(page.locator('#copyRequestSummaries')).toBeDisabled();await expect(page.locator('#downloadRequestSummaries')).toBeDisabled();await expect(page.locator('#shareRequestSummaries')).toBeDisabled();await expect(page.locator('#exportRequests')).toBeDisabled();await expect(page.locator('#exportRequestsJson')).toBeDisabled();
-});
-
-test('provider export identifies their role without changing the service',async({page})=>{
-  await page.addInitScript(()=>{window.testRole='prestador';Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedRequestCodes=value;}}});});await login(page);await page.evaluate(()=>window.testState.requests.push({id:'provider-export',client_id:'client-id',provider_id:'10000000-0000-4000-8000-000000000001',profession:'Eletricista',description:'InstalaÃ§Ã£o atendida pelo profissional',status:'aceito',city:'Manaus',state:'AM',created_at:'2026-10-22T12:00:00.000Z'}));
-  const original=await page.evaluate(()=>JSON.stringify(window.testState.requests));await page.locator('#refresh').click();
-  const callsBeforeCopy=await page.evaluate(()=>window.testState.calls.length);await page.locator('#copyRequestCodes').click();await expect(page.locator('#status')).toHaveText('1 cÃ³digo copiado da lista filtrada.');expect(await page.evaluate(()=>window.copiedRequestCodes)).toBe('provider-export');expect(await page.evaluate(()=>window.testState.calls.length)).toBe(callsBeforeCopy);
-  const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#exportRequests').click()]),stream=await download.createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);const csv=Buffer.concat(chunks).toString('utf8');
-  expect(csv).toContain('"CÃ³digo","ProfissÃ£o","SituaÃ§Ã£o","SituaÃ§Ã£o (cÃ³digo)","Meu papel","Mensagens novas"');expect(csv).toContain('"provider-export","Eletricista","Profissional aceitou","aceito","Prestador","0"');
-  const [jsonDownload]=await Promise.all([page.waitForEvent('download'),page.locator('#exportRequestsJson').click()]),jsonStream=await jsonDownload.createReadStream(),jsonChunks=[];for await(const chunk of jsonStream)jsonChunks.push(chunk);const exported=JSON.parse(Buffer.concat(jsonChunks).toString('utf8'));expect(exported.context.role).toBe('Prestador');expect(exported.services).toEqual([expect.objectContaining({id:'provider-export',status:'aceito',statusLabel:'Profissional aceitou',role:'Prestador'})]);expect(await page.evaluate(()=>JSON.stringify(window.testState.requests))).toBe(original);
-});
-
-test('client loads every authorized service in deterministic batches',async({page})=>{
-  await login(page);await page.evaluate(()=>{
-    for(let index=0;index<205;index++)window.testState.requests.push({id:`batch-${String(index).padStart(3,'0')}`,profession:'Eletricista',description:`ServiÃ§o autorizado ${index}`,status:'concluido',city:'Manaus',state:'AM',created_at:new Date(Date.UTC(2026,9,22,12)-index*60000).toISOString()});
-  });
-  await page.locator('#refresh').click();await expect(page.locator('#requests .service')).toHaveCount(10);await expect(page.locator('#requestSummary')).toContainText('Exibindo 10 de 205 correspondentes');
-  const ranges=await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='service_requests'&&call.operation==='select'&&call.range).slice(-3).map(call=>call.range));
-  expect(ranges).toEqual([[0,99],[100,199],[200,299]]);await expect(page.locator('#requestMore')).toHaveText('Mostrar mais (195 restantes)');
-});
-
-test('client cancels an open request with an audited reason and no fee claim',async({page})=>{
-  await login(page);
-  await page.evaluate(()=>window.testState.requests.push({id:'client-cancellation',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido que nÃ£o Ã© mais necessÃ¡rio',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
-  await page.locator('#refresh').click();await page.getByRole('button',{name:'Cancelar pedido'}).click();await expect(page.locator('#cancellationPanel')).toBeVisible();
-  await page.locator('#cancellationReason').fill('O serviÃ§o nÃ£o serÃ¡ mais necessÃ¡rio');await page.locator('#confirmCancellation').click();
-  await expect(page.locator('#status')).toContainText('Nenhuma taxa foi cobrada');await expect(page.locator('#requests')).toContainText('Cancelado');
-  expect(await page.evaluate(()=>({request:window.testState.requests[0].status,audit:window.testState.cancellations[0]}))).toMatchObject({request:'cancelado',audit:{actor_role:'cliente',reason:'O serviÃ§o nÃ£o serÃ¡ mais necessÃ¡rio',outcome:'cancelado_cliente',fee_status:'nao_avaliada'}});
-});
-
-test('provider cancellation creates a new open request for another professional',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);
-  await page.evaluate(()=>window.testState.requests.push({id:'provider-cancellation',client_id:'client-id',provider_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido a ser reencaminhado',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
-  await page.locator('#refresh').click();await page.getByRole('button',{name:'Cancelar e reencaminhar'}).click();await page.locator('#cancellationReason').fill('Tive um imprevisto antes do inÃ­cio');await page.locator('#confirmCancellation').click();
-  await expect(page.locator('#status')).toContainText('novo chamado criado');
-  expect(await page.evaluate(()=>window.testState.requests.map(r=>({id:r.id,status:r.status,provider_id:r.provider_id,replaces_request_id:r.replaces_request_id})))).toEqual([
-    {id:'provider-cancellation',status:'cancelado',provider_id:'10000000-0000-4000-8000-000000000001',replaces_request_id:undefined},
-    expect.objectContaining({status:'aberto',provider_id:null,replaces_request_id:'provider-cancellation'})
-  ]);
-});
-
-async function seedAcceptedService(page){
-  await page.evaluate(()=>window.testState.requests.push({id:'accepted-service',profession:'Pintor',description:'Pintar sala com escopo definido',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
-  await page.locator('#refresh').click();await page.getByRole('button',{name:'Abrir conversa'}).click();
-}
-test('provider submits exact cents and cannot see client decision controls',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedAcceptedService(page);
-  await page.locator('#quoteAmount').fill('0,29');await page.locator('#quoteDescription').fill('Pintar sala em dois dias, material incluso');await page.locator('#sendQuote').click();
-  await expect(page.locator('#quotes')).toContainText('0,29');await expect(page.getByRole('button',{name:'Aceitar orÃ§amento'})).toHaveCount(0);
-  expect(await page.evaluate(()=>window.testState.quotes[0].amount_cents)).toBe(29);
-  await page.locator('#quoteAmount').fill('1,001');await page.locator('#quoteDescription').fill('Proposta invÃ¡lida');await page.locator('#sendQuote').click();await expect(page.locator('#status')).toContainText('atÃ© duas casas');expect(await page.evaluate(()=>window.testState.quotes.length)).toBe(1);
-});
-test('client rejects one proposal then accepts another and sees immutable history',async({page})=>{
-  await login(page);await seedAcceptedService(page);
-  await page.evaluate(()=>window.testState.quotes.push(...['q1','q2'].map((id,i)=>({id,request_id:'accepted-service',provider_id:'provider-id',amount_cents:20000+i*5000,description:i?'Pintura completa em dois dias':'<img src=x onerror="window.quoteInjected=true"> Proposta inicial',status:'proposta',created_at:new Date().toISOString()}))));
-  await page.locator('#refresh').click();await expect(page.locator('#quotes')).toContainText('200,00');await expect(page.locator('#quotes img')).toHaveCount(0);
-  await page.locator('[data-quote="q1"]').getByRole('button',{name:'Recusar orÃ§amento'}).click();await expect(page.locator('[data-quote="q1"]')).toContainText('Recusado pelo cliente');
-  await page.locator('[data-quote="q2"]').getByRole('button',{name:'Aceitar orÃ§amento'}).click();await expect(page.locator('[data-quote="q2"]')).toContainText('Aceito pelo cliente');await expect(page.getByRole('button',{name:'Aceitar orÃ§amento'})).toHaveCount(0);await expect(page.locator('#quoteForm')).toBeHidden();await expect(page.locator('#status')).toContainText('Ainda nÃ£o houve pagamento');
-  expect(await page.evaluate(()=>window.testState.decisions.map(d=>({quote_id:d.quote_id,request_id:d.request_id,decision:d.decision})))).toEqual([{quote_id:'q1',request_id:'accepted-service',decision:'recusada'},{quote_id:'q2',request_id:'accepted-service',decision:'aceita'}]);
-  await page.locator('#logout').click();await expect(page.locator('#quotes')).toBeEmpty();
-});
-
-async function seedContractContext(page,{provider=false,contract=false,refused=false}={}) {
-  await page.evaluate(({provider,contract,refused})=>{
-    const me='10000000-0000-4000-8000-000000000001',client_id=provider?'client-id':me,provider_id=provider?me:'provider-id';
-    const r={id:'contract-service',client_id,provider_id,profession:'Pintor',description:'Pintura da sala',status:'aceito',city:'Manaus',state:'AM'};
-    window.testState.requests.push(r);
-    window.testState.quotes.push({id:'contract-quote',request_id:r.id,provider_id,amount_cents:5000,description:'Pintura da sala em dois dias',status:'proposta'});
-    window.testState.decisions.push({quote_id:'contract-quote',request_id:r.id,decision:'aceita'});
-    if(contract) {
-      const doc={version:1,scope:'Pintura da sala em dois dias',amount_cents:5000,client:{id:client_id,name:'Cliente de teste'},provider:{id:provider_id,name:'Prestador de teste'},starts_at:new Date(Date.now()+86400000).toISOString(),ends_at:new Date(Date.now()+172800000).toISOString(),responsibilities:'Cliente fornece acesso; prestador fornece material e executa a pintura.',stages:[{title:'Entrega completa',amount_cents:5000,due_description:'ApÃ³s conclusÃ£o'}]};
-      window.testState.contracts.push({id:'contract-1',request_id:r.id,quote_id:'contract-quote',client_id,provider_id,version:1,document:doc,content_hash:'a'.repeat(64)});
-      window.testState.contractDecisions.push({contract_id:'contract-1',actor_id:provider_id,decision:'aceito',created_at:new Date().toISOString()});
-      if(refused){
-        window.testState.contractDecisions.push({contract_id:'contract-1',actor_id:client_id,decision:'recusado',created_at:new Date().toISOString()});
-        window.testState.contracts.push({id:'contract-2',request_id:r.id,quote_id:'contract-quote',client_id,provider_id,version:2,document:{...doc,version:2,responsibilities:'Nova versÃ£o: cliente fornece acesso; prestador executa a pintura.'},content_hash:'b'.repeat(64)});
-      }
-    }
-  },{provider,contract,refused});
-  await page.locator('#refresh').click();await page.getByRole('button',{name:'Abrir conversa'}).click();await expect(page.locator('#contractSection')).toBeVisible();
-}
-test('provider proposes a contract with validated stage total and snapshot',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true});
-  await page.locator('#contractStarts').fill(new Date(Date.now()+86400000).toISOString().slice(0,16));await page.locator('#contractEnds').fill(new Date(Date.now()+172800000).toISOString().slice(0,16));await page.locator('#contractResponsibilities').fill('Cliente fornece acesso; prestador fornece material e executa a pintura.');
-  await page.locator('[data-stage="amount"]').fill('49,99');await page.locator('#proposeContract').click();await expect(page.locator('#status')).toContainText('soma das etapas');expect(await page.evaluate(()=>window.testState.contracts.length)).toBe(0);
-  await page.locator('[data-stage="amount"]').fill('50,00');await page.locator('#proposeContract').click();await expect(page.locator('#contracts')).toContainText('Acordo â€” versÃ£o 1');await expect(page.locator('#contracts')).toContainText('R$ 50,00');await expect(page.locator('#contractForm')).toBeHidden();
-  expect(await page.evaluate(()=>window.testState.contracts[0].document.stages[0].amount_cents)).toBe(5000);
-});
-test('client explicitly accepts exact contract version, separately from provider',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true});const accept=page.getByRole('button',{name:'Aceitar esta versÃ£o'});await expect(accept).toBeDisabled();await page.getByRole('checkbox',{name:'Li esta versÃ£o e concordo'}).check();await accept.click();await expect(page.locator('#contracts')).toContainText('aceito por ambas as partes');await expect(page.getByRole('button',{name:'Aceitar esta versÃ£o'})).toHaveCount(0);
-  const call=await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='decide_service_contract'));expect(call.args).toEqual({p_contract_id:'contract-1',p_content_hash:'a'.repeat(64),p_decision:'aceito'});
-  await page.locator('#logout').click();await expect(page.locator('#contracts')).toBeEmpty();
-});
-test('bilaterally accepted agreement downloads a verifiable receipt',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true});
-  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:'2026-10-19T12:01:00Z'});});
-  await page.locator('#refresh').click();
-  const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Baixar comprovante do acordo'}).click();const download=await downloadPromise;
-  expect(download.suggestedFilename()).toBe('acordo-contract-service-v1.json');
-  const receipt=JSON.parse(await readFile(await download.path(),'utf8'));
-  expect(receipt).toMatchObject({receipt_type:'servico_certo_agreement_acceptance',agreement:{id:'contract-1',request_id:'contract-service',version:1,content_hash:'a'.repeat(64)}});
-  expect(receipt.acceptances.map(x=>x.actor_id)).toEqual(['10000000-0000-4000-8000-000000000001','provider-id']);
-  expect(receipt.notice).toContain('NÃ£o Ã© assinatura digital certificada');
-  await expect(page.locator('#status')).toContainText('Guarde o arquivo em local seguro');
-});
-test('a revised contract requires fresh acceptance and preserves refused version',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true,refused:true});await expect(page.locator('[data-contract="contract-1"]')).toContainText('Esta versÃ£o foi recusada');await expect(page.locator('[data-contract="contract-1"] button')).toHaveCount(0);
-  await expect(page.locator('[data-contract="contract-2"]')).toContainText('Cliente: aguardando decisÃ£o');await expect(page.getByRole('button',{name:'Aceitar esta versÃ£o'})).toBeDisabled();await page.getByRole('button',{name:'Recusar esta versÃ£o'}).click();await expect(page.locator('[data-contract="contract-2"]')).toContainText('Esta versÃ£o foi recusada');expect(await page.evaluate(()=>window.testState.contractDecisions.filter(d=>d.contract_id==='contract-1').length)).toBe(2);
-});
-
-test('provider starts a bilaterally accepted service and requests completion',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
-  await page.evaluate(()=>{const c=window.testState.contracts[0];window.testState.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await expect(page.getByRole('button',{name:'Iniciar serviÃ§o'})).toHaveCount(0);
-  await page.getByRole('button',{name:'Estou a caminho'}).click();await expect(page.getByRole('button',{name:'Iniciar serviÃ§o'})).toHaveCount(0);
-  await page.getByRole('button',{name:'Cheguei ao local'}).click();await expect(page.locator('#execution')).toContainText('Aguardando confirmaÃ§Ã£o do cliente');await expect(page.getByRole('button',{name:'Iniciar serviÃ§o'})).toHaveCount(0);
-  await page.evaluate(()=>{const s=window.testState,r=s.requests[0];s.executionEvents.push({request_id:r.id,actor_id:r.client_id,event_type:'chegada_confirmada_cliente',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await page.getByRole('button',{name:'Iniciar serviÃ§o'}).click();await expect(page.locator('#execution')).toContainText('ServiÃ§o em andamento');
-  await page.getByRole('button',{name:'Solicitar confirmaÃ§Ã£o de conclusÃ£o'}).click();await expect(page.locator('#execution')).toContainText('Aguardando confirmaÃ§Ã£o do cliente');
-  expect(await page.evaluate(()=>window.testState.executionEvents.map(e=>e.event_type))).toEqual(['a_caminho','chegou_local','chegada_confirmada_cliente','iniciado','conclusao_solicitada']);
-});
-test('provider registers increasing progress visible in the execution timeline',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
-  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0],r=s.requests[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await page.getByLabel('Andamento do serviÃ§o').selectOption('25');await page.getByLabel('Resumo do andamento').fill('PreparaÃ§Ã£o e proteÃ§Ã£o do ambiente concluÃ­das.');await page.getByRole('button',{name:'Registrar andamento'}).click();
-  await expect(page.locator('#execution')).toContainText('25% â€” PreparaÃ§Ã£o e proteÃ§Ã£o do ambiente concluÃ­das.');await expect(page.getByLabel('Andamento do serviÃ§o')).not.toHaveValue('25');
-  await page.getByLabel('Andamento do serviÃ§o').selectOption('50');await page.getByLabel('Resumo do andamento').fill('Primeira etapa da pintura concluÃ­da.');await page.getByRole('button',{name:'Registrar andamento'}).click();
-  expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='add_service_progress_update').map(c=>c.args))).toEqual([
-    {p_request_id:'contract-service',p_progress_percent:25,p_note:'PreparaÃ§Ã£o e proteÃ§Ã£o do ambiente concluÃ­das.'},
-    {p_request_id:'contract-service',p_progress_percent:50,p_note:'Primeira etapa da pintura concluÃ­da.'}
-  ]);
-});
-test('client sees provider progress without receiving progress controls',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true});
-  await page.evaluate(()=>{const s=window.testState,r=s.requests[0];r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()});s.progressUpdates.push({request_id:r.id,provider_id:r.provider_id,progress_percent:50,note:'Primeira etapa da pintura concluÃ­da.',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await expect(page.locator('#execution')).toContainText('50% â€” Primeira etapa da pintura concluÃ­da.');await expect(page.getByLabel('Andamento do serviÃ§o')).toHaveCount(0);await expect(page.getByRole('button',{name:'Registrar andamento'})).toHaveCount(0);
-});
-test('provider proposes a reschedule before starting the journey',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
-  const proposed=new Date(Date.now()+172800000);await page.getByLabel('Nova data proposta').fill(proposed.toISOString().slice(0,16));await page.getByLabel('Motivo do reagendamento').fill('Indisponibilidade no horÃ¡rio inicialmente combinado.');await page.getByRole('button',{name:'Propor reagendamento'}).click();
-  await expect(page.locator('#execution')).toContainText('aguardando decisÃ£o da outra parte');await expect(page.getByLabel('Nova data proposta')).toHaveCount(0);
-  expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='propose_service_reschedule').args)).toMatchObject({p_request_id:'contract-service',p_reason:'Indisponibilidade no horÃ¡rio inicialmente combinado.'});
-});
-test('client accepts a provider proposed date and updates the schedule',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true});const proposed=new Date(Date.now()+172800000).toISOString();
-  await page.evaluate(proposed=>{const s=window.testState,r=s.requests[0];s.scheduleChanges.push({id:'schedule-1',request_id:r.id,provider_id:r.provider_id,proposed_by:r.provider_id,proposed_for:proposed,reason:'Indisponibilidade no horÃ¡rio inicialmente combinado.',status:'pendente',created_at:new Date().toISOString(),decided_at:null});},proposed);
-  await page.locator('#refresh').click();await expect(page.getByLabel('Nova data proposta')).toHaveCount(0);await page.getByRole('button',{name:'Aceitar nova data'}).click();await expect(page.locator('#execution')).toContainText('aceito pela outra parte');
-  expect(await page.evaluate(()=>({date:window.testState.requests[0].scheduled_for,call:window.testState.calls.find(c=>c.rpc==='decide_service_reschedule').args}))).toEqual({date:proposed,call:{p_change_id:'schedule-1',p_decision:'aceito'}});
-});
-test('client proposes a reschedule and waits for the provider decision',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true});const proposed=new Date(Date.now()+259200000);
-  await page.getByLabel('Nova data proposta').fill(proposed.toISOString().slice(0,16));await page.getByLabel('Motivo do reagendamento').fill('Preciso ajustar a data para receber o prestador no local.');await page.getByRole('button',{name:'Propor reagendamento'}).click();
-  await expect(page.locator('#execution')).toContainText('proposto por vocÃª');await expect(page.locator('#execution')).toContainText('aguardando decisÃ£o da outra parte');await expect(page.getByRole('button',{name:'Aceitar nova data'})).toHaveCount(0);
-  expect(await page.evaluate(()=>window.testState.scheduleChanges[0])).toMatchObject({proposed_by:'10000000-0000-4000-8000-000000000001',reason:'Preciso ajustar a data para receber o prestador no local.',status:'pendente'});
-});
-test('proposer withdraws a pending reschedule and releases the journey',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
-  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await expect(page.getByRole('button',{name:'Estou a caminho'})).toBeVisible();
-  const proposed=new Date(Date.now()+259200000);await page.getByLabel('Nova data proposta').fill(proposed.toISOString().slice(0,16));await page.getByLabel('Motivo do reagendamento').fill('Preciso retirar esta proposta se a disponibilidade mudar.');await page.getByRole('button',{name:'Propor reagendamento'}).click();
-  await expect(page.getByRole('button',{name:'Estou a caminho'})).toHaveCount(0);await page.getByRole('button',{name:'Retirar proposta'}).click();
-  await expect(page.locator('#execution')).toContainText('retirado por vocÃª');await expect(page.getByRole('button',{name:'Estou a caminho'})).toBeVisible();
-  const result=await page.evaluate(()=>({change:window.testState.scheduleChanges[0],call:window.testState.calls.find(c=>c.rpc==='cancel_service_reschedule').args}));
-  expect(result.change).toMatchObject({status:'cancelado',decided_by:'10000000-0000-4000-8000-000000000001'});expect(result.call).toEqual({p_change_id:result.change.id});
-});
-test('provider decides a client proposal before starting the journey',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});const proposed=new Date(Date.now()+259200000).toISOString();
-  await page.evaluate(proposed=>{const s=window.testState,c=s.contracts[0],r=s.requests[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});s.scheduleChanges.push({id:'schedule-client',request_id:r.id,provider_id:r.provider_id,proposed_by:r.client_id,proposed_for:proposed,reason:'Cliente precisa ajustar a data para receber o prestador.',status:'pendente',created_at:new Date().toISOString(),decided_at:null});},proposed);
-  await page.locator('#refresh').click();await expect(page.getByRole('button',{name:'Estou a caminho'})).toHaveCount(0);await page.getByRole('button',{name:'Aceitar nova data'}).click();await expect(page.locator('#execution')).toContainText('aceito pela outra parte');await expect(page.getByRole('button',{name:'Estou a caminho'})).toBeVisible();
-  expect(await page.evaluate(()=>window.testState.requests[0].scheduled_for)).toBe(proposed);
-});
-test('provider reports ordered on-the-way and arrival statuses to the client',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
-  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await page.getByRole('button',{name:'Estou a caminho'}).click();await expect(page.locator('#execution')).toContainText('Prestador estÃ¡ a caminho');
-  await page.getByRole('button',{name:'Cheguei ao local'}).click();await expect(page.locator('#execution')).toContainText('Aguardando confirmaÃ§Ã£o do cliente');
-  expect(await page.evaluate(()=>window.testState.executionEvents.map(e=>e.event_type))).toEqual(['a_caminho','chegou_local']);
-  const calls=await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='mark_provider_arrival').map(c=>c.args));
-  expect(calls).toEqual([{p_request_id:'contract-service',p_event:'a_caminho'},{p_request_id:'contract-service',p_event:'chegou_local'}]);
-});
-test('provider updates a manual arrival estimate only while on the way',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
-  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await expect(page.getByLabel('PrevisÃ£o de chegada')).toHaveCount(0);await page.getByRole('button',{name:'Estou a caminho'}).click();
-  await page.getByLabel('PrevisÃ£o de chegada').selectOption('30');await page.getByRole('button',{name:'Informar previsÃ£o'}).click();await expect(page.locator('#execution')).toContainText('PrevisÃ£o informada:');
-  await page.getByLabel('PrevisÃ£o de chegada').selectOption('45');await page.getByRole('button',{name:'Atualizar previsÃ£o'}).click();
-  expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_provider_eta').map(c=>c.args))).toEqual([{p_request_id:'contract-service',p_minutes:30},{p_request_id:'contract-service',p_minutes:45}]);
-  expect(await page.evaluate(()=>window.testState.arrivalEstimates)).toHaveLength(1);
-});
-test('client confirms provider arrival without receiving provider controls',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true});
-  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0],r=s.requests[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'a_caminho',created_at:new Date().toISOString()},{request_id:r.id,actor_id:r.provider_id,event_type:'chegou_local',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await expect(page.locator('#execution')).toContainText('Confirme somente se ele estiver no local');
-  await expect(page.getByRole('button',{name:'Estou a caminho'})).toHaveCount(0);await expect(page.getByRole('button',{name:'Cheguei ao local'})).toHaveCount(0);
-  await expect(page.getByRole('button',{name:'Iniciar serviÃ§o'})).toHaveCount(0);await page.getByRole('button',{name:'Confirmar chegada do prestador'}).click();
-  await expect(page.locator('#execution')).toContainText('Cliente confirmou a chegada');
-  expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='confirm_provider_arrival').args)).toEqual({p_request_id:'contract-service'});
-});
-test('client sees the manual ETA without provider controls',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true});
-  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0],r=s.requests[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'a_caminho',created_at:new Date().toISOString()});s.arrivalEstimates.push({request_id:r.id,provider_id:r.provider_id,estimated_arrival_at:new Date(Date.now()+1800000).toISOString(),updated_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await expect(page.locator('#execution')).toContainText('PrevisÃ£o informada:');await expect(page.getByLabel('PrevisÃ£o de chegada')).toHaveCount(0);await expect(page.getByRole('button',{name:/previsÃ£o/i})).toHaveCount(0);
-});
-
-test('client requests one adjustment before confirming completion',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true});
-  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(x=>x.id==='contract-service');r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()},{request_id:r.id,actor_id:r.provider_id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await page.getByLabel('Ajuste necessÃ¡rio antes da conclusÃ£o').fill('Corrigir o acabamento prÃ³ximo Ã  janela antes da confirmaÃ§Ã£o.');await page.getByRole('button',{name:'Solicitar ajuste'}).click();
-  await expect(page.locator('#execution')).toContainText('Cliente solicitou um ajuste');await expect(page.getByRole('button',{name:'Confirmar serviÃ§o concluÃ­do'})).toHaveCount(0);
-  expect(await page.evaluate(()=>window.testState.completionAdjustments[0])).toMatchObject({request_id:'contract-service',description:'Corrigir o acabamento prÃ³ximo Ã  janela antes da confirmaÃ§Ã£o.',status:'pendente'});
-});
-
-test('provider records the requested adjustment for client review',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
-  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(x=>x.id==='contract-service');r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()},{request_id:r.id,actor_id:r.provider_id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});s.completionAdjustments.push({id:'adjustment-1',request_id:r.id,client_id:r.client_id,provider_id:r.provider_id,description:'Corrigir o acabamento prÃ³ximo Ã  janela antes da confirmaÃ§Ã£o.',status:'pendente',provider_response:null,created_at:new Date().toISOString(),responded_at:null});});
-  await page.locator('#refresh').click();await page.getByLabel('Como o ajuste foi atendido').fill('Acabamento corrigido e revisado com o cliente no local.');await page.getByRole('button',{name:'Registrar ajuste realizado'}).click();
-  await expect(page.locator('#execution')).toContainText('Prestador respondeu ao ajuste');await expect(page.locator('#execution')).toContainText('Acabamento corrigido');
-  expect(await page.evaluate(()=>window.testState.completionAdjustments[0])).toMatchObject({status:'respondido',provider_response:'Acabamento corrigido e revisado com o cliente no local.'});
-});
-
-test('client confirms completion and submits one immutable rating without payment claim',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true});
-  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0],r=s.requests.find(r=>r.id==='contract-service');s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()},{request_id:r.id,actor_id:r.provider_id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await page.getByRole('button',{name:'Confirmar serviÃ§o concluÃ­do'}).click();await expect(page.locator('#execution')).toContainText('Nenhum pagamento ou repasse');
-  await page.locator('#ratingScore').selectOption('5');await page.locator('#ratingComment').fill('ServiÃ§o bem executado');await page.locator('#saveRating').click();await expect(page.locator('#ratings')).toContainText('5/5');await expect(page.locator('#ratingForm')).toBeHidden();
-  expect(await page.evaluate(()=>window.testState.ratings.map(r=>({score:r.score,comment:r.comment})))).toEqual([{score:5,comment:'ServiÃ§o bem executado'}]);
-});
-
-test('provider proposes an exact-cent service extra without creating a charge',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
-  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(r=>r.id==='contract-service');r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()});});
-  await page.locator('#refresh').click();await page.locator('#extraAmount').fill('25,50');await page.locator('#extraDescription').fill('Pintura adicional da parede externa');await page.locator('#proposeExtra').click();
-  await expect(page.locator('#status')).toContainText('Nenhuma cobranÃ§a foi criada');await expect(page.locator('#extras')).toContainText('R$ 25,50');await expect(page.locator('#extraForm')).toBeHidden();
-  expect(await page.evaluate(()=>window.testState.extras.map(x=>({amount_cents:x.amount_cents,description:x.description,status:x.status})))).toEqual([{amount_cents:2550,description:'Pintura adicional da parede externa',status:'proposto'}]);
-});
-
-test('client accepts a pending extra explicitly and keeps the decision visible',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true});
-  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(r=>r.id==='contract-service');r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()});s.extras.push({id:'extra-pending',request_id:r.id,provider_id:r.provider_id,description:'InstalaÃ§Ã£o adicional de acabamento',amount_cents:3000,status:'proposto',decided_by:null,created_at:new Date().toISOString(),decided_at:null});});
-  await page.locator('#refresh').click();await page.getByRole('button',{name:'Aceitar serviÃ§o extra'}).click();await expect(page.locator('#status')).toContainText('nÃ£o realizou cobranÃ§a');await expect(page.locator('[data-extra="extra-pending"]')).toContainText('Aceito pelo cliente');await expect(page.getByRole('button',{name:'Recusar serviÃ§o extra'})).toHaveCount(0);
-  expect(await page.evaluate(()=>window.testState.extras[0].status)).toBe('aceito');
-});
-
-test('client opens a categorized dispute without implying a decision or charge',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true});
-  await page.evaluate(()=>{const r=window.testState.requests.find(r=>r.id==='contract-service');r.status='em_andamento';});
-  await page.locator('#refresh').click();await page.locator('#disputeCategory').selectOption('qualidade');await page.locator('#disputeDescription').fill('O acabamento ficou diferente do escopo combinado.');await page.locator('#openDispute').click();
-  await expect(page.locator('#status')).toContainText('Nenhuma decisÃ£o ou cobranÃ§a');await expect(page.locator('#disputes')).toContainText('Qualidade');await expect(page.locator('#disputes')).toContainText('Aguardando manifestaÃ§Ã£o');await expect(page.locator('#disputeForm')).toBeHidden();
-  expect(await page.evaluate(()=>window.testState.disputes.map(d=>({category:d.category,description:d.description,status:d.status})))).toEqual([{category:'qualidade',description:'O acabamento ficou diferente do escopo combinado.',status:'aberta'}]);
-});
-
-test('other participant answers a dispute once and sees pending administrative analysis',async({page})=>{
-  await login(page);await seedContractContext(page,{contract:true});
-  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(r=>r.id==='contract-service');r.status='em_andamento';s.disputes.push({id:'dispute-open',request_id:r.id,opened_by:r.provider_id,category:'prazo',description:'O prazo precisa ser revisto pelas partes envolvidas.',status:'aberta',response_by:null,response_body:null,created_at:new Date().toISOString(),responded_at:null});});
-  await page.locator('#refresh').click();await page.locator('#disputeResponse').fill('O cliente informa que manteve o acesso na data combinada.');await page.locator('#respondDispute').click();
-  await expect(page.locator('#status')).toContainText('depende de anÃ¡lise administrativa');await expect(page.locator('[data-dispute="dispute-open"]')).toContainText('O cliente informa');await expect(page.locator('[data-dispute="dispute-open"]')).toContainText('ainda nÃ£o hÃ¡ decisÃ£o administrativa');await expect(page.locator('#disputeResponseForm')).toBeHidden();
-  expect(await page.evaluate(()=>window.testState.disputes[0].status)).toBe('respondida');
-});
-
-test('provider proposes a pre-quote inspection without creating a charge',async({page})=>{
-  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedAcceptedService(page);
-  const future=new Date(Date.now()+172800000).toISOString().slice(0,16);
-  await page.locator('#inspectionPurpose').fill('Avaliar a estrutura antes de elaborar o orÃ§amento completo.');await page.locator('#inspectionScheduled').fill(future);await page.locator('#inspectionFee').fill('75,00');await page.locator('#proposeInspection').click();
-  await expect(page.locator('#status')).toContainText('Nenhuma cobranÃ§a ou confirmaÃ§Ã£o');await expect(page.locator('#inspections')).toContainText('R$ 75,00');await expect(page.locator('#inspections')).toContainText('Aguardando decisÃ£o');await expect(page.locator('#inspectionForm')).toBeHidden();
-  expect(await page.evaluate(()=>window.testState.inspections.map(i=>({fee_cents:i.fee_cents,purpose:i.purpose,status:i.status})))).toEqual([{fee_cents:7500,purpose:'Avaliar a estrutura antes de elaborar o orÃ§amento completo.',status:'proposta'}]);
-});
-
-test('client accepts inspection proposal as pending payment, not confirmed appointment',async({page})=>{
-  await login(page);await seedAcceptedService(page);
-  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(r=>r.id==='accepted-service');s.inspections.push({id:'inspection-pending',request_id:r.id,provider_id:r.provider_id,purpose:'Avaliar o local antes de elaborar o orÃ§amento completo.',scheduled_for:new Date(Date.now()+172800000).toISOString(),fee_cents:7500,status:'proposta',decided_by:null,created_at:new Date().toISOString(),decided_at:null});});
-  await page.locator('#refresh').click();await page.getByRole('button',{name:'Aceitar proposta de vistoria'}).click();await expect(page.locator('#status')).toContainText('sÃ³ serÃ¡ confirmada apÃ³s integraÃ§Ã£o de pagamento em sandbox');await expect(page.locator('[data-inspection="inspection-pending"]')).toContainText('pagamento e confirmaÃ§Ã£o ainda pendentes');await expect(page.getByRole('button',{name:'Recusar proposta de vistoria'})).toHaveCount(0);
-  expect(await page.evaluate(()=>window.testState.inspections[0].status)).toBe('aceita_pendente_pagamento');
-});
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éí×^vçÔèµ©hºÚn¶X§zÍZ[\ÜÈ\Ý^XÝHœ›ÛH	Ð^]ÜšYÚÝ\Ý	ÎÂš[\ÜÈ™XYš[HHœ›ÛH	Û›ÙN™œËÜ›ÛZ\Ù\ÉÎÂ˜ÛÛœÝ[ØÚÏX]ØZ]™XYš[J™]ÈT“
+	Ë‹Û[ØÚË\Ý\X˜\ÙKšœÉË[\Ü›Y]K\›
+K	Ý]Ž	ÊNÂ\Ý˜™Y›Ü™QXXÚ
+\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙKœ›Ý]J	ÚÎ‹ËØÙ‹šœÙ[]œ‹›™]ÛœKÐÝ\X˜\ÙKÜÝ\X˜\ÙKZœÐ‹ŒLNŒÊÙ\ÛIË›Ý]OOœ›Ý]K™[š[
+ØÛÛ[\N‰Ý^Ú˜]˜\ØÜš\	Ë›ÙN›[ØÚßJJNÂŸJNÂ˜\Þ[˜È[˜Ý[ÛˆÙÚ[ŠYÙJ^Ø]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý˜[Y\ÜÌLŒÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™Uš\ÚX›J
+NßB‚\Ý
+	ÛÙÚ[ˆ\œ›ÜœÈÈ›ÝÜ[ˆÛÜšÜÜXÙIË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	ÝÜ›Û™Ü\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÑK[XZ[ÝHÙ[šH[˜ÛÜœ™]ÜË‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÂŸJNÂ\Ý
+	ÜÙ\™\ˆ˜[Y][Ûˆ˜Z[\™\ÈÙY\XØÙ\ÜÈ›Ü›\È™XYH›ÜˆÛÜœ™XÝ[Û‰Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏ]˜[Y][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ú[˜[Y[ÙÚ[‹Y]IÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÐÛÛ™š\˜HÜÈYÜÈ[™›Ü›XYÜÈH[H›Ý˜[Y[K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	ÛÙÚ[‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	Ý˜[Y][Û‹\Ù\šXÙIÊNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊK™š[
+	Ô\ÜÛØHH\ÝIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊKœÙ[XÝÜ[ÛŠ	Ü™\ÝYÜ‰ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ØØY\Ý›Ð^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ú[˜[Y\ÚYÛ\Y]IÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™š[
+	Ú[˜[Y\ÚYÛ\Y]IÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÐÛÛ™š\˜HÜÈYÜÈ[™›Ü›XYÜÈH[H›Ý˜[Y[K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	ÜÚYÛ\	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊJKÒ]™U˜[YJ	Ô\ÜÛØHH\ÝIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊJKÒ]™U˜[YJ	Ü™\ÝYÜ‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	ØØY\Ý›Ð^[\Kš[˜[Y	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	ÜÚYÛ\	×JNÂŸJNÂ\Ý
+	ÛZ\ÜÚ[™È\Ù\ˆÙÚ[ˆ\È[™\Ý[™ÝZ\ÚX›Hœ›ÛH[˜[YÜ™Y[X[ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏ[Z\ÜÚ[™Ë]\Ù\‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Û˜[ËXØY\Ý˜YÐ^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	ÛZ\ÜÚ[™Ë]\Ù\‹\\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÑK[XZ[ÝHÙ[šH[˜ÛÜœ™]ÜË‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	ÛÙÚ[‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	Û˜[ËXØY\Ý˜YÐ^[\Kš[˜[Y	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	ÛZ\ÜÚ[™Ë]\Ù\‹\Ù\šXÙIÊNØ]ØZ]^XÝ
+YÙJKÒ]™UT“
+	Ú‹ËÌLËŒŒŒNMÌËØ]]]\ÝKÏÜÙ\šXÛÏ[Z\ÜÚ[™Ë]\Ù\‹\Ù\šXÙIÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰×JNÂŸJNÂ\Ý
+	Ý[˜ÛÛ™š\›YY[XZ[ÙÚ[ˆÙ™™\œÈHÛÛ›ÛYÛÛ™š\›X][Ûˆ™\Ù[™	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ü[™[P^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÐÛÛ™š\›YHÙ]HK[XZ[[\ÈH[˜\‹‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ÛÝ]›Ð^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ó›Ý›ÈK[XZ[HÛÛ™š\›XpéðèÛÈÛÛXÚ]YËˆYÝX\™H[\ÈH[\ˆ›Ý˜[Y[K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØÛÛœÝØ[ÏX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠOž˜]]
+JNÙ^XÝ
+Ø[Ë›X\
+Ož˜]]
+JKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÙ^XÝ
+Ø[ÖÌWK˜[Y\ÊKÑ\]X[
+Ý\N‰ÜÚYÛ\	Ë[XZ[‰Ü[™[P^[\Kš[˜[Y	ËÜ[ÛœÎžÙ[XZ[™Y\™XÝÎ‰Ú‹ËÌLËŒŒŒNMÌËØ]]]\ÝKÉß_JNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NÂŸJNÂ\Ý
+	Ý[˜]˜Z[X›HÛÛ™š\›X][Ûˆ™\Ù[™\ÈÛÛZ[™YÚ]Ý][›Ý\ˆ™\]Y\Ý	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ›ÜŠÛÛœÝØÙ[˜\š[ÈÙˆÂˆÙ[XZ[‰Ý[˜]]Üš^™YXÛÛ™š\›X][Û^[\Kš[˜[Y	ËY\ÜØYÙN‰Ó°èÛÈ›ÚHÜÜðë]™[[šX\ˆK[XZ[\˜H\ÝH[™\™péÛËˆ[™›Ü›YHÝ]›ÈK[XZ[ÝH˜[HÛÛHÈÝ\ÜK‰ßKˆÙ[XZ[‰Ù\ØX›YXÛÛ™š\›X][Û^[\Kš[˜[Y	ËY\ÜØYÙN‰ÓÈ[š[ÈHÛÛ™š\›XpéðèÛÈÜˆK[XZ[\Ý0èH[\Ü˜\šX[Y[H[™\ÜÛ°ë]™[ˆ[H›Ý˜[Y[HXZ\È\™K‰ßBˆJ^Âˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+ØÙ[˜\š[Ë™[XZ[
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+ØÙ[˜\š[Ë›Y\ÜØYÙJNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂˆBŸJNÂ\Ý
+	Ù˜Z[YÐTÒHÛÛœÝ[Y\ÈH[™[™ÈÛÛ™š\›X][Ûˆ™\Ù[™	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏXØ\ÚKXÛÛ™š\›X][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ØØ\ÚKXÛÛ™š\›X][Û^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ó°èÛÈ›ÚHÜÜðë]™[ÛÛ™š\›X\ˆH™\šYšXØpéðèÛÈHÙYÝ\˜[°éØKˆ™XØ\œ™YÝYHH0èYÚ[˜HH[H›Ý˜[Y[K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	ØØ\ÚKXÛÛ™š\›X][Û‹\Ù\šXÙIÊNÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂŸJNÂ\Ý
+	Ø˜[›™YXØÛÝ[ÛÛœÝ[Y\ÈH[™[™ÈÛÛ™š\›X][Ûˆ™\Ù[™	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏX˜[›™YXÛÛ™š\›X][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ø˜[›™YXÛÛ™š\›X][Û^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ñ\ÝHXÙ\ÜÛÈ\Ý0èH[\Ü˜\šX[Y[H[™\ÜÛ°ë]™[ˆ[H›Ý˜[Y[HXZ\È\™HÝH˜[HÛÛHÈÝ\ÜK‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	Ø˜[›™YXÛÛ™š\›X][Û‹\Ù\šXÙIÊNÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂŸJNÂ\Ý
+	ÛZ\ÜÚ[™ÈXØÛÝ[[™ÈÛÛ™š\›X][Ûˆ™\Ù[™Ú]Ý][[Y\˜][ÛˆÜˆ[›Ý\ˆ™\]Y\Ý	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏ[Z\ÜÚ[™ËXÛÛ™š\›X][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ÛZ\ÜÚ[™ËXÛÛ™š\›X][Û^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ó°èÛÈ›ÚHÜÜðë]™[ÛÛ˜ÛZ\ˆÈ™Y[š[Ëˆ™XXœ˜HÈXÙ\ÜÛÈ\˜H[˜\ˆÝHÜšX\ˆ[XHÛÛK‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJK››ÝÐÛÛZ[•^
+	Û°èÛÈ^\ÝIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	ÛZ\ÜÚ[™ËXÛÛ™š\›X][Û‹\Ù\šXÙIÊNÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂŸJNÂ\Ý
+	Ú[˜[YÛÛ™š\›X][ÛˆY™\ÜÈ™\]Z\™\ÈH™]ÈÚYÛ\Ú]Ý][›Ý\ˆ™\Ù[™	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏZ[˜[YXÛÛ™š\›X][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ú[˜[YXÛÛ™š\›X][Û^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÓÈ[™\™péÛÈ\ØYÈ˜HÛÛ™š\›XpéðèÛÈ°èÛÈ0êH°è[YËˆÜšYHHÛÛH›Ý˜[Y[HÛÛHÝ]›ÈK[XZ[‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	Ú[˜[YXÛÛ™š\›X][Û‹\Ù\šXÙIÊNÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂŸJNÂ\Ý
+	ÝÙXZÈ\ÜÝÛÜ™ÙÚ[ˆ[Ý™\ÈØY™[HÈ™XÛÝ™\žHÚ]]È›ÝXÝYÛÛ^	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏ]ÙXZË\\ÜÝÛÜ™\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	ÝÙXZË[ÙÚ[‹\\ÜÝÛÜ™	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÔÝXHÙ[šH°èÛÈ][™HXZ\È[ÜÈ™\]Z\Ú]ÜÈHÙYÝ\˜[°éØKˆÛÛXÚ]HH™XÝ\\˜péðèÛÈ\˜HÜšX\ˆ[XHÙ[šHXZ\È›ÜK‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	Ü™\Ù]	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™\™XIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊJKÒ]™U^
+	Ñ[šX\ˆ[œÝpéðíY\ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	ÝÙXZË\\ÜÝÛÜ™\Ù\šXÙIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙJKÒ]™UT“
+	Ú‹ËÌLËŒŒŒNMÌËØ]]]\ÝKÏÜÙ\šXÛÏ]ÙXZË\\ÜÝÛÜ™\Ù\šXÙIÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰×JNÂŸJNÂ\Ý
+	ÜÝÚ]Ú[™ÈXØÙ\ÜÈ[ÙHÛX\œÈÝ[H™YY˜XÚÈ[™˜[Y\ÈHÙ[XÝYXÝ[Û‰Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊJKÒ]™U^
+	Ñ[˜\‰ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	ÝÜ›Û™Ü\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÑK[XZ[ÝHÙ[šH[˜ÛÜœ™]ÜË‰ÊNØÛÛœÝØ[ÐY\“ÙÚ[X]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë›[™Ý
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐ™Q[\J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊJKÒ]™U^
+	ÐÜšX\ˆÛÛIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™YÚ\Ý˜][Û‰ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û\™XIÊJKÐ™Uš\ÚX›J
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[\Ü˜\žK\\ÜÝÛÜ™	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™š[
+	Ý[\Ü˜\žK\\ÜÝÛÜ™	ÊNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	Ü™\Ù]	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐ™Q[\J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊJKÒ]™U^
+	Ñ[šX\ˆ[œÝpéðíY\ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™YÚ\Ý˜][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™\™XIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û\™XIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™U˜[YJ	ÉÊNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÛÙÚ[‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊJKÒ]™U^
+	Ñ[˜\‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™\™XIÊJKÐ™Uš\ÚX›J
+NÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë›[™Ý
+JKÐ™JØ[ÐY\“ÙÚ[ŠNÂŸJNÂ\Ý
+	ÛX]š[™ÈÚYÛ\ÛX\œÈ[œÝX›Z]Y™YÚ\Ý˜][Ûˆ]Z[ÈÚ]Ý]Ø[[™ÈÝ\X˜\ÙIË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊK™š[
+	Ó›ÛYHZ[™H°èÛÈ[šXYÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊKœÙ[XÝÜ[ÛŠ	Ü™\ÝYÜ‰ÊNØÛÛœÝØ[Ð™Y›Ü™TÝÚ]ÚX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë›[™Ý
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÛÙÚ[‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™YÚ\Ý˜][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊJKÒ]™U˜[YJ	ØÛY[IÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	Ý\ÝP^[\Kš[˜[Y	ÊNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™YÚ\Ý˜][Û‰ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊJKÒ]™U˜[YJ	ØÛY[IÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë›[™Ý
+JKÐ™JØ[Ð™Y›Ü™TÝÚ]Ú
+NÂŸJNÂ\Ý
+	Ü\ÜÝÛÜ™š\ÚXš[]HÝ^\ÈØØ[[™™\Ù]ÈXÜ›ÜÜÈXØÙ\ÜÈ[Ù\ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë›[™Ý
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™P]šX]J	Ý\IË	Ü\ÜÝÛÜ™	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÝÙÙÛT\ÜÝÛÜ™	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™P]šX]J	Ý\IË	Ý^	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÙÙÛT\ÜÝÛÜ™	ÊJKÒ]™U^
+	ÓØÝ[\ˆÙ[šIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÙÙÛT\ÜÝÛÜ™	ÊJKÒ]™P]šX]J	Ø\šXK\™\ÜÙY	Ë	ÝYIÊNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™P]šX]J	Ý\IË	Ü\ÜÝÛÜ™	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÝÙÙÛT\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™P]šX]J	Ý\IË	Ý^	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÙÙÛT\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™U^
+	ÓØÝ[\ˆÛÛ™š\›XpéðèÛÉÊNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	Ü™\Ù]	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™P]šX]J	Ý\IË	Ü\ÜÝÛÜ™	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÙÙÛT\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™U^
+	Ó[ÜÝ˜\ˆÛÛ™š\›XpéðèÛÉÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÂŸJNÂ\Ý
+	ØXØÙ\ÜÈ\ÜÝÛÜ™ÈØ\›ˆX›Ý]Ø\ÈØÚÈÛ›HÚ[HH\ÜÝÛÜ™šY[\ÈXÝ]™IË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØÛÛœÝØ\›š[™Ï\YÙK›ØØ]ÜŠ	ÈØ]]Ø\ÓØÚÕØ\›š[™ÉÊNØ]ØZ]^XÝ
+Ø\›š[™ÊKÐ™RY[Š
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™›ØÝ\Ê
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™]˜[X]JšY[OžØÛÛœÝ]™[[™]ÈÙ^X›Ø\™]™[
+	ÚÙ^YÝÛ‰ËÚÙ^N‰ÐIËX˜›\ÎY_JNÓØš™XÝ™Yš[™T›Ü\J]™[	ÙÙ][ÙYšY\”Ý]IËÝ˜[YNšÙ^OOšÙ^OOOIÐØ\ÓØÚÉßJNÙšY[™\Ü]Ú]™[
+]™[
+NßJNØ]ØZ]^XÝ
+Ø\›š[™ÊKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+Ø\›š[™ÊKÒ]™U^
+	ÐØ\ÈØÚÈ\Ý0èH]]˜YË‰ÊNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™›ØÝ\Ê
+NØ]ØZ]^XÝ
+Ø\›š[™ÊKÐ™RY[Š
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™›ØÝ\Ê
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™]˜[X]JšY[OžØÛÛœÝ]™[[™]ÈÙ^X›Ø\™]™[
+	ÚÙ^]\	ËÚÙ^N‰ÐIËX˜›\ÎY_JNÓØš™XÝ™Yš[™T›Ü\J]™[	ÙÙ][ÙYšY\”Ý]IËÝ˜[YNŠ
+OO™˜[Ù_JNÙšY[™\Ü]Ú]™[
+]™[
+NßJNØ]ØZ]^XÝ
+Ø\›š[™ÊKÐ™RY[Š
+NÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+JJKÑ\]X[
+×JNÂŸJNÂ\Ý
+	ØXØÙ\ÜÈ[Ù\È›ØÝ\ÈHš\œÝ\ÙY[šY[Ú]Ý]Ø[[™ÈÝ\X˜\ÙIË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÐ™Q›ØÝ\ÙY
+
+NØÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë›[™Ý
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÛÙÚ[‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	Ü™\Ù]	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÐ™Q›ØÝ\ÙY
+
+NÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÂŸJNÂ\Ý
+	ØXØÙ\ÜÈXÝ[ÛœÈÙ[™Û™H›Ü›X[^™Y[XZ[ÈÝ\X˜\ÙIË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ÓÑÒSVSTK’S•SQ	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	ÝÜ›Û™Ü\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	ÛÙÚ[^[\Kš[˜[Y	ÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[™
+Ø[O˜Ø[˜]]OOIÛÙÚ[‰ÊK˜[Y\Ë™[XZ[
+JKÐ™J	ÛÙÚ[^[\Kš[˜[Y	ÊNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊK™š[
+	Ô\ÜÛØHH\ÝIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ÐÐQTÕ“ÐVSTK’S•SQ	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ú[˜[Y\ÚYÛ\Y]IÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™š[
+	Ú[˜[Y\ÚYÛ\Y]IÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	ØØY\Ý›Ð^[\Kš[˜[Y	ÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[™
+Ø[O˜Ø[˜]]OOIÜÚYÛ\	ÊK˜[Y\Ë™[XZ[
+JKÐ™J	ØØY\Ý›Ð^[\Kš[˜[Y	ÊNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	Ü™\Ù]	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ô‘PÕTTPÐSÐVSTK’S•SQ	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	Ü™XÝ\\˜XØ[Ð^[\Kš[˜[Y	ÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[™
+Ø[O˜Ø[˜]]OOIÜ™\Ù]	ÊK™[XZ[
+JKÐ™J	Ü™XÝ\\˜XØ[Ð^[\Kš[˜[Y	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÂŸJNÂ\Ý
+	ØÛÛ™š\›X][Ûˆ™\Ù[™™\]Y\Ý[Z]\ÈÛÛœÝ[YYÚ]Ý]™\X]YØ[ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏ\™\]Y\Ý[[Z]YXÛÛ™š\›X][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ü™\]Y\Ý[[Z]YXÛÛ™š\›X][Û^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ó]Z]\È[]]˜\È›Ü˜[H™Z]\ËˆYÝX\™H[Ý[œÈZ[]ÜÈ[\ÈH[\ˆ›Ý˜[Y[K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	Ü™\]Y\Ý[[Z]YXÛÛ™š\›X][Û‹\Ù\šXÙIÊNÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂŸJNÂ\Ý
+	ØÛÛ™š\›X][Ûˆ™\Ù[™ÛÚÈ[Y[Ý]\ÈÛÛœÝ[YYÚ]Ý]\XØ]H[]™\žH][\ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ›ÜŠÛÛœÝ[XZ[ÙˆÉÚÛÚË][Y[Ý]XÛÛ™š\›X][Û^[\Kš[˜[Y	Ë	ÚÛÚË\™]žK][Y[Ý]XÛÛ™š\›X][Û^[\Kš[˜[Y	×J^Âˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏZÛÚË][Y[Ý]XÛÛ™š\›X][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+[XZ[
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÓÈÙ\špéÛÈHXÙ\ÜÛÈ[[Ü›ÝH\˜H™\ÜÛ™\‹ˆYÝX\™H[H[ÛY[ÈH[H›Ý˜[Y[K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	ÚÛÚË][Y[Ý]XÛÛ™š\›X][Û‹\Ù\šXÙIÊNÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂˆBŸJNÂ\Ý
+	ØÛÛ™š\›X][Ûˆ™\Ù[™ÛÛZ[œÈ[˜[Y[XZ[ÛÚÈ^[ØY™\ÜÛœÙ\ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ›ÜŠÛÛœÝ[XZ[ÙˆÉÚÛÚË[Ý™\œÚ^™KXÛÛ™š\›X][Û^[\Kš[˜[Y	Ë	ÚÛÚËXÛÛ[]\KXÛÛ™š\›X][Û^[\Kš[˜[Y	×J^Âˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏZÛÚË\^[ØYXÛÛ™š\›X][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+[XZ[
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÓÈÙ\špéÛÈHÛÛ™š\›XpéðèÛÈ™XÝ\ÛÝHHÛÛXÚ]péðèÛËˆ[H›Ý˜[Y[HXZ\È\™K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	ÚÛÚË\^[ØYXÛÛ™š\›X][Û‹\Ù\šXÙIÊNÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂˆBŸJNÂ\Ý
+	ØÛÛ™š\›X][Ûˆ™\Ù[™]]YÜ˜Y][Ûˆ\ÈÛÛœÝ[YYÚ]Ý]™\X]YØ[ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏYYÜ˜YYXÛÛ™š\›X][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ÙYÜ˜YYXÛÛ™š\›X][Û^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÓÈÙ\špéÛÈHXÙ\ÜÛÈ\Ý0èH[\Ü˜\šX[Y[H[™\ÜÛ°ë]™[ˆ[H›Ý˜[Y[HXZ\È\™K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	ÙYÜ˜YYXÛÛ™š\›X][Û‹\Ù\šXÙIÊNÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂŸJNÂ\Ý
+	ØÛÛ™š\›X][Ûˆ™\Ù[™™\]Y\Ý[Y[Ý]\ÈÛÛœÝ[YYÚ]Ý]\XØ]H][\ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏ][Y[Ý]XÛÛ™š\›X][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý[Y[Ý]XÛÛ™š\›X][Û^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÐHÛÛXÚ]péðèÛÈ[[Ü›ÝHXZ\È]YHÈ\Ü\˜YËˆ[H›Ý˜[Y[K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	Ý[Y[Ý]XÛÛ™š\›X][Û‹\Ù\šXÙIÊNÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂŸJNÂ\Ý
+	ØÛÛ™š\›X][Ûˆ™\Ù[™ÛÛ™›XÝ\ÈÛÛœÝ[YYÚ]Ý]ÛÛ˜Ý\œ™[™]šY\ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏXÛÛ™›XÝXÛÛ™š\›X][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ØÛÛ™›XÝXÛÛ™š\›X][Û^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÓÝ]˜H]X[^˜péðèÛÈHXÙ\ÜÛÈ\Ý0èH[H[™[Y[ËˆYÝX\™H[H[ÛY[ÈH[H›Ý˜[Y[K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	ØÛÛ™›XÝXÛÛ™š\›X][Û‹\Ù\šXÙIÊNÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂŸJNÂ\Ý
+	ØÛÛ™š\›X][Ûˆ™\Ù[™˜[Y][Ûˆ˜Z[\™H™\]Z\™\È™[Ü[š[™ÈH›ÝÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏ]˜[Y][Û‹XÛÛ™š\›X][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý˜[Y][Û‹XÛÛ™š\›X][Û^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ó°èÛÈ›ÚHÜÜðë]™[˜[Y\ˆÈ™Y[š[Ëˆ[™H›Ý˜[Y[HÛÛHÙ]HK[XZ[\˜HÛÛXÚ]\ˆÝ]˜HÛÛ™š\›XpéðèÛË‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	Ý˜[Y][Û‹XÛÛ™š\›X][Û‹\Ù\šXÙIÊNÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂŸJNÂ\Ý
+	ØÛÛ™š\›X][Ûˆ™\Ù[™X[›Ü›YY›ÙH™\ÜÛœÙH™\]Z\™\È™[Ü[š[™ÈH›ÝÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÏÜÙ\šXÛÏX˜YZœÛÛ‹XÛÛ™š\›X][Û‹\Ù\šXÙIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ø˜YZœÛÛ‹XÛÛ™š\›X][Û^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý[˜ÛÛ™š\›YY\ÜÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÓÈÙ\špéÛÈHXÙ\ÜÛÈ™XÝ\ÛÝHÜÈYÜÈHÛÛXÚ]péðèÛËˆ™XXœ˜HÈ›^ÈH[H›Ý˜[Y[K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ[šÙY™\]Y\Ý[	ÊJK››ÝÐÛÛZ[•^
+	Ø˜YZœÛÛ‹XÛÛ™š\›X][Û‹\Ù\šXÙIÊNÂˆÛÛœÝØ[Ð™Y›Ü™OX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+NØ]ØZ]YÙK™]˜[X]J
+
+OO™ØÝ[Y[œ]Y\žTÙ[XÝÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›[™Ý
+JKÐ™JØ[Ð™Y›Ü™JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÛÙÚ[‰Ë	Ü™\Ù[™	×JNÂŸJNÂ\Ý
+	ÜÚYÛ\™\]Z\™\È[XZ[ÛÛ™š\›X][Ûˆ[™Ù[™È›È]]Üš]]]™H›ÛIË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊK™š[
+	Ô\ÜÛØHH\ÝIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊKœÙ[XÝÜ[ÛŠ	Ü™\ÝYÜ‰ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý˜[Y\ÜÌLŒÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™š[
+	Ý˜[Y\ÜÌLŒÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	Õ™\šYš\]YHÙ]HK[XZ[	ÊNÂˆÛÛœÝØ[X]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[™
+Ož˜]]OOIÜÚYÛ\	ÊJNÙ^XÝ
+Ø[˜[Y\Ë›Ü[ÛœË™]JKÑ\]X[
+Ù[Û˜[YN‰Ô\ÜÛØHH\ÝIË™\]Y\ÝYÜ›ÛN‰Ü™\ÝYÜ‰ßJNÙ^XÝ
+Ø[˜[Y\Ë›Ü[ÛœË™[XZ[™Y\™XÝÊKÐ™J	Ú‹ËÌLËŒŒŒNMÌËØ]]]\ÝKÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	ÛÙÚ[‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™YÚ\Ý˜][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊJKÒ]™U˜[YJ	ØÛY[IÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÐ™Q›ØÝ\ÙY
+
+NÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠOž˜]]
+K›X\
+Ož˜]]
+JJKÑ\]X[
+ÉÜÚYÛ\	×JNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ÛÝ]›Ð^[\Kš[˜[Y	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™Uš\ÚX›J
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ó›Ý›ÈK[XZ[HÛÛ™š\›XpéðèÛÈÛÛXÚ]YËˆYÝX\™H[\ÈH[\ˆ›Ý˜[Y[K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØÛÛœÝ™\Ù[™X]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[™
+Ož˜]]OOIÜ™\Ù[™	ÊJNÙ^XÝ
+™\Ù[™˜[Y\ÊKÑ\]X[
+Ý\N‰ÜÚYÛ\	Ë[XZ[‰Ý\ÝP^[\Kš[˜[Y	ËÜ[ÛœÎžÙ[XZ[™Y\™XÝÎ‰Ú‹ËÌLËŒŒŒNMÌËØ]]]\ÝKÉß_JNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠOž˜]]
+K›X\
+Ož˜]]
+JJKÑ\]X[
+ÉÜÚYÛ\	Ë	Ü™\Ù[™	×JNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXØÛÝ[[™[	ÊJKÐ™RY[Š
+NÂŸJNÂ\Ý
+	ÜÚYÛ\™Z™XÝÈZ\ÛX]ÚY\ÜÝÛÜ™ÛÛ™š\›X][Ûˆ™Y›Ü™HÝ\X˜\ÙIË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊK™š[
+	Ô\ÜÛØHH\ÝIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ý˜[Y\ÜÌLŒÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™š[
+	ÙY™™\™[\ÜÌLŒÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ð\ÈÙ[š\È°èÛÈÛÚ[˜ÚY[K‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+JJKÑ\]X[
+×JNÂŸJNÂ\Ý
+	ÜÚYÛ\^Z[œÈH\ÜÝÛÜ™™Z™XÝYžHÙ\™\ˆÙXÝ\š]H[\ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊK™š[
+	Ô\ÜÛØHH\ÝIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	ÝÙXZË\\ÜÝÛÜ™LŒÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™š[
+	ÝÙXZË\\ÜÝÛÜ™LŒÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Õ\ÙH[XHÙ[šHXZ\È›ÜH]YH][™H[ÜÈ™\]Z\Ú]ÜÈHÙYÝ\˜[°éØK‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÜÚYÛ\	×JNÂŸJNÂ\Ý
+	ÜÚYÛ\^Z[œÈÚ[ˆH\ÜÝÛÜ™™YYÈ[Ü™HÚ\˜XÝ\ˆ˜\šY]IË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊK™š[
+	Ô\ÜÛØHH\ÝIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	ÝÙXZËXÚ\˜XÝ\œÌLŒÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™š[
+	ÝÙXZËXÚ\˜XÝ\œÌLŒÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÐÛÛXš[™H]˜\Ë°î›Y\›ÜÈHðë[X›ÛÜÈ\˜HÜšX\ˆ[XHÙ[šHXZ\È›ÜK‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÜÚYÛ\	×JNÂŸJNÂ‚\Ý
+	ÜÙ\™\‹\™Z™XÝY[XZ[™]\›œÈ›ØÝ\ÈÈHY™\ÜÈÚ]Ý]™]žZ[™ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊK™š[
+	Ô\ÜÛØHH\ÝIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊKœÙ[XÝÜ[ÛŠ	Ü™\ÝYÜ‰ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ØØY\Ý›Ð^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ú[˜[YY[XZ[LŒÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™š[
+	Ú[˜[YY[XZ[LŒÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ò[™›Ü›YH[H[™\™péÛÈHK[XZ[°è[YË‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	ÜÚYÛ\	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	ØØY\Ý›Ð^[\Kš[˜[Y	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊJKÒ]™U˜[YJ	Ô\ÜÛØHH\ÝIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊJKÒ]™U˜[YJ	Ü™\ÝYÜ‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	Ü™\Ù]	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ú[˜[YXY™\ÜÐ^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ò[™›Ü›YH[H[™\™péÛÈHK[XZ[°è[YË‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	Ü™\Ù]	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	Ú[˜[YXY™\ÜÐ^[\Kš[˜[Y	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ò[™›Ü›YH[H[™\™péÛÈHK[XZ[°è[YË‰ÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÜÚYÛ\	Ë	Ü™\Ù]	×JNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ÒS•SQPQ‘TÔÐVSTK’S•SQ	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ò[™›Ü›YH[H[™\™péÛÈHK[XZ[°è[YË‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÐ™Q›ØÝ\ÙY
+
+NÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÜÚYÛ\	Ë	Ü™\Ù]	×JNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ØÛÜœ™XÝYXY™\ÜÐ^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	ÔÙHÈK[XZ[\Ý]™\ˆØY\Ý˜YÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	ÛÙÚ[‰ÊNØÛÛœÝ™\Ù]ÏX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]OOIÜ™\Ù]	ÊJNÙ^XÝ
+™\Ù]Ë›X\
+Ø[O˜Ø[™[XZ[
+JKÑ\]X[
+ÉÚ[˜[YXY™\ÜÐ^[\Kš[˜[Y	Ë	ØÛÜœ™XÝYXY™\ÜÐ^[\Kš[˜[Y	×JNÂŸJNÂ‚\Ý
+	Ý[˜]]Üš^™Y[XZ[[]™\žHÙY\ÈXØÙ\ÜÈ›Ü›\È™XYHÚ]Ý]™]žZ[™ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊK™š[
+	Ô\ÜÛØHH\ÝIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊKœÙ[XÝÜ[ÛŠ	Ü™\ÝYÜ‰ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	ØØY\Ý›Ð^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+	Ø›ØÚÙYY[]™\žK\ÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™š[
+	Ø›ØÚÙYY[]™\žK\ÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ó°èÛÈ›ÚHÜÜðë]™[[šX\ˆK[XZ[\˜H\ÝH[™\™péÛËˆ[™›Ü›YHÝ]›ÈK[XZ[ÝH˜[HÛÛHÈÝ\ÜK‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	ÜÚYÛ\	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	ØØY\Ý›Ð^[\Kš[˜[Y	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊJKÒ]™U˜[YJ	Ô\ÜÛØHH\ÝIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊJKÒ]™U˜[YJ	Ü™\ÝYÜ‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	Ü™\Ù]	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý[˜]]Üš^™YY[]™\žP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ó°èÛÈ›ÚHÜÜðë]™[[šX\ˆK[XZ[\˜H\ÝH[™\™péÛËˆ[™›Ü›YHÝ]›ÈK[XZ[ÝH˜[HÛÛHÈÝ\ÜK‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	Ü™\Ù]	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	Ý[˜]]Üš^™YY[]™\žP^[\Kš[˜[Y	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ó°èÛÈ›ÚHÜÜðë]™[[šX\ˆK[XZ[\˜H\ÝH[™\™péÛËˆ[™›Ü›YHÝ]›ÈK[XZ[ÝH˜[HÛÛHÈÝ\ÜK‰ÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+K›X\
+Ø[O˜Ø[˜]]
+JJKÑ\]X[
+ÉÜÚYÛ\	Ë	Ü™\Ù]	×JNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ø]]Üš^™YY[]™\žP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	ÔÙHÈK[XZ[\Ý]™\ˆØY\Ý˜YÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	ÛÙÚ[‰ÊNØÛÛœÝ™\Ù]ÏX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]OOIÜ™\Ù]	ÊJNÙ^XÝ
+™\Ù]Ë›X\
+Ø[O˜Ø[™[XZ[
+JKÑ\]X[
+ÉÝ[˜]]Üš^™YY[]™\žP^[\Kš[˜[Y	Ë	Ø]]Üš^™YY[]™\žP^[\Kš[˜[Y	×JNÂŸJNÂ‚\Ý
+	Ù\XØ]HÚYÛ\™]\›œÈØY™[HÈÙÚ[ˆÚ]Ý]ÛÛ™š\›Z[™È[ˆ^\Ý[™ÈXØÛÝ[	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNÂˆ›ÜŠÛÛœÝÜ\ÜÝÛÜ™[XZ[HÙˆÖÉÙ^\Ý[™Ë]\Ù\ŒLŒÉË	ØÛÛP^[\Kš[˜[Y	×KÉÙ^\Ý[™ËY[XZ[LŒÉË	Ù[™\™XÛÐ^[\Kš[˜[Y	×WJ^Âˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊK™š[
+	Ô\ÜÛØHH\ÝIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊKœÙ[XÝÜ[ÛŠ	Ü™\ÝYÜ‰ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+[XZ[
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+\ÜÝÛÜ™
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™š[
+\ÜÝÛÜ™
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ó°èÛÈ›ÚHÜÜðë]™[ÛÛ˜ÛZ\ˆÈØY\Ý›Ëˆ[™HÛÛHÝXHÛÛHÝH\ÙH™XÝ\\˜\ˆÙ[šK‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	ÛÙÚ[‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ[XZ[
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™YÚ\Ý˜][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊJKÒ]™U˜[YJ	ØÛY[IÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÂˆBˆÛÛœÝØ[ÏX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[˜]]
+JNÙ^XÝ
+Ø[Ë›X\
+Ø[O˜Ø[˜]]
+JKÑ\]X[
+ÉÜÚYÛ\	Ë	ÜÚYÛ\	×JNÙ^XÝ
+Ø[Ë›X\
+Ø[O˜Ø[˜[Y\Ëœ\ÜÝÛÜ™
+JKÑ\]X[
+ÉÙ^\Ý[™Ë]\Ù\ŒLŒÉË	Ù^\Ý[™ËY[XZ[LŒÉ×JNÂŸJNÂ‚\Ý
+	Ù\ØX›Y[XZ[ÚYÛ\™]\›œÈØY™[HÈÙÚ[ˆÚ]Ý]™]žZ[™ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK™ÛÝÊ	ËØ]]]\ÝKÉÊNÂˆ›ÜŠÛÛœÝ\ÜÝÛÜ™ÙˆÉÙ\ØX›Y\ÚYÛ\LŒÉË	Ù\ØX›YY[XZ[LŒÉ×J^Âˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊKœÙ[XÝÜ[ÛŠ	ÜÚYÛ\	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊK™š[
+	Ô\ÜÛØHH\ÝIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊKœÙ[XÝÜ[ÛŠ	Ü™\ÝYÜ‰ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊK™š[
+	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊK™š[
+\ÜÝÛÜ™
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊK™š[
+\ÜÝÛÜ™
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÝX›Z]	ÊK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	Ó›Ý›ÜÈØY\Ý›ÜÈÜˆK[XZ[\Ý0èÛÈ[\Ü˜\šX[Y[H[™\ÜÛ°ë]™Z\Ëˆ[H[˜\ˆÙH°èHÜÜÝZHÛÛK‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØXÝ[Û‰ÊJKÒ]™U˜[YJ	ÛÙÚ[‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ[XZ[	ÊJKÒ]™U˜[YJ	Ý\ÝP^[\Kš[˜[Y	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™YÚ\Ý˜][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÛ˜[YIÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ›ÛIÊJKÒ]™U˜[YJ	ØÛY[IÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™ÛÛ™š\›X][Û‰ÊJKÒ]™U˜[YJ	ÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ\ÜÝÛÜ™	ÊJKÐ™Q›ØÝ\ÙY
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\Ù[™ÛÛ™š\›X][Û‰ÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÝÛÜšÜÜXÙIÊJKÐ™RY[Š
+NÂˆBˆÛÛœÝØ[ÏX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\¼çn}¶‰žËkºwµçWJNÂˆÛÛœÝØØ[^OX]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝ›ÝÏ[™]È]J
+NÜ™]\›ˆÛ›ÝË™Ù][YX\Š
+KÝš[™Ê›ÝË™Ù][Û
+
+JÌJKœYÝ\
+‹	Ì	ÊKÝš[™Ê›ÝË™Ù]]J
+JKœYÝ\
+‹	Ì	ÊWKš›Ú[Š	ËIÊNßJKY˜][š[[˜[YOXÙ\šXÛÜËXÛÛ˜ÛZYÜËIÛØØ[^_K˜ÜÝ˜Ù^XÝ
+ÝÛ›ØYœÝYÙÙ\ÝYš[[˜[YJ
+JKÐ™JY˜][š[[˜[YJNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+ÝÛ›ØY™\\˜YÎˆLˆÙ\špéÛÜÈ[H	ÙY˜][š[[˜[Y_K˜
+NØÛÛœÝÝ™X[OX]ØZ]ÝÛ›ØY˜Ü™X]T™XYÝ™X[J
+KÚ[šÜÏV×NÙ›Üˆ]ØZ]
+ÛÛœÝÚ[šÈÙˆÝ™X[JXÚ[šÜËœ\Ú
+Ú[šÊNØÛÛœÝÜÝPY™™\‹˜ÛÛ˜Ø]
+Ú[šÜÊKÔÝš[™Ê	Ý]Ž	ÊNÂˆ^XÝ
+ÜÝ‹œÜ]
+	×—‰ÊJKÒ]™S[™Ý
+LÊNÙ^XÝ
+ÜÝŠKÐÛÛZ[Š	×Y™Y™ˆðìÙYÛÈ‹”›Ùš\ÜðèÛÈ‹”Ú]XpéðèÛÈ‹”Ú]XpéðèÛÈ
+ðìÙYÛÊH‹“Y]H\[‹“Y[œØYÙ[œÈ›Ý˜\È‹‘\ØÜšpéðèÛÈ‰ÊNÙ^XÝ
+ÜÝŠKÐÛÛZ[Š	È’Ü°è\š[È™Y™\šYÈ‹’Ü°è\š[È™Y™\šYÈ
+TÓÊH‹”ÛÛXÚ]YÈ[H‹”ÛÛXÚ]YÈ[H
+TÓÊH‰ÊNÙ^XÝ
+ÜÝŠKÐÛÛZ[Š™^ÜXÛÛ\]Y[Û™H‹”[Üˆ‹ÛÛ˜ÛpëYÈ‹˜ÛÛ˜ÛZYÈ‹ÛY[H‹ŒH‹‰ÏRSTÔ•S
+ˆšÎ‹ËÙ^[\Kš[˜[YˆŠH‹“X[˜]\È‹SH‹”Ú[H‹ˆ‹ˆ‹‰ÛØØ[]\Ë˜Ü™X]YÛ™_H‹ŒŒ‹LLLŒ•LNŒŒŒˆ˜
+NÙ^XÝ
+ÜÝŠKÐÛÛZ[Š™^ÜXÛÛ\]Y]ÛÈ‹‘[˜Ø[˜YÜˆ‹ÛÛ˜ÛpëYÈ‹˜ÛÛ˜ÛZYÈ‹ÛY[H‹Œ‹”™\\›ÈÛÛ˜ÛpëYÈ‹“X[˜]\È‹SH‹“°èÛÈ‹‰ÛØØ[]\ËœØÚY[YH‹ŒŒ‹LLLŒÕMNŒŒŒˆ‹‰ÛØØ[]\Ë˜Ü™X]YÛßH‹ŒŒ‹LLLŒ•LŒŒŒˆ˜
+NÙ^XÝ
+ÜÝŠKÐÛÛZ[Š	È™^ÜY^˜KNH‰ÊNÙ^XÝ
+ÜÝŠK››ÝÐÛÛZ[Š	È™^ÜXXÝ]™H‰ÊNÙ^XÝ
+ÜÝŠK››ÝÐÛÛZ[Š	ÔÙ\špéÛÈZ[™H]]›ÉÊNÂˆ^XÝ
+ÜÝ‹š[™^ÙŠ	È™^ÜXÛÛ\]Y[Û™H‹”[Üˆ‹ÛÛ˜ÛpëYÈ‹˜ÛÛ˜ÛZYÈ‹ÛY[H‹ŒH‹—	ÏRSTÔ•S	ÊJKÐ™S\ÜÕ[ŠÜÝ‹š[™^ÙŠ	È™^ÜXÛÛ\]Y]ÛÈ‹‘[˜Ø[˜YÜˆ‹ÛÛ˜ÛpëYÈ‹˜ÛÛ˜ÛZYÈ‹ÛY[H‹Œ‹”™\\›ÈÛÛ˜ÛpëYÈ‰ÊJNÂˆÛÛœÝÚœÛÛ‘ÝÛ›ØYOX]ØZ]›ÛZ\ÙK˜[
+ÜYÙKØZ]›Ü‘]™[
+	ÙÝÛ›ØY	ÊKYÙK›ØØ]ÜŠ	ÈÙ^Ü™\]Y\ÝÒœÛÛ‰ÊK˜ÛXÚÊ
+WJKœÛÛ‘š[[˜[YOXÙ\šXÛÜËXÛÛ˜ÛZYÜËIÛØØ[^_KšœÛÛ˜Ù^XÝ
+œÛÛ‘ÝÛ›ØYœÝYÙÙ\ÝYš[[˜[YJ
+JKÐ™JœÛÛ‘š[[˜[YJNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+”ÓÓˆ™\\˜YÎˆLˆÙ\špéÛÜÈ[H	ÚœÛÛ‘š[[˜[Y_K˜
+NØÛÛœÝœÛÛ”Ý™X[OX]ØZ]œÛÛ‘ÝÛ›ØY˜Ü™X]T™XYÝ™X[J
+KœÛÛÚ[šÜÏV×NÙ›Üˆ]ØZ]
+ÛÛœÝÚ[šÈÙˆœÛÛ”Ý™X[JZœÛÛÚ[šÜËœ\Ú
+Ú[šÊNØÛÛœÝ^ÜYR”ÓÓ‹œ\œÙJY™™\‹˜ÛÛ˜Ø]
+œÛÛÚ[šÜÊKÔÝš[™Ê	Ý]Ž	ÊJNÂˆ^XÝ
+^ÜY
+KÓX]ÚØš™XÝ
+Ý™\œÚ[ÛŽŒKÛÛ^žÙš[\Ž‰ÐÛÛ˜ÛpëYÜÉËÙX\˜Ú‰ÉËÛÜ‰ÓXZ\È™XÙ[\ÉË›ÛN‰ÐÛY[Iß_JNÙ^XÝ
+^ÜY™^ÜY]
+KÓX]Ú
+×—ÍKWÌŸKWÌŸUÊNÙ^XÝ
+^ÜYœÙ\šXÙ\ÊKÒ]™S[™Ý
+LŠNÙ^XÝ
+^ÜYœÙ\šXÙ\Ë™š[™
+Oœ‹šYOOIÙ^ÜXÛÛ\]Y[Û™IÊJKÓX]ÚØš™XÝ
+ÜÝ]\Î‰ØÛÛ˜ÛZYÉËÝ]\ÓX™[‰ÐÛÛ˜ÛpëYÉË›ÛN‰ÐÛY[IË[œ™XYY\ÜØYÙ\ÎŒK\™Ù[Y_JNÙ^XÝ
+^ÜYœÙ\šXÙ\ËœÛÛYJOœ‹šYOOIÙ^ÜXXÝ]™IÊJKÐ™J˜[ÙJNÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OO’”ÓÓ‹œÝš[™ÚYžJÜ™\]Y\ÝÎÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝËY\ÜØYÙ\ÎÚ[™ÝË\ÝÝ]K›Y\ÜØYÙ\ßJJJKÐ™JÜšYÚ[˜[
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\]Y\ÝÛÜ	ÊKœÙ[XÝÜ[ÛŠ	ÛÛ\Ý	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\]Y\ÝÙX\˜Ú	ÊK™š[
+	Ô™\\›ÈÛÛ˜ÛpëYÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÙX\˜Ú™\]Y\ÝÉÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\]Y\ÝÈœÙ\šXÙIÊJKÒ]™PÛÝ[
+JNÂˆÛÛœÝÜÙX\˜ÚYÝÛ›ØYOX]ØZ]›ÛZ\ÙK˜[
+ÜYÙKØZ]›Ü‘]™[
+	ÙÝÛ›ØY	ÊKYÙK›ØØ]ÜŠ	ÈÙ^Ü™\]Y\ÝÉÊK˜ÛXÚÊ
+WJKÙX\˜ÚYš[[˜[YOXÙ\šXÛÜËXÛÛ˜ÛZYÜË\™\\›ËXÛÛ˜ÛZYË[XZ\ËX[YÛÜËIÛØØ[^_K˜ÜÝ˜Ù^XÝ
+ÙX\˜ÚYÝÛ›ØYœÝYÙÙ\ÝYš[[˜[YJ
+JKÐ™JÙX\˜ÚYš[[˜[YJNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+ÝÛ›ØY™\\˜YÎˆHÙ\špéÛÈ[H	ÜÙX\˜ÚYš[[˜[Y_K˜
+NØÛÛœÝÙX\˜ÚYÝ™X[OX]ØZ]ÙX\˜ÚYÝÛ›ØY˜Ü™X]T™XYÝ™X[J
+KÙX\˜ÚYÚ[šÜÏV×NÙ›Üˆ]ØZ]
+ÛÛœÝÚ[šÈÙˆÙX\˜ÚYÝ™X[J\ÙX\˜ÚYÚ[šÜËœ\Ú
+Ú[šÊNØÛÛœÝÙX\˜ÚYÜÝPY™™\‹˜ÛÛ˜Ø]
+ÙX\˜ÚYÚ[šÜÊKÔÝš[™Ê	Ý]Ž	ÊNÙ^XÝ
+ÙX\˜ÚYÜÝ‹œÜ]
+	×—‰ÊJKÒ]™S[™Ý
+ŠNÙ^XÝ
+ÙX\˜ÚYÜÝŠKÐÛÛZ[Š	È™^ÜXÛÛ\]Y]ÛÈ‰ÊNÙ^XÝ
+ÙX\˜ÚYÜÝŠK››ÝÐÛÛZ[Š	È™^ÜXÛÛ\]Y[Û™H‰ÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OO’”ÓÓ‹œÝš[™ÚYžJÜ™\]Y\ÝÎÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝËY\ÜØYÙ\ÎÚ[™ÝË\ÝÝ]K›Y\ÜØYÙ\ßJJJKÐ™JÜšYÚ[˜[
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\]Y\ÝÙX\˜Ú	ÊK™š[
+	ÜÙ[H™\Ý[YÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÙX\˜Ú™\]Y\ÝÉÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØÛÜT™\]Y\ÝÛÙ\ÉÊJKÐ™Q\ØX›Y
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™]šY]Ô™\]Y\Ý[šÜÉÊJKÐ™Q\ØX›Y
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØÛÜT™\]Y\Ý[šÜÉÊJKÐ™Q\ØX›Y
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙÝÛ›ØY™\]Y\Ý[šÜÉÊJKÐ™Q\ØX›Y
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÚ\™T™\]Y\Ý[šÜÉÊJKÐ™Q\ØX›Y
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™]šY]Ô™\]Y\ÝÝ[[X\šY\ÉÊJKÐ™Q\ØX›Y
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØÛÜT™\]Y\ÝÝ[[X\šY\ÉÊJKÐ™Q\ØX›Y
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙÝÛ›ØY™\]Y\ÝÝ[[X\šY\ÉÊJKÐ™Q\ØX›Y
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÚ\™T™\]Y\ÝÝ[[X\šY\ÉÊJKÐ™Q\ØX›Y
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^Ü™\]Y\ÝÉÊJKÐ™Q\ØX›Y
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^Ü™\]Y\ÝÒœÛÛ‰ÊJKÐ™Q\ØX›Y
+
+NÂŸJNÂ‚\Ý
+	Ü›ÝšY\ˆ^ÜY[YšY\ÈZ\ˆ›ÛHÚ]Ý]Ú[™Ú[™ÈHÙ\šXÙIË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOžÝÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÎÓØš™XÝ™Yš[™T›Ü\J˜]šYØ]Ü‹	ØÛ\›Ø\™	ËØÛÛ™šYÝ\˜X›NYK˜[YNžÝÜš]U^˜\Þ[˜È˜[YOOžÝÚ[™ÝË˜ÛÜYY™\]Y\ÝÛÙ\Ï]˜[YNß__JNßJNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝËœ\Ú
+ÚY‰Ü›ÝšY\‹Y^Ü	ËÛY[ÚY‰ØÛY[ZY	Ë›ÝšY\—ÚY‰ÌLLMNLIË›Ù™\ÜÚ[ÛŽ‰Ñ[]šXÚ\ÝIË\ØÜš\[ÛŽ‰Ò[œÝ[péðèÛÈ][™YH[È›Ùš\ÜÚ[Û˜[	ËÝ]\Î‰ØXÙZ]ÉËÚ]N‰ÓX[˜]\ÉËÝ]N‰ÐSIËÜ™X]YØ]‰ÌŒ‹LLLŒ•LŽŒŒŒ‰ßJJNÂˆÛÛœÝÜšYÚ[˜[X]ØZ]YÙK™]˜[X]J
+
+OO’”ÓÓ‹œÝš[™ÚYžJÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝÊJNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NÂˆÛÛœÝØ[Ð™Y›Ü™PÛÜOX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë›[™Ý
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈØÛÜT™\]Y\ÝÛÙ\ÉÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÒ]™U^
+	ÌHðìÙYÛÈÛÜXYÈH\ÝHš[˜YK‰ÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË˜ÛÜYY™\]Y\ÝÛÙ\ÊJKÐ™J	Ü›ÝšY\‹Y^Ü	ÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë›[™Ý
+JKÐ™JØ[Ð™Y›Ü™PÛÜJNÂˆÛÛœÝÙÝÛ›ØYOX]ØZ]›ÛZ\ÙK˜[
+ÜYÙKØZ]›Ü‘]™[
+	ÙÝÛ›ØY	ÊKYÙK›ØØ]ÜŠ	ÈÙ^Ü™\]Y\ÝÉÊK˜ÛXÚÊ
+WJKÝ™X[OX]ØZ]ÝÛ›ØY˜Ü™X]T™XYÝ™X[J
+KÚ[šÜÏV×NÙ›Üˆ]ØZ]
+ÛÛœÝÚ[šÈÙˆÝ™X[JXÚ[šÜËœ\Ú
+Ú[šÊNØÛÛœÝÜÝPY™™\‹˜ÛÛ˜Ø]
+Ú[šÜÊKÔÝš[™Ê	Ý]Ž	ÊNÂˆ^XÝ
+ÜÝŠKÐÛÛZ[Š	ÈðìÙYÛÈ‹”›Ùš\ÜðèÛÈ‹”Ú]XpéðèÛÈ‹”Ú]XpéðèÛÈ
+ðìÙYÛÊH‹“Y]H\[‹“Y[œØYÙ[œÈ›Ý˜\È‰ÊNÙ^XÝ
+ÜÝŠKÐÛÛZ[Š	Èœ›ÝšY\‹Y^Ü‹‘[]šXÚ\ÝH‹”›Ùš\ÜÚ[Û˜[XÙZ]ÝH‹˜XÙZ]È‹”™\ÝYÜˆ‹Œ‰ÊNÂˆÛÛœÝÚœÛÛ‘ÝÛ›ØYOX]ØZ]›ÛZ\ÙK˜[
+ÜYÙKØZ]›Ü‘]™[
+	ÙÝÛ›ØY	ÊKYÙK›ØØ]ÜŠ	ÈÙ^Ü™\]Y\ÝÒœÛÛ‰ÊK˜ÛXÚÊ
+WJKœÛÛ”Ý™X[OX]ØZ]œÛÛ‘ÝÛ›ØY˜Ü™X]T™XYÝ™X[J
+KœÛÛÚ[šÜÏV×NÙ›Üˆ]ØZ]
+ÛÛœÝÚ[šÈÙˆœÛÛ”Ý™X[JZœÛÛÚ[šÜËœ\Ú
+Ú[šÊNØÛÛœÝ^ÜYR”ÓÓ‹œ\œÙJY™™\‹˜ÛÛ˜Ø]
+œÛÛÚ[šÜÊKÔÝš[™Ê	Ý]Ž	ÊJNÙ^XÝ
+^ÜY˜ÛÛ^œ›ÛJKÐ™J	Ô™\ÝYÜ‰ÊNÙ^XÝ
+^ÜYœÙ\šXÙ\ÊKÑ\]X[
+Ù^XÝ›Øš™XÝÛÛZ[š[™ÊÚY‰Ü›ÝšY\‹Y^Ü	ËÝ]\Î‰ØXÙZ]ÉËÝ]\ÓX™[‰Ô›Ùš\ÜÚ[Û˜[XÙZ]ÝIË›ÛN‰Ô™\ÝYÜ‰ßJWJNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OO’”ÓÓ‹œÝš[™ÚYžJÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝÊJJKÐ™JÜšYÚ[˜[
+NÂŸJNÂ‚\Ý
+	ØÛY[ØYÈ]™\žH]]Üš^™YÙ\šXÙH[ˆ]\›Z[š\ÝXÈ˜]Ú\ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]YÙK™]˜[X]J
+
+OOžÂˆ›ÜŠ][™^LÚ[™^ŒNÚ[™^
+ÊÊ]Ú[™ÝË\ÝÝ]Kœ™\]Y\ÝËœ\Ú
+ÚY˜˜]ÚIÔÝš[™Ê[™^
+KœYÝ\
+Ë	Ì	Ê_X›Ù™\ÜÚ[ÛŽ‰Ñ[]šXÚ\ÝIË\ØÜš\[ÛŽ˜Ù\špéÛÈ]]Üš^˜YÈ	Ú[™^XÝ]\Î‰ØÛÛ˜ÛZYÉËÚ]N‰ÓX[˜]\ÉËÝ]N‰ÐSIËÜ™X]YØ]›™]È]J]K•UÊŒ‹KŒ‹LŠKZ[™^
+Œ
+KÒTÓÔÝš[™Ê
+_JNÂˆJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\]Y\ÝÈœÙ\šXÙIÊJKÒ]™PÛÝ[
+L
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\]Y\ÝÝ[[X\žIÊJKÐÛÛZ[•^
+	Ñ^Xš[™ÈLHŒHÛÜœ™\ÜÛ™[\ÉÊNÂˆÛÛœÝ˜[™Ù\ÏX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠØ[O˜Ø[X›OOOIÜÙ\šXÙWÜ™\]Y\ÝÉÉ‰˜Ø[›Ü\˜][ÛOOIÜÙ[XÝ	É‰˜Ø[œ˜[™ÙJKœÛXÙJLÊK›X\
+Ø[O˜Ø[œ˜[™ÙJJNÂˆ^XÝ
+˜[™Ù\ÊKÑ\]X[
+ÖÌNWKÌLNNWKÌŒŽNWWJNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\]Y\Ý[Ü™IÊJKÒ]™U^
+	Ó[ÜÝ˜\ˆXZ\È
+NMH™\Ý[\ÊIÊNÂŸJNÂ‚\Ý
+	ØÛY[Ø[˜Ù[È[ˆÜ[ˆ™\]Y\ÝÚ][ˆ]Y]Y™X\ÛÛˆ[™›È™YHÛZ[IË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝËœ\Ú
+ÚY‰ØÛY[XØ[˜Ù[][Û‰ËÛY[ÚY‰ÌLLMNLIË›Ù™\ÜÚ[ÛŽ‰Ô[Ü‰Ë\ØÜš\[ÛŽ‰ÔYYÈ]YH°èÛÈ0êHXZ\È™XÙ\Üðè\š[ÉËÝ]\Î‰ØX™\ÉËÚ]N‰ÓX[˜]\ÉËÝ]N‰ÐSIËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐØ[˜Ù[\ˆYYÉßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØØ[˜Ù[][Û”[™[	ÊJKÐ™Uš\ÚX›J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØØ[˜Ù[][Û”™X\ÛÛ‰ÊK™š[
+	ÓÈÙ\špéÛÈ°èÛÈÙ\°èHXZ\È™XÙ\Üðè\š[ÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈØÛÛ™š\›PØ[˜Ù[][Û‰ÊK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	Ó™[š[XH^H›ÚHÛØœ˜YIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ™\]Y\ÝÉÊJKÐÛÛZ[•^
+	ÐØ[˜Ù[YÉÊNÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOŠÜ™\]Y\ÝÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝÖÌKœÝ]\Ë]Y]Ú[™ÝË\ÝÝ]K˜Ø[˜Ù[][ÛœÖÌ_JJJKÓX]ÚØš™XÝ
+Ü™\]Y\Ý‰ØØ[˜Ù[YÉË]Y]žØXÝÜ—Ü›ÛN‰ØÛY[IË™X\ÛÛŽ‰ÓÈÙ\špéÛÈ°èÛÈÙ\°èHXZ\È™XÙ\Üðè\š[ÉËÝ]ÛÛYN‰ØØ[˜Ù[Y×ØÛY[IË™YWÜÝ]\Î‰Û˜[×Ø]˜[XYIß_JNÂŸJNÂ‚\Ý
+	Ü›ÝšY\ˆØ[˜Ù[][ÛˆÜ™X]\ÈH™]ÈÜ[ˆ™\]Y\Ý›Üˆ[›Ý\ˆ›Ù™\ÜÚ[Û˜[	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝËœ\Ú
+ÚY‰Ü›ÝšY\‹XØ[˜Ù[][Û‰ËÛY[ÚY‰ØÛY[ZY	Ë›ÝšY\—ÚY‰ÌLLMNLIË›Ù™\ÜÚ[ÛŽ‰Ô[Ü‰Ë\ØÜš\[ÛŽ‰ÔYYÈHÙ\ˆ™Y[˜Ø[Z[šYÉËÝ]\Î‰ØXÙZ]ÉËÚ]N‰ÓX[˜]\ÉËÝ]N‰ÐSIËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐØ[˜Ù[\ˆH™Y[˜Ø[Z[š\‰ßJK˜ÛXÚÊ
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈØØ[˜Ù[][Û”™X\ÛÛ‰ÊK™š[
+	Õ]™H[H[\™]š\ÝÈ[\ÈÈ[°ëXÚ[ÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈØÛÛ™š\›PØ[˜Ù[][Û‰ÊK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	Û›Ý›ÈÚ[XYÈÜšXYÉÊNÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝË›X\
+OŠÚYœ‹šYÝ]\Îœ‹œÝ]\Ë›ÝšY\—ÚYœ‹œ›ÝšY\—ÚY™\XÙ\×Ü™\]Y\ÝÚYœ‹œ™\XÙ\×Ü™\]Y\ÝÚYJJJJKÑ\]X[
+ÂˆÚY‰Ü›ÝšY\‹XØ[˜Ù[][Û‰ËÝ]\Î‰ØØ[˜Ù[YÉË›ÝšY\—ÚY‰ÌLLMNLIË™\XÙ\×Ü™\]Y\ÝÚY[™Yš[™YKˆ^XÝ›Øš™XÝÛÛZ[š[™ÊÜÝ]\Î‰ØX™\ÉË›ÝšY\—ÚY›[™\XÙ\×Ü™\]Y\ÝÚY‰Ü›ÝšY\‹XØ[˜Ù[][Û‰ßJBˆJNÂŸJNÂ‚˜\Þ[˜È[˜Ý[ÛˆÙYYXØÙ\YÙ\šXÙJYÙJ^Âˆ]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝËœ\Ú
+ÚY‰ØXØÙ\Y\Ù\šXÙIË›Ù™\ÜÚ[ÛŽ‰Ô[Ü‰Ë\ØÜš\[ÛŽ‰Ô[\ˆØ[HÛÛH\ØÛÜÈYš[šYÉËÝ]\Î‰ØXÙZ]ÉËÚ]N‰ÓX[˜]\ÉËÝ]N‰ÐSIËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXœš\ˆÛÛ™\œØIßJK˜ÛXÚÊ
+NÂŸB\Ý
+	Ü›ÝšY\ˆÝX›Z]È^XÝÙ[È[™Ø[››ÝÙYHÛY[XÚ\Ú[ÛˆÛÛ›ÛÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYXØÙ\YÙ\šXÙJYÙJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ][ÝP[[Ý[	ÊK™š[
+	ÌŽIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ][ÝQ\ØÜš\[Û‰ÊK™š[
+	Ô[\ˆØ[H[HÚ\ÈX\ËX]\šX[[˜Û\ÛÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÙ[™][ÝIÊK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ][Ý\ÉÊJKÐÛÛZ[•^
+	ÌŽIÊNØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXÙZ]\ˆÜ°éØ[Y[ÉßJJKÒ]™PÛÝ[
+
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]Kœ][Ý\ÖÌK˜[[Ý[ØÙ[ÊJKÐ™JŽJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ][ÝP[[Ý[	ÊK™š[
+	ÌKIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ][ÝQ\ØÜš\[Û‰ÊK™š[
+	Ô›ÜÜÝH[°è[YIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜÙ[™][ÝIÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	Ø]0êHX\ÈØ\Ø\ÉÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]Kœ][Ý\Ë›[™Ý
+JKÐ™JJNÂŸJNÂ\Ý
+	ØÛY[™Z™XÝÈÛ™H›ÜÜØ[[ˆXØÙ\È[›Ý\ˆ[™ÙY\È[[]]X›H\ÝÜžIË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYXØÙ\YÙ\šXÙJYÙJNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]Kœ][Ý\Ëœ\Ú
+‹‹–ÉÜLIË	ÜL‰×K›X\
+
+YJOOŠÚY™\]Y\ÝÚY‰ØXØÙ\Y\Ù\šXÙIË›ÝšY\—ÚY‰Ü›ÝšY\‹ZY	Ë[[Ý[ØÙ[ÎŒŒ
+ÚJL\ØÜš\[ÛŽšOÉÔ[\˜HÛÛ\]H[HÚ\ÈX\ÉÎ‰Ï[YÈÜ˜Ï^Û™\œ›ÜHÚ[™ÝËœ][ÝR[š™XÝY]YHˆ›ÜÜÝH[šXÚX[	ËÝ]\Î‰Ü›ÜÜÝIËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JJJJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ][Ý\ÉÊJKÐÛÛZ[•^
+	ÌŒ	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ][Ý\È[YÉÊJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÖÙ]K\][ÝOHœLH—IÊK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ô™XÝ\Ø\ˆÜ°éØ[Y[ÉßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÖÙ]K\][ÝOHœLH—IÊJKÐÛÛZ[•^
+	Ô™XÝ\ØYÈ[ÈÛY[IÊNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÖÙ]K\][ÝOHœLˆ—IÊK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXÙZ]\ˆÜ°éØ[Y[ÉßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÖÙ]K\][ÝOHœLˆ—IÊJKÐÛÛZ[•^
+	ÐXÙZ]È[ÈÛY[IÊNØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXÙZ]\ˆÜ°éØ[Y[ÉßJJKÒ]™PÛÝ[
+
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ][ÝQ›Ü›IÊJKÐ™RY[Š
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	ÐZ[™H°èÛÈÝ]™HYØ[Y[ÉÊNÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K™XÚ\Ú[ÛœË›X\
+OŠÜ][ÝWÚY™œ][ÝWÚY™\]Y\ÝÚY™œ™\]Y\ÝÚYXÚ\Ú[ÛŽ™™XÚ\Ú[ÛŸJJJJKÑ\]X[
+ÞÜ][ÝWÚY‰ÜLIË™\]Y\ÝÚY‰ØXØÙ\Y\Ù\šXÙIËXÚ\Ú[ÛŽ‰Ü™XÝ\ØYIßKÜ][ÝWÚY‰ÜL‰Ë™\]Y\ÝÚY‰ØXØÙ\Y\Ù\šXÙIËXÚ\Ú[ÛŽ‰ØXÙZ]IßWJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÛÙÛÝ]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ][Ý\ÉÊJKÐ™Q[\J
+NÂŸJNÂ‚˜\Þ[˜È[˜Ý[ÛˆÙYYÛÛ˜XÝÛÛ^
+YÙKÜ›ÝšY\Y˜[ÙKÛÛ˜XÝY˜[ÙK™Y\ÙYY˜[Ù_O^ßJHÂˆ]ØZ]YÙK™]˜[X]J
+Ü›ÝšY\‹ÛÛ˜XÝ™Y\ÙYJOOžÂˆÛÛœÝYOIÌLLMNLIËÛY[ÚY\›ÝšY\ÉØÛY[ZY	Î›YK›ÝšY\—ÚY\›ÝšY\ÛYN‰Ü›ÝšY\‹ZY	ÎÂˆÛÛœÝ^ÚY‰ØÛÛ˜XÝ\Ù\šXÙIËÛY[ÚY›ÝšY\—ÚY›Ù™\ÜÚ[ÛŽ‰Ô[Ü‰Ë\ØÜš\[ÛŽ‰Ô[\˜HHØ[IËÝ]\Î‰ØXÙZ]ÉËÚ]N‰ÓX[˜]\ÉËÝ]N‰ÐSIßNÂˆÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝËœ\Ú
+ŠNÂˆÚ[™ÝË\ÝÝ]Kœ][Ý\Ëœ\Ú
+ÚY‰ØÛÛ˜XÝ\][ÝIË™\]Y\ÝÚYœ‹šY›ÝšY\—ÚY[[Ý[ØÙ[ÎL\ØÜš\[ÛŽ‰Ô[\˜HHØ[H[HÚ\ÈX\ÉËÝ]\Î‰Ü›ÜÜÝIßJNÂˆÚ[™ÝË\ÝÝ]K™XÚ\Ú[ÛœËœ\Ú
+Ü][ÝWÚY‰ØÛÛ˜XÝ\][ÝIË™\]Y\ÝÚYœ‹šYXÚ\Ú[ÛŽ‰ØXÙZ]IßJNÂˆYŠÛÛ˜XÝ
+HÂˆÛÛœÝØÏ^Ý™\œÚ[ÛŽŒKØÛÜN‰Ô[\˜HHØ[H[HÚ\ÈX\ÉË[[Ý[ØÙ[ÎLÛY[žÚY˜ÛY[ÚY˜[YN‰ÐÛY[HH\ÝIßK›ÝšY\ŽžÚYœ›ÝšY\—ÚY˜[YN‰Ô™\ÝYÜˆH\ÝIßKÝ\×Ø]›™]È]J]K››ÝÊ
+JÎ
+KÒTÓÔÝš[™Ê
+K[™×Ø]›™]È]J]K››ÝÊ
+JÌMÌŽ
+KÒTÓÔÝš[™Ê
+K™\ÜÛœÚXš[]Y\Î‰ÐÛY[H›Ü›™XÙHXÙ\ÜÛÎÈ™\ÝYÜˆ›Ü›™XÙHX]\šX[H^XÝ]HH[\˜K‰ËÝYÙ\Î–ÞÝ]N‰Ñ[™YØHÛÛ\]IË[[Ý[ØÙ[ÎLYWÙ\ØÜš\[ÛŽ‰Ð\0ìÜÈÛÛ˜Û\ðèÛÉßW_NÂˆÚ[™ÝË\ÝÝ]K˜ÛÛ˜XÝËœ\Ú
+ÚY‰ØÛÛ˜XÝLIË™\]Y\ÝÚYœ‹šY][ÝWÚY‰ØÛÛ˜XÝ\][ÝIËÛY[ÚY›ÝšY\—ÚY™\œÚ[ÛŽŒKØÝ[Y[™ØËÛÛ[Ú\Ú‰ØIËœ™\X]
+
+_JNÂˆÚ[™ÝË\ÝÝ]K˜ÛÛ˜XÝXÚ\Ú[ÛœËœ\Ú
+ØÛÛ˜XÝÚY‰ØÛÛ˜XÝLIËXÝÜ—ÚYœ›ÝšY\—ÚYXÚ\Ú[ÛŽ‰ØXÙZ]ÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNÂˆYŠ™Y\ÙY
+^ÂˆÚ[™ÝË\ÝÝ]K˜ÛÛ˜XÝXÚ\Ú[ÛœËœ\Ú
+ØÛÛ˜XÝÚY‰ØÛÛ˜XÝLIËXÝÜ—ÚY˜ÛY[ÚYXÚ\Ú[ÛŽ‰Ü™XÝ\ØYÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNÂˆÚ[™ÝË\ÝÝ]K˜ÛÛ˜XÝËœ\Ú
+ÚY‰ØÛÛ˜XÝL‰Ë™\]Y\ÝÚYœ‹šY][ÝWÚY‰ØÛÛ˜XÝ\][ÝIËÛY[ÚY›ÝšY\—ÚY™\œÚ[ÛŽŒ‹ØÝ[Y[žË‹‹™ØË™\œÚ[ÛŽŒ‹™\ÜÛœÚXš[]Y\Î‰Ó›Ý˜H™\œðèÛÎˆÛY[H›Ü›™XÙHXÙ\ÜÛÎÈ™\ÝYÜˆ^XÝ]HH[\˜K‰ßKÛÛ[Ú\Ú‰Ø‰Ëœ™\X]
+
+_JNÂˆBˆBˆKÜ›ÝšY\‹ÛÛ˜XÝ™Y\ÙYJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXœš\ˆÛÛ™\œØIßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØÛÛ˜XÝÙXÝ[Û‰ÊJKÐ™Uš\ÚX›J
+NÂŸB\Ý
+	Ü›ÝšY\ˆ›ÜÜÙ\ÈHÛÛ˜XÝÚ]˜[Y]YÝYÙHÝ[[™Û˜\ÚÝ	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKÜ›ÝšY\ŽY_JNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈØÛÛ˜XÝÝ\ÉÊK™š[
+™]È]J]K››ÝÊ
+JÎ
+KÒTÓÔÝš[™Ê
+KœÛXÙJMŠJNØ]ØZ]YÙK›ØØ]ÜŠ	ÈØÛÛ˜XÝ[™ÉÊK™š[
+™]È]J]K››ÝÊ
+JÌMÌŽ
+KÒTÓÔÝš[™Ê
+KœÛXÙJMŠJNØ]ØZ]YÙK›ØØ]ÜŠ	ÈØÛÛ˜XÝ™\ÜÛœÚXš[]Y\ÉÊK™š[
+	ÐÛY[H›Ü›™XÙHXÙ\ÜÛÎÈ™\ÝYÜˆ›Ü›™XÙHX]\šX[H^XÝ]HH[\˜K‰ÊNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÖÙ]K\ÝYÙOH˜[[Ý[—IÊK™š[
+	ÍKNIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ›ÜÜÙPÛÛ˜XÝ	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	ÜÛÛXH\È]\\ÉÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜ÛÛ˜XÝË›[™Ý
+JKÐ™J
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÖÙ]K\ÝYÙOH˜[[Ý[—IÊK™š[
+	ÍL	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ›ÜÜÙPÛÛ˜XÝ	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØÛÛ˜XÝÉÊJKÐÛÛZ[•^
+	ÐXÛÜ™È8 %™\œðèÛÈIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØÛÛ˜XÝÉÊJKÐÛÛZ[•^
+	Ô‰L	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØÛÛ˜XÝ›Ü›IÊJKÐ™RY[Š
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜ÛÛ˜XÝÖÌK™ØÝ[Y[œÝYÙ\ÖÌK˜[[Ý[ØÙ[ÊJKÐ™JL
+NÂŸJNÂ\Ý
+	ØÛY[^XÚ]HXØÙ\È^XÝÛÛ˜XÝ™\œÚ[Û‹Ù\\˜][Hœ›ÛH›ÝšY\‰Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝY_JNØÛÛœÝXØÙ\\YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXÙZ]\ˆ\ÝH™\œðèÛÉßJNØ]ØZ]^XÝ
+XØÙ\
+KÐ™Q\ØX›Y
+
+NØ]ØZ]YÙK™Ù]žT›ÛJ	ØÚXÚØ›Þ	ËÛ˜[YN‰ÓH\ÝH™\œðèÛÈHÛÛ˜ÛÜ™ÉßJK˜ÚXÚÊ
+NØ]ØZ]XØÙ\˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØÛÛ˜XÝÉÊJKÐÛÛZ[•^
+	ØXÙZ]ÈÜˆ[X˜\È\È\\ÉÊNØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXÙZ]\ˆ\ÝH™\œðèÛÉßJJKÒ]™PÛÝ[
+
+NÂˆÛÛœÝØ[X]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[™
+ÏO˜ËœœÏOOIÙXÚYWÜÙ\šXÙWØÛÛ˜XÝ	ÊJNÙ^XÝ
+Ø[˜\™ÜÊKÑ\]X[
+ÜØÛÛ˜XÝÚY‰ØÛÛ˜XÝLIËØÛÛ[Ú\Ú‰ØIËœ™\X]
+
+KÙXÚ\Ú[ÛŽ‰ØXÙZ]ÉßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÛÙÛÝ]	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈØÛÛ˜XÝÉÊJKÐ™Q[\J
+NÂŸJNÂ\Ý
+	Øš[]\˜[HXØÙ\YYÜ™Y[Y[ÝÛ›ØYÈH™\šYšXX›H™XÙZ\	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]KÏ\Ë˜ÛÛ˜XÝÖÌNÜË˜ÛÛ˜XÝXÚ\Ú[ÛœËœ\Ú
+ØÛÛ˜XÝÚY˜ËšYXÝÜ—ÚY˜Ë˜ÛY[ÚYXÚ\Ú[ÛŽ‰ØXÙZ]ÉËÜ™X]YØ]‰ÌŒ‹LLLNULŽŒNŒ‰ßJNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NÂˆÛÛœÝÝÛ›ØY›ÛZ\ÙO\YÙKØZ]›Ü‘]™[
+	ÙÝÛ›ØY	ÊNØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ð˜Z^\ˆÛÛ\›Ý˜[HÈXÛÜ™ÉßJK˜ÛXÚÊ
+NØÛÛœÝÝÛ›ØYX]ØZ]ÝÛ›ØY›ÛZ\ÙNÂˆ^XÝ
+ÝÛ›ØYœÝYÙÙ\ÝYš[[˜[YJ
+JKÐ™J	ØXÛÜ™ËXÛÛ˜XÝ\Ù\šXÙK]ŒKšœÛÛ‰ÊNÂˆÛÛœÝ™XÙZ\R”ÓÓ‹œ\œÙJ]ØZ]™XYš[J]ØZ]ÝÛ›ØYœ]
+
+K	Ý]Ž	ÊJNÂˆ^XÝ
+™XÙZ\
+KÓX]ÚØš™XÝ
+Ü™XÙZ\Ý\N‰ÜÙ\šXÛ×ØÙ\×ØYÜ™Y[Y[ØXØÙ\[˜ÙIËYÜ™Y[Y[žÚY‰ØÛÛ˜XÝLIË™\]Y\ÝÚY‰ØÛÛ˜XÝ\Ù\šXÙIË™\œÚ[ÛŽŒKÛÛ[Ú\Ú‰ØIËœ™\X]
+
+__JNÂˆ^XÝ
+™XÙZ\˜XØÙ\[˜Ù\Ë›X\
+Ož˜XÝÜ—ÚY
+JKÑ\]X[
+ÉÌLLMNLIË	Ü›ÝšY\‹ZY	×JNÂˆ^XÝ
+™XÙZ\››ÝXÙJKÐÛÛZ[Š	Ó°èÛÈ0êH\ÜÚ[˜]\˜HYÚ][Ù\YšXØYIÊNÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	ÑÝX\™HÈ\œ]Z]›È[HØØ[ÙYÝ\›ÉÊNÂŸJNÂ\Ý
+	ØH™]š\ÙYÛÛ˜XÝ™\]Z\™\Èœ™\ÚXØÙ\[˜ÙH[™™\Ù\™\È™Y\ÙY™\œÚ[Û‰Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝYK™Y\ÙYY_JNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÖÙ]KXÛÛ˜XÝH˜ÛÛ˜XÝLH—IÊJKÐÛÛZ[•^
+	Ñ\ÝH™\œðèÛÈ›ÚH™XÝ\ØYIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÖÙ]KXÛÛ˜XÝH˜ÛÛ˜XÝLH—H]Û‰ÊJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÖÙ]KXÛÛ˜XÝH˜ÛÛ˜XÝLˆ—IÊJKÐÛÛZ[•^
+	ÐÛY[NˆYÝX\™[™ÈXÚ\ðèÛÉÊNØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXÙZ]\ˆ\ÝH™\œðèÛÉßJJKÐ™Q\ØX›Y
+
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ô™XÝ\Ø\ˆ\ÝH™\œðèÛÉßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÖÙ]KXÛÛ˜XÝH˜ÛÛ˜XÝLˆ—IÊJKÐÛÛZ[•^
+	Ñ\ÝH™\œðèÛÈ›ÚH™XÝ\ØYIÊNÙ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜ÛÛ˜XÝXÚ\Ú[ÛœË™š[\ŠO™˜ÛÛ˜XÝÚYOOIØÛÛ˜XÝLIÊK›[™Ý
+JKÐ™JŠNÂŸJNÂ‚\Ý
+	Ü›ÝšY\ˆÝ\ÈHš[]\˜[HXØÙ\YÙ\šXÙH[™™\]Y\ÝÈÛÛ\][Û‰Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKÜ›ÝšY\ŽYKÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]K˜ÛÛ˜XÝÖÌNÝÚ[™ÝË\ÝÝ]K˜ÛÛ˜XÝXÚ\Ú[ÛœËœ\Ú
+ØÛÛ˜XÝÚY˜ËšYXÝÜ—ÚY˜Ë˜ÛY[ÚYXÚ\Ú[ÛŽ‰ØXÙZ]ÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ò[šXÚX\ˆÙ\špéÛÉßJJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ñ\ÝÝHHØ[Z[šÉßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ò[šXÚX\ˆÙ\špéÛÉßJJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐÚYÝYZH[ÈØØ[	ßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ÐYÝX\™[™ÈÛÛ™š\›XpéðèÛÈÈÛY[IÊNØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ò[šXÚX\ˆÙ\špéÛÉßJJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]K\Ëœ™\]Y\ÝÖÌNÜË™^XÝ][Û‘]™[Ëœ\Ú
+Ü™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹˜ÛY[ÚY]™[Ý\N‰ØÚYØYWØÛÛ™š\›XYWØÛY[IËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ò[šXÚX\ˆÙ\špéÛÉßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ÔÙ\špéÛÈ[H[™[Y[ÉÊNÂˆ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÔÛÛXÚ]\ˆÛÛ™š\›XpéðèÛÈHÛÛ˜Û\ðèÛÉßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ÐYÝX\™[™ÈÛÛ™š\›XpéðèÛÈÈÛY[IÊNÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K™^XÝ][Û‘]™[Ë›X\
+OO™K™]™[Ý\JJJKÑ\]X[
+ÉØWØØ[Z[šÉË	ØÚYÛÝWÛØØ[	Ë	ØÚYØYWØÛÛ™š\›XYWØÛY[IË	Ú[šXÚXYÉË	ØÛÛ˜Û\Ø[×ÜÛÛXÚ]YI×JNÂŸJNÂ\Ý
+	Ü›ÝšY\ˆ™YÚ\Ý\œÈ[˜Ü™X\Ú[™È›ÙÜ™\ÜÈš\ÚX›H[ˆH^XÝ][Ûˆ[Y[[™IË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKÜ›ÝšY\ŽYKÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]KÏ\Ë˜ÛÛ˜XÝÖÌK\Ëœ™\]Y\ÝÖÌNÜË˜ÛÛ˜XÝXÚ\Ú[ÛœËœ\Ú
+ØÛÛ˜XÝÚY˜ËšYXÝÜ—ÚY˜Ë˜ÛY[ÚYXÚ\Ú[ÛŽ‰ØXÙZ]ÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNÜ‹œÝ]\ÏIÙ[WØ[™[Y[ÉÎÜË™^XÝ][Û‘]™[Ëœ\Ú
+Ü™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰Ú[šXÚXYÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK™Ù]žSX™[
+	Ð[™[Y[ÈÈÙ\špéÛÉÊKœÙ[XÝÜ[ÛŠ	ÌIÊNØ]ØZ]YÙK™Ù]žSX™[
+	Ô™\Ý[[ÈÈ[™[Y[ÉÊK™š[
+	Ô™\\˜péðèÛÈH›ÝpéðèÛÈÈ[XšY[HÛÛ˜ÛpëY\Ë‰ÊNØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ô™YÚ\Ý˜\ˆ[™[Y[ÉßJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ÌIH8 %™\\˜péðèÛÈH›ÝpéðèÛÈÈ[XšY[HÛÛ˜ÛpëY\Ë‰ÊNØ]ØZ]^XÝ
+YÙK™Ù]žSX™[
+	Ð[™[Y[ÈÈÙ\špéÛÉÊJK››ÝÒ]™U˜[YJ	ÌIÊNÂˆ]ØZ]YÙK™Ù]žSX™[
+	Ð[™[Y[ÈÈÙ\špéÛÉÊKœÙ[XÝÜ[ÛŠ	ÍL	ÊNØ]ØZ]YÙK™Ù]žSX™[
+	Ô™\Ý[[ÈÈ[™[Y[ÉÊK™š[
+	Ôš[YZ\˜H]\HH[\˜HÛÛ˜ÛpëYK‰ÊNØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ô™YÚ\Ý˜\ˆ[™[Y[ÉßJK˜ÛXÚÊ
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠÏO˜ËœœÏOOIØYÜÙ\šXÙWÜ›ÙÜ™\Ü×Ý\]IÊK›X\
+ÏO˜Ë˜\™ÜÊJJKÑ\]X[
+ÂˆÜÜ™\]Y\ÝÚY‰ØÛÛ˜XÝ\Ù\šXÙIËÜ›ÙÜ™\Ü×Ü\˜Ù[ŒKÛ›ÝN‰Ô™\\˜péðèÛÈH›ÝpéðèÛÈÈ[XšY[HÛÛ˜ÛpëY\Ë‰ßKˆÜÜ™\]Y\ÝÚY‰ØÛÛ˜XÝ\Ù\šXÙIËÜ›ÙÜ™\Ü×Ü\˜Ù[LÛ›ÝN‰Ôš[YZ\˜H]\HH[\˜HÛÛ˜ÛpëYK‰ßBˆJNÂŸJNÂ\Ý
+	ØÛY[ÙY\È›ÝšY\ˆ›ÙÜ™\ÜÈÚ]Ý]™XÙZ]š[™È›ÙÜ™\ÜÈÛÛ›ÛÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]K\Ëœ™\]Y\ÝÖÌNÜ‹œÝ]\ÏIÙ[WØ[™[Y[ÉÎÜË™^XÝ][Û‘]™[Ëœ\Ú
+Ü™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰Ú[šXÚXYÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNÜËœ›ÙÜ™\ÜÕ\]\Ëœ\Ú
+Ü™\]Y\ÝÚYœ‹šY›ÝšY\—ÚYœ‹œ›ÝšY\—ÚY›ÙÜ™\Ü×Ü\˜Ù[L›ÝN‰Ôš[YZ\˜H]\HH[\˜HÛÛ˜ÛpëYK‰ËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ÍL	H8 %š[YZ\˜H]\HH[\˜HÛÛ˜ÛpëYK‰ÊNØ]ØZ]^XÝ
+YÙK™Ù]žSX™[
+	Ð[™[Y[ÈÈÙ\špéÛÉÊJKÒ]™PÛÝ[
+
+NØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ô™YÚ\Ý˜\ˆ[™[Y[ÉßJJKÒ]™PÛÝ[
+
+NÂŸJNÂ\Ý
+	Ü›ÝšY\ˆ›ÜÜÙ\ÈH™\ØÚY[H™Y›Ü™HÝ\[™ÈH›Ý\›™^IË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKÜ›ÝšY\ŽYKÛÛ˜XÝY_JNÂˆÛÛœÝ›ÜÜÙY[™]È]J]K››ÝÊ
+JÌMÌŽ
+NØ]ØZ]YÙK™Ù]žSX™[
+	Ó›Ý˜H]H›ÜÜÝIÊK™š[
+›ÜÜÙYÒTÓÔÝš[™Ê
+KœÛXÙJMŠJNØ]ØZ]YÙK™Ù]žSX™[
+	Ó[Ý]›ÈÈ™XYÙ[™[Y[ÉÊK™š[
+	Ò[™\ÜÛšXš[YYH›ÈÜ°è\š[È[šXÚX[Y[HÛÛXš[˜YË‰ÊNØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ô›ÜÜˆ™XYÙ[™[Y[ÉßJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ØYÝX\™[™ÈXÚ\ðèÛÈHÝ]˜H\IÊNØ]ØZ]^XÝ
+YÙK™Ù]žSX™[
+	Ó›Ý˜H]H›ÜÜÝIÊJKÒ]™PÛÝ[
+
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[™
+ÏO˜ËœœÏOOIÜ›ÜÜÙWÜÙ\šXÙWÜ™\ØÚY[IÊK˜\™ÜÊJKÓX]ÚØš™XÝ
+ÜÜ™\]Y\ÝÚY‰ØÛÛ˜XÝ\Ù\šXÙIËÜ™X\ÛÛŽ‰Ò[™\ÜÛšXš[YYH›ÈÜ°è\š[È[šXÚX[Y[HÛÛXš[˜YË‰ßJNÂŸJNÂ\Ý
+	ØÛY[XØÙ\ÈH›ÝšY\ˆ›ÜÜÙY]H[™\]\ÈHØÚY[IË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝY_JNØÛÛœÝ›ÜÜÙY[™]È]J]K››ÝÊ
+JÌMÌŽ
+KÒTÓÔÝš[™Ê
+NÂˆ]ØZ]YÙK™]˜[X]J›ÜÜÙYOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]K\Ëœ™\]Y\ÝÖÌNÜËœØÚY[PÚ[™Ù\Ëœ\Ú
+ÚY‰ÜØÚY[KLIË™\]Y\ÝÚYœ‹šY›ÝšY\—ÚYœ‹œ›ÝšY\—ÚY›ÜÜÙYØžNœ‹œ›ÝšY\—ÚY›ÜÜÙYÙ›ÜŽœ›ÜÜÙY™X\ÛÛŽ‰Ò[™\ÜÛšXš[YYH›ÈÜ°è\š[È[šXÚX[Y[HÛÛXš[˜YË‰ËÝ]\Î‰Ü[™[IËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+KXÚYYØ]›[JNßK›ÜÜÙY
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK™Ù]žSX™[
+	Ó›Ý˜H]H›ÜÜÝIÊJKÒ]™PÛÝ[
+
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXÙZ]\ˆ›Ý˜H]IßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ØXÙZ]È[HÝ]˜H\IÊNÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOŠÙ]NÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝÖÌKœØÚY[YÙ›Ü‹Ø[Ú[™ÝË\ÝÝ]K˜Ø[Ë™š[™
+ÏO˜ËœœÏOOIÙXÚYWÜÙ\šXÙWÜ™\ØÚY[IÊK˜\™ÜßJJJKÑ\]X[
+Ù]Nœ›ÜÜÙYØ[žÜØÚ[™ÙWÚY‰ÜØÚY[KLIËÙXÚ\Ú[ÛŽ‰ØXÙZ]Éß_JNÂŸJNÂ\Ý
+	ØÛY[›ÜÜÙ\ÈH™\ØÚY[H[™ØZ]È›ÜˆH›ÝšY\ˆXÚ\Ú[Û‰Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝY_JNØÛÛœÝ›ÜÜÙY[™]È]J]K››ÝÊ
+JÌNLŒ
+NÂˆ]ØZ]YÙK™Ù]žSX™[
+	Ó›Ý˜H]H›ÜÜÝIÊK™š[
+›ÜÜÙYÒTÓÔÝš[™Ê
+KœÛXÙJMŠJNØ]ØZ]YÙK™Ù]žSX™[
+	Ó[Ý]›ÈÈ™XYÙ[™[Y[ÉÊK™š[
+	Ô™XÚ\ÛÈZ\Ý\ˆH]H\˜H™XÙX™\ˆÈ™\ÝYÜˆ›ÈØØ[‰ÊNØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ô›ÜÜˆ™XYÙ[™[Y[ÉßJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	Ü›ÜÜÝÈÜˆ›Øðê‰ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ØYÝX\™[™ÈXÚ\ðèÛÈHÝ]˜H\IÊNØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXÙZ]\ˆ›Ý˜H]IßJJKÒ]™PÛÝ[
+
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]KœØÚY[PÚ[™Ù\ÖÌJJKÓX]ÚØš™XÝ
+Ü›ÜÜÙYØžN‰ÌLLMNLIË™X\ÛÛŽ‰Ô™XÚ\ÛÈZ\Ý\ˆH]H\˜H™XÙX™\ˆÈ™\ÝYÜˆ›ÈØØ[‰ËÝ]\Î‰Ü[™[IßJNÂŸJNÂ\Ý
+	Ü›ÜÜÙ\ˆÚ]˜]ÜÈH[™[™È™\ØÚY[H[™™[X\Ù\ÈH›Ý\›™^IË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKÜ›ÝšY\ŽYKÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]KÏ\Ë˜ÛÛ˜XÝÖÌNÜË˜ÛÛ˜XÝXÚ\Ú[ÛœËœ\Ú
+ØÛÛ˜XÝÚY˜ËšYXÝÜ—ÚY˜Ë˜ÛY[ÚYXÚ\Ú[ÛŽ‰ØXÙZ]ÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ñ\ÝÝHHØ[Z[šÉßJJKÐ™Uš\ÚX›J
+NÂˆÛÛœÝ›ÜÜÙY[™]È]J]K››ÝÊ
+JÌNLŒ
+NØ]ØZ]YÙK™Ù]žSX™[
+	Ó›Ý˜H]H›ÜÜÝIÊK™š[
+›ÜÜÙYÒTÓÔÝš[™Ê
+KœÛXÙJMŠJNØ]ØZ]YÙK™Ù]žSX™[
+	Ó[Ý]›ÈÈ™XYÙ[™[Y[ÉÊK™š[
+	Ô™XÚ\ÛÈ™]\˜\ˆ\ÝH›ÜÜÝHÙHH\ÜÛšXš[YYH]Y\‹‰ÊNØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ô›ÜÜˆ™XYÙ[™[Y[ÉßJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ñ\ÝÝHHØ[Z[šÉßJJKÒ]™PÛÝ[
+
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ô™]\˜\ˆ›ÜÜÝIßJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	Ü™]\˜YÈÜˆ›Øðê‰ÊNØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ñ\ÝÝHHØ[Z[šÉßJJKÐ™Uš\ÚX›J
+NÂˆÛÛœÝ™\Ý[X]ØZ]YÙK™]˜[X]J
+
+OOŠØÚ[™ÙNÚ[™ÝË\ÝÝ]KœØÚY[PÚ[™Ù\ÖÌKØ[Ú[™ÝË\ÝÝ]K˜Ø[Ë™š[™
+ÏO˜ËœœÏOOIØØ[˜Ù[ÜÙ\šXÙWÜ™\ØÚY[IÊK˜\™ÜßJJNÂˆ^XÝ
+™\Ý[˜Ú[™ÙJKÓX]ÚØš™XÝ
+ÜÝ]\Î‰ØØ[˜Ù[YÉËXÚYYØžN‰ÌLLMNLIßJNÙ^XÝ
+™\Ý[˜Ø[
+KÑ\]X[
+ÜØÚ[™ÙWÚYœ™\Ý[˜Ú[™ÙKšYJNÂŸJNÂ\Ý
+	Ü›ÝšY\ˆXÚY\ÈHÛY[›ÜÜØ[™Y›Ü™HÝ\[™ÈH›Ý\›™^IË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKÜ›ÝšY\ŽYKÛÛ˜XÝY_JNØÛÛœÝ›ÜÜÙY[™]È]J]K››ÝÊ
+JÌNLŒ
+KÒTÓÔÝš[™Ê
+NÂˆ]ØZ]YÙK™]˜[X]J›ÜÜÙYOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]KÏ\Ë˜ÛÛ˜XÝÖÌK\Ëœ™\]Y\ÝÖÌNÜË˜ÛÛ˜XÝXÚ\Ú[ÛœËœ\Ú
+ØÛÛ˜XÝÚY˜ËšYXÝÜ—ÚY˜Ë˜ÛY[ÚYXÚ\Ú[ÛŽ‰ØXÙZ]ÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNÜËœØÚY[PÚ[™Ù\Ëœ\Ú
+ÚY‰ÜØÚY[KXÛY[	Ë™\]Y\ÝÚYœ‹šY›ÝšY\—ÚYœ‹œ›ÝšY\—ÚY›ÜÜÙYØžNœ‹˜ÛY[ÚY›ÜÜÙYÙ›ÜŽœ›ÜÜÙY™X\ÛÛŽ‰ÐÛY[H™XÚ\ØHZ\Ý\ˆH]H\˜H™XÙX™\ˆÈ™\ÝYÜ‹‰ËÝ]\Î‰Ü[™[IËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+KXÚYYØ]›[JNßK›ÜÜÙY
+NÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ñ\ÝÝHHØ[Z[šÉßJJKÒ]™PÛÝ[
+
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXÙZ]\ˆ›Ý˜H]IßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ØXÙZ]È[HÝ]˜H\IÊNØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ñ\ÝÝHHØ[Z[šÉßJJKÐ™Uš\ÚX›J
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]Kœ™\]Y\ÝÖÌKœØÚY[YÙ›ÜŠJKÐ™J›ÜÜÙY
+NÂŸJNÂ\Ý
+	Ü›ÝšY\ˆ™\ÜÈÜ™\™YÛ‹]K]Ø^H[™\œš]˜[Ý]\Ù\ÈÈHÛY[	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKÜ›ÝšY\ŽYKÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]KÏ\Ë˜ÛÛ˜XÝÖÌNÜË˜ÛÛ˜XÝXÚ\Ú[ÛœËœ\Ú
+ØÛÛ˜XÝÚY˜ËšYXÝÜ—ÚY˜Ë˜ÛY[ÚYXÚ\Ú[ÛŽ‰ØXÙZ]ÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ñ\ÝÝHHØ[Z[šÉßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	Ô™\ÝYÜˆ\Ý0èHHØ[Z[šÉÊNÂˆ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐÚYÝYZH[ÈØØ[	ßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ÐYÝX\™[™ÈÛÛ™š\›XpéðèÛÈÈÛY[IÊNÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K™^XÝ][Û‘]™[Ë›X\
+OO™K™]™[Ý\JJJKÑ\]X[
+ÉØWØØ[Z[šÉË	ØÚYÛÝWÛØØ[	×JNÂˆÛÛœÝØ[ÏX]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠÏO˜ËœœÏOOIÛX\š×Ü›ÝšY\—Ø\œš]˜[	ÊK›X\
+ÏO˜Ë˜\™ÜÊJNÂˆ^XÝ
+Ø[ÊKÑ\]X[
+ÞÜÜ™\]Y\ÝÚY‰ØÛÛ˜XÝ\Ù\šXÙIËÙ]™[‰ØWØØ[Z[šÉßKÜÜ™\]Y\ÝÚY‰ØÛÛ˜XÝ\Ù\šXÙIËÙ]™[‰ØÚYÛÝWÛØØ[	ßWJNÂŸJNÂ\Ý
+	Ü›ÝšY\ˆ\]\ÈHX[X[\œš]˜[\Ý[X]HÛ›HÚ[HÛˆHØ^IË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKÜ›ÝšY\ŽYKÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]KÏ\Ë˜ÛÛ˜XÝÖÌNÜË˜ÛÛ˜XÝXÚ\Ú[ÛœËœ\Ú
+ØÛÛ˜XÝÚY˜ËšYXÝÜ—ÚY˜Ë˜ÛY[ÚYXÚ\Ú[ÛŽ‰ØXÙZ]ÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK™Ù]žSX™[
+	Ô™]š\ðèÛÈHÚYØYIÊJKÒ]™PÛÝ[
+
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ñ\ÝÝHHØ[Z[šÉßJK˜ÛXÚÊ
+NÂˆ]ØZ]YÙK™Ù]žSX™[
+	Ô™]š\ðèÛÈHÚYØYIÊKœÙ[XÝÜ[ÛŠ	ÌÌ	ÊNØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ò[™›Ü›X\ˆ™]š\ðèÛÉßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	Ô™]š\ðèÛÈ[™›Ü›XYN‰ÊNÂˆ]ØZ]YÙK™Ù]žSX™[
+	Ô™]š\ðèÛÈHÚYØYIÊKœÙ[XÝÜ[ÛŠ	ÍIÊNØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ð]X[^˜\ˆ™]š\ðèÛÉßJK˜ÛXÚÊ
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[\ŠÏO˜ËœœÏOOIÜÙ]Ü›ÝšY\—Ù]IÊK›X\
+ÏO˜Ë˜\™ÜÊJJKÑ\]X[
+ÞÜÜ™\]Y\ÝÚY‰ØÛÛ˜XÝ\Ù\šXÙIËÛZ[]\ÎŒÌKÜÜ™\]Y\ÝÚY‰ØÛÛ˜XÝ\Ù\šXÙIËÛZ[]\Î_WJNÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜\œš]˜[\Ý[X]\ÊJKÒ]™S[™Ý
+JNÂŸJNÂ\Ý
+	ØÛY[ÛÛ™š\›\È›ÝšY\ˆ\œš]˜[Ú]Ý]™XÙZ]š[™È›ÝšY\ˆÛÛ›ÛÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]KÏ\Ë˜ÛÛ˜XÝÖÌK\Ëœ™\]Y\ÝÖÌNÜË˜ÛÛ˜XÝXÚ\Ú[ÛœËœ\Ú
+ØÛÛ˜XÝÚY˜ËšYXÝÜ—ÚY˜Ë˜ÛY[ÚYXÚ\Ú[ÛŽ‰ØXÙZ]ÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNÜË™^XÝ][Û‘]™[Ëœ\Ú
+Ü™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰ØWØØ[Z[šÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_KÜ™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰ØÚYÛÝWÛØØ[	ËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ÐÛÛ™š\›YHÛÛY[HÙH[H\Ý]™\ˆ›ÈØØ[	ÊNÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ñ\ÝÝHHØ[Z[šÉßJJKÒ]™PÛÝ[
+
+NØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐÚYÝYZH[ÈØØ[	ßJJKÒ]™PÛÝ[
+
+NÂˆ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ò[šXÚX\ˆÙ\špéÛÉßJJKÒ]™PÛÝ[
+
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐÛÛ™š\›X\ˆÚYØYHÈ™\ÝYÜ‰ßJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ÐÛY[HÛÛ™š\›[ÝHHÚYØYIÊNÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜Ø[Ë™š[™
+ÏO˜ËœœÏOOIØÛÛ™š\›WÜ›ÝšY\—Ø\œš]˜[	ÊK˜\™ÜÊJKÑ\]X[
+ÜÜ™\]Y\ÝÚY‰ØÛÛ˜XÝ\Ù\šXÙIßJNÂŸJNÂ\Ý
+	ØÛY[ÙY\ÈHX[X[UHÚ]Ý]›ÝšY\ˆÛÛ›ÛÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]KÏ\Ë˜ÛÛ˜XÝÖÌK\Ëœ™\]Y\ÝÖÌNÜË˜ÛÛ˜XÝXÚ\Ú[ÛœËœ\Ú
+ØÛÛ˜XÝÚY˜ËšYXÝÜ—ÚY˜Ë˜ÛY[ÚYXÚ\Ú[ÛŽ‰ØXÙZ]ÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNÜË™^XÝ][Û‘]™[Ëœ\Ú
+Ü™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰ØWØØ[Z[šÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNÜË˜\œš]˜[\Ý[X]\Ëœ\Ú
+Ü™\]Y\ÝÚYœ‹šY›ÝšY\—ÚYœ‹œ›ÝšY\—ÚY\Ý[X]YØ\œš]˜[Ø]›™]È]J]K››ÝÊ
+JÌN
+KÒTÓÔÝš[™Ê
+K\]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	Ô™]š\ðèÛÈ[™›Ü›XYN‰ÊNØ]ØZ]^XÝ
+YÙK™Ù]žSX™[
+	Ô™]š\ðèÛÈHÚYØYIÊJKÒ]™PÛÝ[
+
+NØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‹Ü™]š\ðèÛËÚ_JJKÒ]™PÛÝ[
+
+NÂŸJNÂ‚\Ý
+	ØÛY[™\]Y\ÝÈÛ™HY\ÝY[™Y›Ü™HÛÛ™š\›Z[™ÈÛÛ\][Û‰Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]K\Ëœ™\]Y\ÝË™š[™
+OžšYOOIØÛÛ˜XÝ\Ù\šXÙIÊNÜ‹œÝ]\ÏIÙ[WØ[™[Y[ÉÎÜË™^XÝ][Û‘]™[Ëœ\Ú
+Ü™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰Ú[šXÚXYÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_KÜ™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰ØÛÛ˜Û\Ø[×ÜÛÛXÚ]YIËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK™Ù]žSX™[
+	ÐZ\ÝH™XÙ\Üðè\š[È[\ÈHÛÛ˜Û\ðèÛÉÊK™š[
+	ÐÛÜœšYÚ\ˆÈXØX˜[Y[È°ìÞ[[È0è˜[™[H[\ÈHÛÛ™š\›XpéðèÛË‰ÊNØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÔÛÛXÚ]\ˆZ\ÝIßJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ÐÛY[HÛÛXÚ]ÝH[HZ\ÝIÊNØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐÛÛ™š\›X\ˆÙ\špéÛÈÛÛ˜ÛpëYÉßJJKÒ]™PÛÝ[
+
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜ÛÛ\][ÛY\ÝY[ÖÌJJKÓX]ÚØš™XÝ
+Ü™\]Y\ÝÚY‰ØÛÛ˜XÝ\Ù\šXÙIË\ØÜš\[ÛŽ‰ÐÛÜœšYÚ\ˆÈXØX˜[Y[È°ìÞ[[È0è˜[™[H[\ÈHÛÛ™š\›XpéðèÛË‰ËÝ]\Î‰Ü[™[IßJNÂŸJNÂ‚\Ý
+	Ü›ÝšY\ˆ™XÛÜ™ÈH™\]Y\ÝYY\ÝY[›ÜˆÛY[™]šY]ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKÜ›ÝšY\ŽYKÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]K\Ëœ™\]Y\ÝË™š[™
+OžšYOOIØÛÛ˜XÝ\Ù\šXÙIÊNÜ‹œÝ]\ÏIÙ[WØ[™[Y[ÉÎÜË™^XÝ][Û‘]™[Ëœ\Ú
+Ü™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰Ú[šXÚXYÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_KÜ™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰ØÛÛ˜Û\Ø[×ÜÛÛXÚ]YIËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNÜË˜ÛÛ\][ÛY\ÝY[Ëœ\Ú
+ÚY‰ØY\ÝY[LIË™\]Y\ÝÚYœ‹šYÛY[ÚYœ‹˜ÛY[ÚY›ÝšY\—ÚYœ‹œ›ÝšY\—ÚY\ØÜš\[ÛŽ‰ÐÛÜœšYÚ\ˆÈXØX˜[Y[È°ìÞ[[È0è˜[™[H[\ÈHÛÛ™š\›XpéðèÛË‰ËÝ]\Î‰Ü[™[IË›ÝšY\—Ü™\ÜÛœÙN›[Ü™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+K™\ÜÛ™YØ]›[JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK™Ù]žSX™[
+	ÐÛÛ[ÈÈZ\ÝH›ÚH][™YÉÊK™š[
+	ÐXØX˜[Y[ÈÛÜœšYÚYÈH™]š\ØYÈÛÛHÈÛY[H›ÈØØ[‰ÊNØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ô™YÚ\Ý˜\ˆZ\ÝH™X[^˜YÉßJK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	Ô™\ÝYÜˆ™\ÜÛ™]H[ÈZ\ÝIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	ÐXØX˜[Y[ÈÛÜœšYÚYÉÊNÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K˜ÛÛ\][ÛY\ÝY[ÖÌJJKÓX]ÚØš™XÝ
+ÜÝ]\Î‰Ü™\ÜÛ™YÉË›ÝšY\—Ü™\ÜÛœÙN‰ÐXØX˜[Y[ÈÛÜœšYÚYÈH™]š\ØYÈÛÛHÈÛY[H›ÈØØ[‰ßJNÂŸJNÂ‚\Ý
+	ØÛY[ÛÛ™š\›\ÈÛÛ\][Ûˆ[™ÝX›Z]ÈÛ™H[[]]X›H˜][™ÈÚ]Ý]^[Y[ÛZ[IË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]KÏ\Ë˜ÛÛ˜XÝÖÌK\Ëœ™\]Y\ÝË™š[™
+Oœ‹šYOOIØÛÛ˜XÝ\Ù\šXÙIÊNÜË˜ÛÛ˜XÝXÚ\Ú[ÛœËœ\Ú
+ØÛÛ˜XÝÚY˜ËšYXÝÜ—ÚY˜Ë˜ÛY[ÚYXÚ\Ú[ÛŽ‰ØXÙZ]ÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNÜ‹œÝ]\ÏIÙ[WØ[™[Y[ÉÎÜË™^XÝ][Û‘]™[Ëœ\Ú
+Ü™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰Ú[šXÚXYÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_KÜ™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰ØÛÛ˜Û\Ø[×ÜÛÛXÚ]YIËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐÛÛ™š\›X\ˆÙ\špéÛÈÛÛ˜ÛpëYÉßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^XÝ][Û‰ÊJKÐÛÛZ[•^
+	Ó™[š[HYØ[Y[ÈÝH™\\ÜÙIÊNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ˜][™ÔØÛÜ™IÊKœÙ[XÝÜ[ÛŠ	ÍIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ˜][™ÐÛÛ[Y[	ÊK™š[
+	ÔÙ\špéÛÈ™[H^XÝ]YÉÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜØ]™T˜][™ÉÊK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ˜][™ÜÉÊJKÐÛÛZ[•^
+	ÍKÍIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜ˜][™Ñ›Ü›IÊJKÐ™RY[Š
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]Kœ˜][™ÜË›X\
+OŠÜØÛÜ™Nœ‹œØÛÜ™KÛÛ[Y[œ‹˜ÛÛ[Y[JJJJKÑ\]X[
+ÞÜØÛÜ™NKÛÛ[Y[‰ÔÙ\špéÛÈ™[H^XÝ]YÉßWJNÂŸJNÂ‚\Ý
+	Ü›ÝšY\ˆ›ÜÜÙ\È[ˆ^XÝXÙ[Ù\šXÙH^˜HÚ]Ý]Ü™X][™ÈHÚ\™ÙIË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKÜ›ÝšY\ŽYKÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]K\Ëœ™\]Y\ÝË™š[™
+Oœ‹šYOOIØÛÛ˜XÝ\Ù\šXÙIÊNÜ‹œÝ]\ÏIÙ[WØ[™[Y[ÉÎÜË™^XÝ][Û‘]™[Ëœ\Ú
+Ü™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰Ú[šXÚXYÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ^˜P[[Ý[	ÊK™š[
+	ÌKL	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ^˜Q\ØÜš\[Û‰ÊK™š[
+	Ô[\˜HYXÚ[Û˜[H\™YH^\›˜IÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ›ÜÜÙQ^˜IÊK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	Ó™[š[XHÛØœ˜[°éØH›ÚHÜšXYIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^˜\ÉÊJKÐÛÛZ[•^
+	Ô‰KL	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ^˜Q›Ü›IÊJKÐ™RY[Š
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K™^˜\Ë›X\
+OŠØ[[Ý[ØÙ[Îž˜[[Ý[ØÙ[Ë\ØÜš\[ÛŽž™\ØÜš\[Û‹Ý]\ÎžœÝ]\ßJJJJKÑ\]X[
+ÞØ[[Ý[ØÙ[ÎŒML\ØÜš\[ÛŽ‰Ô[\˜HYXÚ[Û˜[H\™YH^\›˜IËÝ]\Î‰Ü›ÜÜÝÉßWJNÂŸJNÂ‚\Ý
+	ØÛY[XØÙ\ÈH[™[™È^˜H^XÚ]H[™ÙY\ÈHXÚ\Ú[Ûˆš\ÚX›IË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]K\Ëœ™\]Y\ÝË™š[™
+Oœ‹šYOOIØÛÛ˜XÝ\Ù\šXÙIÊNÜ‹œÝ]\ÏIÙ[WØ[™[Y[ÉÎÜË™^XÝ][Û‘]™[Ëœ\Ú
+Ü™\]Y\ÝÚYœ‹šYXÝÜ—ÚYœ‹œ›ÝšY\—ÚY]™[Ý\N‰Ú[šXÚXYÉËÜ™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+_JNÜË™^˜\Ëœ\Ú
+ÚY‰Ù^˜K\[™[™ÉË™\]Y\ÝÚYœ‹šY›ÝšY\—ÚYœ‹œ›ÝšY\—ÚY\ØÜš\[ÛŽ‰Ò[œÝ[péðèÛÈYXÚ[Û˜[HXØX˜[Y[ÉË[[Ý[ØÙ[ÎŒÌÝ]\Î‰Ü›ÜÜÝÉËXÚYYØžN›[Ü™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+KXÚYYØ]›[JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXÙZ]\ˆÙ\špéÛÈ^˜IßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	Û°èÛÈ™X[^›ÝHÛØœ˜[°éØIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÖÙ]KY^˜OH™^˜K\[™[™È—IÊJKÐÛÛZ[•^
+	ÐXÙZ]È[ÈÛY[IÊNØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ô™XÝ\Ø\ˆÙ\špéÛÈ^˜IßJJKÒ]™PÛÝ[
+
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K™^˜\ÖÌKœÝ]\ÊJKÐ™J	ØXÙZ]ÉÊNÂŸJNÂ‚\Ý
+	ØÛY[Ü[œÈHØ]YÛÜš^™Y\Ü]HÚ]Ý][\Z[™ÈHXÚ\Ú[ÛˆÜˆÚ\™ÙIË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝ]Ú[™ÝË\ÝÝ]Kœ™\]Y\ÝË™š[™
+Oœ‹šYOOIØÛÛ˜XÝ\Ù\šXÙIÊNÜ‹œÝ]\ÏIÙ[WØ[™[Y[ÉÎßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ\Ü]PØ]YÛÜžIÊKœÙ[XÝÜ[ÛŠ	Ü]X[YYIÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ\Ü]Q\ØÜš\[Û‰ÊK™š[
+	ÓÈXØX˜[Y[ÈšXÛÝHY™\™[HÈ\ØÛÜÈÛÛXš[˜YË‰ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÛÜ[‘\Ü]IÊK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	Ó™[š[XHXÚ\ðèÛÈÝHÛØœ˜[°éØIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ\Ü]\ÉÊJKÐÛÛZ[•^
+	Ô]X[YYIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ\Ü]\ÉÊJKÐÛÛZ[•^
+	ÐYÝX\™[™ÈX[šY™\ÝpéðèÛÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ\Ü]Q›Ü›IÊJKÐ™RY[Š
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K™\Ü]\Ë›X\
+OŠØØ]YÛÜžN™˜Ø]YÛÜžK\ØÜš\[ÛŽ™™\ØÜš\[Û‹Ý]\Î™œÝ]\ßJJJJKÑ\]X[
+ÞØØ]YÛÜžN‰Ü]X[YYIË\ØÜš\[ÛŽ‰ÓÈXØX˜[Y[ÈšXÛÝHY™\™[HÈ\ØÛÜÈÛÛXš[˜YË‰ËÝ]\Î‰ØX™\IßWJNÂŸJNÂ‚\Ý
+	ÛÝ\ˆ\XÚ\[[œÝÙ\œÈH\Ü]HÛ˜ÙH[™ÙY\È[™[™ÈYZ[š\Ý˜]]™H[˜[\Ú\ÉË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYÛÛ˜XÝÛÛ^
+YÙKØÛÛ˜XÝY_JNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]K\Ëœ™\]Y\ÝË™š[™
+Oœ‹šYOOIØÛÛ˜XÝ\Ù\šXÙIÊNÜ‹œÝ]\ÏIÙ[WØ[™[Y[ÉÎÜË™\Ü]\Ëœ\Ú
+ÚY‰Ù\Ü]K[Ü[‰Ë™\]Y\ÝÚYœ‹šYÜ[™YØžNœ‹œ›ÝšY\—ÚYØ]YÛÜžN‰Ü˜^›ÉË\ØÜš\[ÛŽ‰ÓÈ˜^›È™XÚ\ØHÙ\ˆ™]š\ÝÈ[\È\\È[›ÛšY\Ë‰ËÝ]\Î‰ØX™\IË™\ÜÛœÙWØžN›[™\ÜÛœÙWØ›ÙN›[Ü™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+K™\ÜÛ™YØ]›[JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK›ØØ]ÜŠ	ÈÙ\Ü]T™\ÜÛœÙIÊK™š[
+	ÓÈÛY[H[™›Ü›XH]YHX[]™HÈXÙ\ÜÛÈ˜H]HÛÛXš[˜YK‰ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™\ÜÛ™\Ü]IÊK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	Ù\[™HH[°è[\ÙHYZ[š\Ý˜]]˜IÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÖÙ]KY\Ü]OH™\Ü]K[Ü[ˆ—IÊJKÐÛÛZ[•^
+	ÓÈÛY[H[™›Ü›XIÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÖÙ]KY\Ü]OH™\Ü]K[Ü[ˆ—IÊJKÐÛÛZ[•^
+	ØZ[™H°èÛÈ0èHXÚ\ðèÛÈYZ[š\Ý˜]]˜IÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÙ\Ü]T™\ÜÛœÙQ›Ü›IÊJKÐ™RY[Š
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]K™\Ü]\ÖÌKœÝ]\ÊJKÐ™J	Ü™\ÜÛ™YIÊNÂŸJNÂ‚\Ý
+	Ü›ÝšY\ˆ›ÜÜÙ\ÈH™K\][ÝH[œÜXÝ[ÛˆÚ]Ý]Ü™X][™ÈHÚ\™ÙIË\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]YÙK˜Y[š]ØÜš\
+
+
+OOÚ[™ÝË\Ý›ÛOIÜ™\ÝYÜ‰ÊNØ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYXØÙ\YÙ\šXÙJYÙJNÂˆÛÛœÝ]\™O[™]È]J]K››ÝÊ
+JÌMÌŽ
+KÒTÓÔÝš[™Ê
+KœÛXÙJMŠNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÚ[œÜXÝ[Û”\œÜÙIÊK™š[
+	Ð]˜[X\ˆH\Ý]\˜H[\ÈH[X›Ü˜\ˆÈÜ°éØ[Y[ÈÛÛ\]Ë‰ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÚ[œÜXÝ[Û”ØÚY[Y	ÊK™š[
+]\™JNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÚ[œÜXÝ[Û‘™YIÊK™š[
+	ÍÍK	ÊNØ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ›ÜÜÙR[œÜXÝ[Û‰ÊK˜ÛXÚÊ
+NÂˆ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	Ó™[š[XHÛØœ˜[°éØHÝHÛÛ™š\›XpéðèÛÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÚ[œÜXÝ[ÛœÉÊJKÐÛÛZ[•^
+	Ô‰ÍK	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÚ[œÜXÝ[ÛœÉÊJKÐÛÛZ[•^
+	ÐYÝX\™[™ÈXÚ\ðèÛÉÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÚ[œÜXÝ[Û‘›Ü›IÊJKÐ™RY[Š
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]Kš[œÜXÝ[ÛœË›X\
+OOŠÙ™YWØÙ[ÎšK™™YWØÙ[Ë\œÜÙNšKœ\œÜÙKÝ]\ÎšKœÝ]\ßJJJJKÑ\]X[
+ÞÙ™YWØÙ[ÎÍL\œÜÙN‰Ð]˜[X\ˆH\Ý]\˜H[\ÈH[X›Ü˜\ˆÈÜ°éØ[Y[ÈÛÛ\]Ë‰ËÝ]\Î‰Ü›ÜÜÝIßWJNÂŸJNÂ‚\Ý
+	ØÛY[XØÙ\È[œÜXÝ[Ûˆ›ÜÜØ[\È[™[™È^[Y[›ÝÛÛ™š\›YY\Ú[Y[	Ë\Þ[˜ÊÜYÙ_JOOžÂˆ]ØZ]ÙÚ[ŠYÙJNØ]ØZ]ÙYYXØÙ\YÙ\šXÙJYÙJNÂˆ]ØZ]YÙK™]˜[X]J
+
+OOžØÛÛœÝÏ]Ú[™ÝË\ÝÝ]K\Ëœ™\]Y\ÝË™š[™
+Oœ‹šYOOIØXØÙ\Y\Ù\šXÙIÊNÜËš[œÜXÝ[ÛœËœ\Ú
+ÚY‰Ú[œÜXÝ[Û‹\[™[™ÉË™\]Y\ÝÚYœ‹šY›ÝšY\—ÚYœ‹œ›ÝšY\—ÚY\œÜÙN‰Ð]˜[X\ˆÈØØ[[\ÈH[X›Ü˜\ˆÈÜ°éØ[Y[ÈÛÛ\]Ë‰ËØÚY[YÙ›ÜŽ›™]È]J]K››ÝÊ
+JÌMÌŽ
+KÒTÓÔÝš[™Ê
+K™YWØÙ[ÎÍLÝ]\Î‰Ü›ÜÜÝIËXÚYYØžN›[Ü™X]YØ]›™]È]J
+KÒTÓÔÝš[™Ê
+KXÚYYØ]›[JNßJNÂˆ]ØZ]YÙK›ØØ]ÜŠ	ÈÜ™Yœ™\Ú	ÊK˜ÛXÚÊ
+NØ]ØZ]YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰ÐXÙZ]\ˆ›ÜÜÝHHš\ÝÜšXIßJK˜ÛXÚÊ
+NØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÈÜÝ]\ÉÊJKÐÛÛZ[•^
+	ÜðìÈÙ\°èHÛÛ™š\›XYH\0ìÜÈ[YÜ˜péðèÛÈHYØ[Y[È[HØ[™›Þ	ÊNØ]ØZ]^XÝ
+YÙK›ØØ]ÜŠ	ÖÙ]KZ[œÜXÝ[ÛHš[œÜXÝ[Û‹\[™[™È—IÊJKÐÛÛZ[•^
+	ÜYØ[Y[ÈHÛÛ™š\›XpéðèÛÈZ[™H[™[\ÉÊNØ]ØZ]^XÝ
+YÙK™Ù]žT›ÛJ	Ø]Û‰ËÛ˜[YN‰Ô™XÝ\Ø\ˆ›ÜÜÝHHš\ÝÜšXIßJJKÒ]™PÛÝ[
+
+NÂˆ^XÝ
+]ØZ]YÙK™]˜[X]J
+
+OOÚ[™ÝË\ÝÝ]Kš[œÜXÝ[ÛœÖÌKœÝ]\ÊJKÐ™J	ØXÙZ]WÜ[™[WÜYØ[Y[ÉÊNÂŸJNÂ
