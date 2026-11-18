@@ -27,8 +27,9 @@ Referência oficial atual:
 
 ## Registro GitHub
 
-- Commit funcional e CI: serão preenchidos após a publicação concorrente segura e a conclusão do workflow.
-- O HEAD final e o CI final serão informados no encerramento da rodada após a atualização deste relatório.
+- Commit funcional: `e56af84c7ed6b7e908b690eb4919104da778ac8a`.
+- CI do commit funcional: execução #277 (`44299969086`), concluída com sucesso.
+- O HEAD final e o CI final serão informados no encerramento da rodada após a publicação deste relatório atualizado.
 
 ## Preservações
 
