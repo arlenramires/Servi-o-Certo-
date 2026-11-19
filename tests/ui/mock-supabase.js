@@ -48,6 +48,7 @@ export function createClient(){return {
   rpc:async(name,args)=>{
     state.calls.push({rpc:name,args});
     if(name==='accept_request'&&state.delayAcceptRequest)await state.delayAcceptRequest;
+    if(name==='start_service'&&state.delayStartService)await state.delayStartService;
     if(name==='cancel_service_before_start'&&state.delayCancellation)await state.delayCancellation;
     if(name==='propose_service_contract'&&state.delayContractProposal)await state.delayContractProposal;
     if(name==='decide_service_contract'&&state.delayContractDecision)await state.delayContractDecision;
