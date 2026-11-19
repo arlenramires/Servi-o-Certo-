@@ -76,7 +76,7 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
       if(context.profile.role==='prestador'&&request.status==='em_andamento'&&adjustment.status==='pendente'){
         const label=node('label','Como o ajuste foi atendido'),input=document.createElement('textarea'),button=node('button','Registrar ajuste realizado','secondary');
         input.setAttribute('aria-label','Como o ajuste foi atendido');input.maxLength=500;input.rows=2;button.type='button';
-        button.onclick=()=>action('respond_completion_adjustment',request,'Resposta registrada. O cliente já pode revisar novamente.',{p_response:input.value.trim()});
+        button.onclick=async()=>{if(button.disabled)return;button.disabled=true;try{await action('respond_completion_adjustment',request,'Resposta registrada. O cliente já pode revisar novamente.',{p_response:input.value.trim()});}finally{button.disabled=false;}};
         label.append(input);el('execution').append(label,button);
       }
     }
