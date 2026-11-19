@@ -665,7 +665,7 @@ el('action').onchange=()=>{
   focusAccessField();
 };
 el('action').onchange();
-el('authForm').onsubmit=event=>{event.preventDefault();busy('submit',async()=>{
+el('authForm').onsubmit=event=>{event.preventDefault();if(el('submit').disabled)return;busy('submit',async()=>{
   const email=normalizeAuthEmail(el('email').value),password=el('password').value,passwordConfirmation=el('passwordConfirmation').value,action=el('action').value;
   el('email').value=email;
   pendingConfirmationEmail='';el('resendConfirmation').hidden=true;
