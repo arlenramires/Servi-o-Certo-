@@ -571,12 +571,12 @@ async function refresh(ticket=generation) {
       card.append(text('h3',r.requested_profession),text('small',(r.is_urgent?'Urgente · ':'')+r.city+' / '+r.state),text('small','Solicitado em '+new Date(r.requested_at).toLocaleString('pt-BR')));
       if(r.scheduled_for)card.append(text('small','Preferência: '+new Date(r.scheduled_for).toLocaleString('pt-BR')));
       card.append(button,decline);
-      button.onclick=async()=>{button.disabled=true;decline.disabled=true;try{
+      button.onclick=async()=>{if(button.disabled&&decline.disabled)return;button.disabled=true;decline.disabled=true;try{
         const accepted=check(await api.rpc('accept_request',{p_request_id:r.request_id}));
         message(accepted?'Chamado aceito. Combine o orçamento na conversa.':'O chamado não está mais disponível ou você não atende aos requisitos.');
         await refresh();
       }catch(error){message(friendly(error));}finally{button.disabled=false;decline.disabled=false;}};
-      decline.onclick=async()=>{button.disabled=true;decline.disabled=true;try{
+      decline.onclick=async()=>{if(button.disabled&&decline.disabled)return;button.disabled=true;decline.disabled=true;try{
         const declined=check(await api.rpc('decline_request',{p_request_id:r.request_id}));
         message(declined?'Chamado removido da sua lista. Outros profissionais ainda podem aceitá-lo.':'O chamado não está mais disponível ou você não atende aos requisitos.');
         await refresh();

@@ -47,6 +47,7 @@ export function createClient(){return {
   from:table=>new Query(table),
   rpc:async(name,args)=>{
     state.calls.push({rpc:name,args});
+    if(name==='accept_request'&&state.delayAcceptRequest)await state.delayAcceptRequest;
     if(name==='cancel_service_before_start'&&state.delayCancellation)await state.delayCancellation;
     if(name==='propose_service_contract'&&state.delayContractProposal)await state.delayContractProposal;
     if(name==='decide_service_contract'&&state.delayContractDecision)await state.delayContractDecision;
@@ -130,6 +131,7 @@ export function createClient(){return {
     if(name==='confirm_service_completion'){request.status='concluido';if(!state.executionEvents.some(e=>e.request_id===request.id&&e.event_type==='conclusao_confirmada'))state.executionEvents.push({request_id:request.id,actor_id:account.id,event_type:'conclusao_confirmada',created_at:new Date().toISOString()});return {data:true,error:null};}
     if(name==='rate_completed_service'){const id='rating-'+Date.now();state.ratings.push({id,request_id:request.id,reviewer_id:account.id,reviewee_id:request.provider_id===account.id?request.client_id:request.provider_id,score:args.p_score,comment:args.p_comment,created_at:new Date().toISOString()});return {data:id,error:null};}
     if(name==='decline_request'){if(!state.declinedRequests.includes(args.p_request_id))state.declinedRequests.push(args.p_request_id);return {data:true,error:null};}
+    if(name==='accept_request'){if(state.acceptRequestResult)state.acceptedOpportunity=true;return {data:!!state.acceptRequestResult,error:null};}
     if(name==='restore_request_interest'){const index=state.declinedRequests.indexOf(args.p_request_id);if(index<0)return {data:false,error:null};state.declinedRequests.splice(index,1);return {data:true,error:null};}
     if(name==='set_request_urgency'){request.is_urgent=args.p_urgent;return {data:true,error:null};}
     if(name==='set_open_request_schedule'){request.scheduled_for=args.p_scheduled_for;return {data:true,error:null};}
@@ -137,7 +139,7 @@ export function createClient(){return {
     if(name==='set_open_request_location'){request.city=args.p_city;request.state=args.p_state;request.latitude=null;request.longitude=null;return {data:true,error:null};}
     if(name==='set_open_request_profession'){request.profession=args.p_profession;return {data:true,error:null};}
     const opportunity={request_id:'open-request',requested_profession:'Eletricista',requested_at:new Date().toISOString(),city:'Manaus',state:'AM',is_urgent:true,scheduled_for:'2026-10-21T14:00:00.000Z'};
-    return {data:['available_requests','available_request_context'].includes(name)?(state.declinedRequests.includes('open-request')?[]:[opportunity]):name==='declined_requests'?(state.declinedRequests.includes('open-request')?[{...opportunity,declined_at:new Date().toISOString()}]:[]):name==='accept_request'?false:true,error:null};
+    return {data:['available_requests','available_request_context'].includes(name)?(state.declinedRequests.includes('open-request')||state.acceptedOpportunity?[]:[opportunity]):name==='declined_requests'?(state.declinedRequests.includes('open-request')?[{...opportunity,declined_at:new Date().toISOString()}]:[]):true,error:null};
   },
   auth:{
     onAuthStateChange:fn=>{listener=fn;return {data:{subscription:{unsubscribe(){}}}};},
