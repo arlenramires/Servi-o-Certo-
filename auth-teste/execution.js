@@ -68,7 +68,7 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
         button.onclick=()=>action('add_service_progress_update',request,'Andamento registrado e visível ao cliente.',{p_progress_percent:Number(select.value),p_note:input.value.trim()});
         percentLabel.append(select);noteLabel.append(input);el('execution').append(percentLabel,noteLabel,button);
       }
-      const b=node('button','Solicitar confirmação de conclusão');b.onclick=()=>action('request_service_completion',request,'Conclusão solicitada ao cliente.');el('execution').append(b);
+      const b=node('button','Solicitar confirmação de conclusão');b.onclick=async()=>{if(b.disabled)return;b.disabled=true;try{await action('request_service_completion',request,'Conclusão solicitada ao cliente.');}finally{b.disabled=false;}};el('execution').append(b);
     }
     if(adjustment){
       el('execution').append(node('p','Ajuste solicitado: '+adjustment.description,'notice'));
