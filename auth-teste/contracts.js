@@ -65,6 +65,7 @@ export function createContractPanel({api,getContext,message,friendly}) {
         const accept=node('button','Aceitar esta versão'),refuse=node('button','Recusar esta versão','secondary');accept.type=refuse.type='button';accept.disabled=true;
         checkbox.onchange=()=>{accept.disabled=!checkbox.checked;};
         for(const [button,decision] of [[accept,'aceito'],[refuse,'recusado']])button.onclick=async()=>{
+          if(accept.disabled&&refuse.disabled)return;
           accept.disabled=refuse.disabled=checkbox.disabled=true;
           try {
             check(await api.rpc('decide_service_contract',{p_contract_id:c.id,p_content_hash:c.content_hash,p_decision:decision}));

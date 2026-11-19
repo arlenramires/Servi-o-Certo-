@@ -1539,6 +1539,12 @@ test('client explicitly accepts exact contract version, separately from provider
   const call=await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='decide_service_contract'));expect(call.args).toEqual({p_contract_id:'contract-1',p_content_hash:'a'.repeat(64),p_decision:'aceito'});
   await page.locator('#logout').click();await expect(page.locator('#contracts')).toBeEmpty();
 });
+test('client double action records only one contract acceptance',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});await page.getByRole('checkbox',{name:'Li esta versão e concordo'}).check();
+  await page.evaluate(()=>{let release;window.testState.delayContractDecision=new Promise(resolve=>{release=resolve;});window.releaseContractDecision=release;const button=[...document.querySelectorAll('#contracts button')].find(item=>item.textContent==='Aceitar esta versão');button.dispatchEvent(new Event('click'));button.dispatchEvent(new Event('click'));});
+  await expect(page.getByRole('button',{name:'Aceitar esta versão'})).toBeDisabled();await expect(page.getByRole('button',{name:'Recusar esta versão'})).toBeDisabled();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='decide_service_contract'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.contractDecisions.filter(item=>item.actor_id==='10000000-0000-4000-8000-000000000001'))).toHaveLength(0);
+  await page.evaluate(()=>window.releaseContractDecision());await expect(page.locator('#contracts')).toContainText('aceito por ambas as partes');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='decide_service_contract'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.contractDecisions.filter(item=>item.actor_id==='10000000-0000-4000-8000-000000000001'))).toHaveLength(1);
+});
 test('bilaterally accepted agreement downloads a verifiable receipt',async({page})=>{
   await login(page);await seedContractContext(page,{contract:true});
   await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:'2026-10-19T12:01:00Z'});});
