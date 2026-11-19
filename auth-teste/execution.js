@@ -87,7 +87,7 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
         button.onclick=()=>action('request_completion_adjustment',request,'Ajuste solicitado ao prestador antes da conclusão.',{p_description:input.value.trim()});
         label.append(input);el('execution').append(label,button);
       }
-      if(!adjustment||adjustment.status==='respondido'){const b=node('button','Confirmar serviço concluído');b.onclick=()=>action('confirm_service_completion',request,'Conclusão confirmada. Pagamento e repasse continuam separados.');el('execution').append(b);}
+      if(!adjustment||adjustment.status==='respondido'){const b=node('button','Confirmar serviço concluído');b.onclick=async()=>{if(b.disabled)return;b.disabled=true;try{await action('confirm_service_completion',request,'Conclusão confirmada. Pagamento e repasse continuam separados.');}finally{b.disabled=false;}};el('execution').append(b);}
     }
     el('ratings').replaceChildren();for(const r of ratings)el('ratings').append(node('p',(r.reviewer_id===context.user.id?'Sua avaliação':'Avaliação da outra parte')+': '+r.score+'/5'+(r.comment?' — '+r.comment:'')));
     const mine=ratings.some(r=>r.reviewer_id===context.user.id);el('ratingForm').hidden=request.status!=='concluido'||mine;
