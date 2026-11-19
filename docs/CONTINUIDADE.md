@@ -249,6 +249,7 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 243. [Bloqueio de duplo envio da candidatura](ENTREGA-2026-11-18-BLOQUEIO-DUPLO-ENVIO-CANDIDATURA.md). Enquanto a primeira candidatura aguarda resposta, um segundo evento de envio é descartado no formulário e somente uma inserção chega ao serviço; o botão permanece ocupado até a conclusão, sem depender apenas da restrição de unicidade nem conceder acesso de prestador.
 244. [Bloqueio de duplo envio do pedido de serviço](ENTREGA-2026-11-18-BLOQUEIO-DUPLO-ENVIO-PEDIDO.md). Enquanto o primeiro pedido aguarda resposta, um segundo evento de envio é descartado no formulário e somente uma inserção chega ao serviço; o botão permanece ocupado até a conclusão e a lista exibe um único pedido, sem cobrança ou publicação.
 245. [Bloqueio de duplo envio da mensagem](ENTREGA-2026-11-18-BLOQUEIO-DUPLO-ENVIO-MENSAGEM.md). Enquanto a primeira mensagem aguarda resposta, um segundo evento de envio é descartado no formulário e somente uma inserção chega ao serviço; o texto permanece no campo até a confirmação e a conversa exibe uma única mensagem, sem cobrança ou alteração do serviço.
+246. [Bloqueio de duplo envio do orçamento](ENTREGA-2026-11-18-BLOQUEIO-DUPLO-ENVIO-ORCAMENTO.md). Enquanto o primeiro orçamento aguarda resposta, um segundo evento de envio é descartado no formulário e somente uma inserção chega ao serviço; valor e escopo permanecem preenchidos até a confirmação e a conversa exibe uma única proposta, sem cobrança ou aceite automático.
 
 ## Próximas entregas prioritárias
 
