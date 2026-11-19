@@ -948,7 +948,7 @@ el('messageForm').onsubmit=event=>{event.preventDefault();if(el('sendMessage').d
   const body=el('message').value.trim();if(!body)throw new InputError('Escreva uma mensagem.');
   const request=selected;check(await api.from('service_messages').insert({request_id:request.id,sender_id:user.id,body}));el('message').value='';await openConversation(request);
 });};
-el('quoteForm').onsubmit=event=>{event.preventDefault();busy('sendQuote',async()=>{
+el('quoteForm').onsubmit=event=>{event.preventDefault();if(el('sendQuote').disabled)return;busy('sendQuote',async()=>{
   if(!selected||profile?.role!=='prestador')throw new InputError('Selecione um serviço aceito como prestador.');
   const amount_cents=parseMoneyToCents(el('quoteAmount').value),description=el('quoteDescription').value.trim();
   if(amount_cents===null)throw new InputError('Informe um valor positivo com até duas casas decimais.');
