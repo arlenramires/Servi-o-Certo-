@@ -65,7 +65,7 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
         const percentLabel=node('label','Andamento do serviço'),select=document.createElement('select'),noteLabel=node('label','Resumo do andamento'),input=document.createElement('textarea'),button=node('button','Registrar andamento','secondary');
         select.setAttribute('aria-label','Andamento do serviço');for(const value of choices)select.add(new Option(value+'%',String(value)));
         input.setAttribute('aria-label','Resumo do andamento');input.maxLength=500;input.rows=2;button.type='button';
-        button.onclick=()=>action('add_service_progress_update',request,'Andamento registrado e visível ao cliente.',{p_progress_percent:Number(select.value),p_note:input.value.trim()});
+        button.onclick=async()=>{if(button.disabled)return;button.disabled=true;try{await action('add_service_progress_update',request,'Andamento registrado e visível ao cliente.',{p_progress_percent:Number(select.value),p_note:input.value.trim()});}finally{button.disabled=false;}};
         percentLabel.append(select);noteLabel.append(input);el('execution').append(percentLabel,noteLabel,button);
       }
       const b=node('button','Solicitar confirmação de conclusão');b.onclick=async()=>{if(b.disabled)return;b.disabled=true;try{await action('request_service_completion',request,'Conclusão solicitada ao cliente.');}finally{b.disabled=false;}};el('execution').append(b);

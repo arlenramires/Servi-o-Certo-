@@ -54,6 +54,7 @@ export function createClient(){return {
     if(name==='rate_completed_service'&&state.delayRateCompletedService)await state.delayRateCompletedService;
     if(name==='request_completion_adjustment'&&state.delayRequestCompletionAdjustment)await state.delayRequestCompletionAdjustment;
     if(name==='respond_completion_adjustment'&&state.delayRespondCompletionAdjustment)await state.delayRespondCompletionAdjustment;
+    if(name==='add_service_progress_update'&&state.delayServiceProgressUpdate)await state.delayServiceProgressUpdate;
     if(name==='cancel_service_before_start'&&state.delayCancellation)await state.delayCancellation;
     if(name==='propose_service_contract'&&state.delayContractProposal)await state.delayContractProposal;
     if(name==='decide_service_contract'&&state.delayContractDecision)await state.delayContractDecision;
