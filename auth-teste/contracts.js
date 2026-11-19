@@ -80,7 +80,7 @@ export function createContractPanel({api,getContext,message,friendly}) {
   }
   el('addContractStage').onclick=()=>addStage();
   el('contractForm').onsubmit=async event=>{
-    event.preventDefault();const context=getContext(),current=request,quote=acceptedQuote;
+    event.preventDefault();if(el('proposeContract').disabled)return;const context=getContext(),current=request,quote=acceptedQuote;
     if(!current||!quote||context.profile?.role!=='prestador')return;
     const stages=[];
     for(const row of el('contractStages').children) {
