@@ -849,7 +849,7 @@ el('requestForm').onsubmit=event=>{event.preventDefault();if(el('createRequest')
   check(await api.from('service_requests').insert({client_id:user.id,profession,description,city,state,scheduled_for,is_urgent}));
   el('description').value='';el('scheduled').value='';el('urgent').checked=false;await refresh();message(is_urgent?'Pedido urgente registrado. Prestadores elegíveis verão a prioridade.':'Pedido registrado. Aguardando um profissional elegível da sua região.');
 });};
-el('areaForm').onsubmit=event=>{event.preventDefault();busy('saveArea',async()=>{
+el('areaForm').onsubmit=event=>{event.preventDefault();if(el('saveArea').disabled)return;busy('saveArea',async()=>{
   if(profile?.role!=='prestador')throw new InputError('Acesso restrito ao prestador aprovado.');
   const cityField=el('providerCity'),city=cityField.value.trim(),stateField=el('providerState'),state=stateField.value.trim().toUpperCase();
   cityField.removeAttribute('aria-invalid');
