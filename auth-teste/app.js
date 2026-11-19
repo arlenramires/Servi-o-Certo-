@@ -638,6 +638,7 @@ function renderQuotes(request,quotes,decisions) {
       for(const [value,label] of [['aceita','Aceitar orçamento'],['recusada','Recusar orçamento']]) {
         const button=text('button',label,value==='aceita'?'':'secondary');button.type='button';
         button.onclick=async()=>{
+          if([...item.querySelectorAll('button')].every(action=>action.disabled))return;
           item.querySelectorAll('button').forEach(b=>{b.disabled=true;});
           try {
             check(await api.from('service_quote_decisions').insert({quote_id:quote.id,request_id:request.id,decided_by:user.id,decision:value}));

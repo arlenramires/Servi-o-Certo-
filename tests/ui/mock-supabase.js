@@ -23,6 +23,7 @@ class Query {
     if(this.operation==='insert'&&this.table==='service_requests'&&state.delayServiceRequestInsert)await state.delayServiceRequestInsert;
     if(this.operation==='insert'&&this.table==='service_messages'&&state.delayServiceMessageInsert)await state.delayServiceMessageInsert;
     if(this.operation==='insert'&&this.table==='service_quotes'&&state.delayServiceQuoteInsert)await state.delayServiceQuoteInsert;
+    if(this.operation==='insert'&&this.table==='service_quote_decisions'&&state.delayServiceQuoteDecisionInsert)await state.delayServiceQuoteDecisionInsert;
     if(this.operation==='upsert'&&this.table==='provider_service_areas'&&state.delayProviderServiceAreaUpsert)await state.delayProviderServiceAreaUpsert;
     if(this.operation==='insert'){
       if(this.table==='provider_applications'&&state.applications.some(application=>application.user_id===this.payload.user_id&&application.profession===this.payload.profession))return {data:null,error:{code:'23505',message:'duplicate key value violates unique constraint'}};

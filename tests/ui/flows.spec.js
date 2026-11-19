@@ -1500,6 +1500,12 @@ test('client rejects one proposal then accepts another and sees immutable histor
   expect(await page.evaluate(()=>window.testState.decisions.map(d=>({quote_id:d.quote_id,request_id:d.request_id,decision:d.decision})))).toEqual([{quote_id:'q1',request_id:'accepted-service',decision:'recusada'},{quote_id:'q2',request_id:'accepted-service',decision:'aceita'}]);
   await page.locator('#logout').click();await expect(page.locator('#quotes')).toBeEmpty();
 });
+test('client double action records only one quote decision',async({page})=>{
+  await login(page);await seedAcceptedService(page);await page.evaluate(()=>window.testState.quotes.push({id:'quote-double-decision',request_id:'accepted-service',provider_id:'provider-id',amount_cents:12550,description:'Pintura completa em dois dias com material incluso.',status:'proposta',created_at:new Date().toISOString()}));await page.locator('#refresh').click();
+  await page.evaluate(()=>{let release;window.testState.delayServiceQuoteDecisionInsert=new Promise(resolve=>{release=resolve;});window.releaseServiceQuoteDecisionInsert=release;const button=document.querySelector('[data-quote="quote-double-decision"] button');button.dispatchEvent(new Event('click'));button.dispatchEvent(new Event('click'));});
+  await expect(page.locator('[data-quote="quote-double-decision"]').getByRole('button',{name:'Aceitar orçamento'})).toBeDisabled();await expect(page.locator('[data-quote="quote-double-decision"]').getByRole('button',{name:'Recusar orçamento'})).toBeDisabled();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='service_quote_decisions'&&call.operation==='insert'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.decisions)).toHaveLength(0);
+  await page.evaluate(()=>window.releaseServiceQuoteDecisionInsert());await expect(page.locator('[data-quote="quote-double-decision"]')).toContainText('Aceito pelo cliente');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.table==='service_quote_decisions'&&call.operation==='insert'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.decisions)).toHaveLength(1);
+});
 
 async function seedContractContext(page,{provider=false,contract=false,refused=false}={}) {
   await page.evaluate(({provider,contract,refused})=>{
