@@ -8,7 +8,7 @@ export function createCancellationPanel({api,getContext,message,friendly,onChang
     };return button;
   }
   el('closeCancellation').onclick=reset;
-  el('cancellationForm').onsubmit=async event=>{event.preventDefault();if(!target)return;el('confirmCancellation').disabled=true;try{
+  el('cancellationForm').onsubmit=async event=>{event.preventDefault();if(!target||el('confirmCancellation').disabled)return;el('confirmCancellation').disabled=true;try{
     const replacement=check(await api.rpc('cancel_service_before_start',{p_request_id:target.id,p_reason:el('cancellationReason').value.trim()}));
     reset();message(replacement?'Cancelamento registrado e novo chamado criado para outro profissional. Nenhuma taxa foi cobrada.':'Pedido cancelado. Nenhuma taxa foi cobrada ou avaliada nesta etapa.');await onChanged();
   }catch(error){message(friendly(error));}finally{el('confirmCancellation').disabled=false;}};

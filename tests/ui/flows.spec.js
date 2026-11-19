@@ -1455,6 +1455,15 @@ test('client cancels an open request with an audited reason and no fee claim',as
   expect(await page.evaluate(()=>({request:window.testState.requests[0].status,audit:window.testState.cancellations[0]}))).toMatchObject({request:'cancelado',audit:{actor_role:'cliente',reason:'O serviço não será mais necessário',outcome:'cancelado_cliente',fee_status:'nao_avaliada'}});
 });
 
+test('client double submit starts only one cancellation',async({page})=>{
+  await login(page);
+  await page.evaluate(()=>window.testState.requests.push({id:'single-cancellation',client_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido cancelado uma unica vez',status:'aberto',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));
+  await page.locator('#refresh').click();await page.getByRole('button',{name:'Cancelar pedido'}).click();await page.locator('#cancellationReason').fill('O serviço não será mais necessário');
+  await page.evaluate(()=>{let release;window.testState.delayCancellation=new Promise(resolve=>{release=resolve;});window.releaseCancellation=release;const form=document.querySelector('#cancellationForm');form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+  await expect(page.locator('#confirmCancellation')).toBeDisabled();await expect(page.locator('#cancellationReason')).toHaveValue('O serviço não será mais necessário');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='cancel_service_before_start'))).toHaveLength(1);
+  await page.evaluate(()=>window.releaseCancellation());await expect(page.locator('#cancellationPanel')).toBeHidden();await expect(page.locator('#status')).toContainText('Nenhuma taxa foi cobrada');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='cancel_service_before_start'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.cancellations)).toHaveLength(1);expect(await page.evaluate(()=>window.testState.requests.find(request=>request.id==='single-cancellation').status)).toBe('cancelado');
+});
+
 test('provider cancellation creates a new open request for another professional',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);
   await page.evaluate(()=>window.testState.requests.push({id:'provider-cancellation',client_id:'client-id',provider_id:'10000000-0000-4000-8000-000000000001',profession:'Pintor',description:'Pedido a ser reencaminhado',status:'aceito',city:'Manaus',state:'AM',created_at:new Date().toISOString()}));

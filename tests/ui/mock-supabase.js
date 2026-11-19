@@ -46,6 +46,7 @@ export function createClient(){return {
   from:table=>new Query(table),
   rpc:async(name,args)=>{
     state.calls.push({rpc:name,args});
+    if(name==='cancel_service_before_start'&&state.delayCancellation)await state.delayCancellation;
     if(name==='unread_service_message_counts') {
       const rows=state.requests.map(request=>({request_id:request.id,unread_count:state.messages.filter(m=>m.request_id===request.id&&m.sender_id!==account.id&&new Date(m.created_at)>new Date(state.messageReads.find(x=>x.request_id===request.id&&x.user_id===account.id)?.read_through||0)).length})).filter(x=>x.unread_count);
       return {data:rows,error:null};
