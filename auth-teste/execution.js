@@ -84,7 +84,7 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
       if(!adjustment){
         const label=node('label','Ajuste necessário antes da conclusão'),input=document.createElement('textarea'),button=node('button','Solicitar ajuste','secondary');
         input.setAttribute('aria-label','Ajuste necessário antes da conclusão');input.maxLength=500;input.rows=2;button.type='button';
-        button.onclick=()=>action('request_completion_adjustment',request,'Ajuste solicitado ao prestador antes da conclusão.',{p_description:input.value.trim()});
+        button.onclick=async()=>{if(button.disabled)return;button.disabled=true;try{await action('request_completion_adjustment',request,'Ajuste solicitado ao prestador antes da conclusão.',{p_description:input.value.trim()});}finally{button.disabled=false;}};
         label.append(input);el('execution').append(label,button);
       }
       if(!adjustment||adjustment.status==='respondido'){const b=node('button','Confirmar serviço concluído');b.onclick=async()=>{if(b.disabled)return;b.disabled=true;try{await action('confirm_service_completion',request,'Conclusão confirmada. Pagamento e repasse continuam separados.');}finally{b.disabled=false;}};el('execution').append(b);}

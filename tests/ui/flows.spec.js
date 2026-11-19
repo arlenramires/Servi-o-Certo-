@@ -1688,6 +1688,13 @@ test('client requests one adjustment before confirming completion',async({page})
   await expect(page.locator('#execution')).toContainText('Cliente solicitou um ajuste');await expect(page.getByRole('button',{name:'Confirmar serviço concluído'})).toHaveCount(0);
   expect(await page.evaluate(()=>window.testState.completionAdjustments[0])).toMatchObject({request_id:'contract-service',description:'Corrigir o acabamento próximo à janela antes da confirmação.',status:'pendente'});
 });
+test('client double action requests only one completion adjustment',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});
+  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(x=>x.id==='contract-service');r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()},{request_id:r.id,actor_id:r.provider_id,event_type:'conclusao_solicitada',created_at:new Date().toISOString()});});await page.locator('#refresh').click();await page.getByLabel('Ajuste necessário antes da conclusão').fill('Corrigir o acabamento próximo à janela antes da confirmação.');
+  await page.evaluate(()=>{let release;window.testState.delayRequestCompletionAdjustment=new Promise(resolve=>{release=resolve;});window.releaseRequestCompletionAdjustment=release;const button=[...document.querySelectorAll('#execution button')].find(item=>item.textContent==='Solicitar ajuste');button.dispatchEvent(new Event('click'));button.dispatchEvent(new Event('click'));});
+  await expect(page.getByRole('button',{name:'Solicitar ajuste'})).toBeDisabled();await expect(page.getByLabel('Ajuste necessário antes da conclusão')).toHaveValue('Corrigir o acabamento próximo à janela antes da confirmação.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='request_completion_adjustment'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.completionAdjustments)).toHaveLength(0);
+  await page.evaluate(()=>window.releaseRequestCompletionAdjustment());await expect(page.locator('#execution')).toContainText('Cliente solicitou um ajuste');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='request_completion_adjustment'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.completionAdjustments)).toHaveLength(1);
+});
 
 test('provider records the requested adjustment for client review',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
