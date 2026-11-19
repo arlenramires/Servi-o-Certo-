@@ -759,7 +759,7 @@ el('resendConfirmation').onclick=()=>busy('resendConfirmation',async()=>{
     throw error;
   }
 });
-el('recoveryForm').onsubmit=event=>{event.preventDefault();busy('savePassword',async()=>{
+el('recoveryForm').onsubmit=event=>{event.preventDefault();if(el('savePassword').disabled)return;busy('savePassword',async()=>{
   const password=el('newPassword').value,passwordConfirmation=el('newPasswordConfirmation').value,nonce=el('recoveryNonce').value.trim();
   try {
     if(recoveryReauthenticationBlockedMessage)throw new InputError(recoveryReauthenticationBlockedMessage);
