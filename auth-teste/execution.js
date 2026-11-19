@@ -92,8 +92,8 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
     el('ratings').replaceChildren();for(const r of ratings)el('ratings').append(node('p',(r.reviewer_id===context.user.id?'Sua avaliação':'Avaliação da outra parte')+': '+r.score+'/5'+(r.comment?' — '+r.comment:'')));
     const mine=ratings.some(r=>r.reviewer_id===context.user.id);el('ratingForm').hidden=request.status!=='concluido'||mine;
   }
-  el('ratingForm').onsubmit=async event=>{event.preventDefault();const context=getContext(),request=context.selected;if(!request)return;el('saveRating').disabled=true;try{
+  el('ratingForm').onsubmit=async event=>{event.preventDefault();const context=getContext(),request=context.selected,button=el('saveRating');if(!request||button.disabled)return;button.disabled=true;try{
     check(await api.rpc('rate_completed_service',{p_request_id:request.id,p_score:Number(el('ratingScore').value),p_comment:el('ratingComment').value.trim()||null}));message('Avaliação registrada e protegida contra alteração.');await onChanged();
-  }catch(error){message(friendly(error));}finally{el('saveRating').disabled=false;}};
+  }catch(error){message(friendly(error));}finally{button.disabled=false;}};
   return {load,reset};
 }
