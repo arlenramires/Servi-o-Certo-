@@ -266,6 +266,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 260. [Bloqueio de resposta duplicada ao ajuste](ENTREGA-2026-11-19-BLOQUEIO-RESPOSTA-DUPLICADA-AJUSTE.md). Enquanto o prestador registra como atendeu ao ajuste solicitado antes da conclusão, um segundo evento é descartado e somente uma chamada `respond_completion_adjustment` chega ao serviço; o texto permanece preenchido até a resposta e apenas uma resposta é registrada, sem pagamento, cobrança ou repasse.
 
+261. [Bloqueio de andamento duplicado do serviço](ENTREGA-2026-11-19-BLOQUEIO-ANDAMENTO-DUPLICADO-SERVICO.md). Enquanto o prestador registra o percentual e o resumo do andamento, um segundo evento é descartado e somente uma chamada `add_service_progress_update` chega ao serviço; os dados permanecem preenchidos até a resposta e apenas uma atualização aparece na linha do tempo, sem pagamento, cobrança ou repasse.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
