@@ -56,7 +56,7 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
         label.append(select);el('execution').append(label,button);
       }
     }
-    if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&onWay&&!arrived){const b=node('button','Cheguei ao local','secondary');b.onclick=()=>action('mark_provider_arrival',request,'Chegada registrada para o cliente.',{p_event:'chegou_local'});el('execution').append(b);}
+    if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&onWay&&!arrived){const b=node('button','Cheguei ao local','secondary');b.onclick=async()=>{if(b.disabled)return;b.disabled=true;try{await action('mark_provider_arrival',request,'Chegada registrada para o cliente.',{p_event:'chegou_local'});}finally{b.disabled=false;}};el('execution').append(b);}
     if(context.profile.role==='cliente'&&request.status==='aceito'&&bilateral&&arrived&&!arrivalConfirmed){const b=node('button','Confirmar chegada do prestador');b.onclick=()=>action('confirm_provider_arrival',request,'Chegada confirmada. O prestador já pode iniciar o serviço.');el('execution').append(b);}
     if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&arrivalConfirmed){const b=node('button','Iniciar serviço');b.onclick=async()=>{if(b.disabled)return;b.disabled=true;try{await action('start_service',request,'Início registrado. Nenhum pagamento foi movimentado.');}finally{b.disabled=false;}};el('execution').append(b);}
     if(context.profile.role==='prestador'&&request.status==='em_andamento'&&started&&!requested){
