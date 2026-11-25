@@ -268,6 +268,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 261. [Bloqueio de andamento duplicado do serviço](ENTREGA-2026-11-19-BLOQUEIO-ANDAMENTO-DUPLICADO-SERVICO.md). Enquanto o prestador registra o percentual e o resumo do andamento, um segundo evento é descartado e somente uma chamada `add_service_progress_update` chega ao serviço; os dados permanecem preenchidos até a resposta e apenas uma atualização aparece na linha do tempo, sem pagamento, cobrança ou repasse.
 
+262. [Bloqueio de saída duplicada do prestador](ENTREGA-2026-11-25-BLOQUEIO-SAIDA-DUPLICADA-PRESTADOR.md). Enquanto o prestador informa que iniciou o deslocamento, um segundo evento é descartado e somente uma chamada `mark_provider_arrival` chega ao serviço; o estado anterior permanece até a resposta e apenas um evento `a_caminho` aparece na linha do tempo, sem pagamento, cobrança ou repasse.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
