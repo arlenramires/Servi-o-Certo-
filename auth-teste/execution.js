@@ -37,8 +37,9 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
         dateLabel.append(date);reasonLabel.append(reason);el('execution').append(dateLabel,reasonLabel,button);
       }
       if(pendingSchedule&&pendingSchedule.proposed_by!==context.user.id){
+        const decisionButtons=[];
         for(const [decision,label] of [['aceito','Aceitar nova data'],['recusado','Recusar nova data']]){
-          const button=node('button',label,decision==='aceito'?'':'secondary');button.type='button';button.onclick=async()=>{try{check(await api.rpc('decide_service_reschedule',{p_change_id:pendingSchedule.id,p_decision:decision}));message(decision==='aceito'?'Nova data aceita e aplicada ao serviço.':'Nova data recusada. O horário anterior foi mantido.');await onChanged();}catch(error){message(friendly(error));}};el('execution').append(button);
+          const button=node('button',label,decision==='aceito'?'':'secondary');button.type='button';decisionButtons.push(button);button.onclick=async()=>{if(decisionButtons.some(item=>item.disabled))return;decisionButtons.forEach(item=>{item.disabled=true;});try{check(await api.rpc('decide_service_reschedule',{p_change_id:pendingSchedule.id,p_decision:decision}));message(decision==='aceito'?'Nova data aceita e aplicada ao serviço.':'Nova data recusada. O horário anterior foi mantido.');await onChanged();}catch(error){message(friendly(error));}finally{decisionButtons.forEach(item=>{item.disabled=false;});}};el('execution').append(button);
         }
       }
       if(pendingSchedule&&pendingSchedule.proposed_by===context.user.id){
