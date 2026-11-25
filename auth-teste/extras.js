@@ -17,11 +17,12 @@ export function createExtrasPanel({api,getContext,message,friendly,onChanged}) {
       const article=node('article','','service');article.dataset.extra=extra.id;
       article.append(node('h4',formatCents(extra.amount_cents)),node('p',extra.description),node('small',extra.status==='proposto'?'Aguardando decisão do cliente':extra.status==='aceito'?'Aceito pelo cliente — sem cobrança automática':'Recusado pelo cliente'));
       if(context.profile.role==='cliente'&&extra.status==='proposto'&&request.status==='em_andamento'){
+        const decisionButtons=[];
         for(const [decision,label] of [['aceito','Aceitar serviço extra'],['recusado','Recusar serviço extra']]){
-          const button=node('button',label,decision==='aceito'?'':'secondary');button.type='button';button.onclick=async()=>{
-            article.querySelectorAll('button').forEach(b=>b.disabled=true);
+          const button=node('button',label,decision==='aceito'?'':'secondary');button.type='button';decisionButtons.push(button);button.onclick=async()=>{
+            if(decisionButtons.some(item=>item.disabled))return;decisionButtons.forEach(item=>{item.disabled=true;});
             try{check(await api.rpc('decide_service_extra',{p_extra_id:extra.id,p_decision:decision}));message(decision==='aceito'?'Extra aceito e registrado. Esta ação não realizou cobrança.':'Extra recusado e registrado.');await onChanged();}
-            catch(error){message(friendly(error));}finally{article.querySelectorAll('button').forEach(b=>b.disabled=false);}
+            catch(error){message(friendly(error));}finally{decisionButtons.forEach(item=>{item.disabled=false;});}
           };article.append(button);
         }
       }

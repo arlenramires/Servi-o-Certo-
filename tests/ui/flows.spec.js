@@ -1816,6 +1816,14 @@ test('client accepts a pending extra explicitly and keeps the decision visible',
   expect(await page.evaluate(()=>window.testState.extras[0].status)).toBe('aceito');
 });
 
+test('client double action decides a service extra only once',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});
+  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(item=>item.id==='contract-service');r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()});s.extras.push({id:'extra-pending',request_id:r.id,provider_id:r.provider_id,description:'Instalação adicional de acabamento',amount_cents:3000,status:'proposto',decided_by:null,created_at:new Date().toISOString(),decided_at:null});});await page.locator('#refresh').click();
+  await page.evaluate(()=>{let release;window.testState.delayDecideServiceExtra=new Promise(resolve=>{release=resolve;});window.releaseDecideServiceExtra=release;const buttons=[...document.querySelectorAll('[data-extra="extra-pending"] button')];buttons[0].dispatchEvent(new Event('click'));buttons[1].dispatchEvent(new Event('click'));});
+  await expect(page.getByRole('button',{name:'Aceitar serviço extra'})).toBeDisabled();await expect(page.getByRole('button',{name:'Recusar serviço extra'})).toBeDisabled();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='decide_service_extra'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.extras[0].status)).toBe('proposto');
+  await page.evaluate(()=>window.releaseDecideServiceExtra());await expect(page.locator('#status')).toContainText('não realizou cobrança');await expect(page.locator('[data-extra="extra-pending"]')).toContainText('Aceito pelo cliente');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='decide_service_extra').map(call=>call.args))).toEqual([{p_extra_id:'extra-pending',p_decision:'aceito'}]);expect(await page.evaluate(()=>window.testState.extras[0].status)).toBe('aceito');
+});
+
 test('client opens a categorized dispute without implying a decision or charge',async({page})=>{
   await login(page);await seedContractContext(page,{contract:true});
   await page.evaluate(()=>{const r=window.testState.requests.find(r=>r.id==='contract-service');r.status='em_andamento';});
