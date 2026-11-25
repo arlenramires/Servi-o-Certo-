@@ -64,6 +64,7 @@ export function createClient(){return {
     if(name==='propose_service_extra'&&state.delayProposeServiceExtra)await state.delayProposeServiceExtra;
     if(name==='decide_service_extra'&&state.delayDecideServiceExtra)await state.delayDecideServiceExtra;
     if(name==='open_service_dispute'&&state.delayOpenServiceDispute)await state.delayOpenServiceDispute;
+    if(name==='respond_service_dispute'&&state.delayRespondServiceDispute)await state.delayRespondServiceDispute;
     if(name==='cancel_service_before_start'&&state.delayCancellation)await state.delayCancellation;
     if(name==='propose_service_contract'&&state.delayContractProposal)await state.delayContractProposal;
     if(name==='decide_service_contract'&&state.delayContractDecision)await state.delayContractDecision;

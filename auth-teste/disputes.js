@@ -24,9 +24,9 @@ export function createDisputesPanel({api,getContext,message,friendly,onChanged})
     if(!category||description.length<20)return message('Descreva a contestação com pelo menos 20 caracteres.');
     check(await api.rpc('open_service_dispute',{p_request_id:current.id,p_category:category,p_description:description}));el('disputeForm').reset();message('Contestação registrada para manifestação da outra parte. Nenhuma decisão ou cobrança foi realizada.');await onChanged();
   }catch(error){message(friendly(error));}finally{button.disabled=false;}};
-  el('disputeResponseForm').onsubmit=async event=>{event.preventDefault();if(!dispute)return;el('respondDispute').disabled=true;try{
+  el('disputeResponseForm').onsubmit=async event=>{event.preventDefault();const current=dispute,button=el('respondDispute');if(!current||button.disabled)return;button.disabled=true;try{
     const response=el('disputeResponse').value.trim();if(response.length<20)return message('Escreva uma resposta com pelo menos 20 caracteres.');
-    check(await api.rpc('respond_service_dispute',{p_dispute_id:dispute.id,p_response:response}));el('disputeResponseForm').reset();message('Manifestação registrada. A contestação ainda depende de análise administrativa.');await onChanged();
-  }catch(error){message(friendly(error));}finally{el('respondDispute').disabled=false;}};
+    check(await api.rpc('respond_service_dispute',{p_dispute_id:current.id,p_response:response}));el('disputeResponseForm').reset();message('Manifestação registrada. A contestação ainda depende de análise administrativa.');await onChanged();
+  }catch(error){message(friendly(error));}finally{button.disabled=false;}};
   return {load,reset};
 }
