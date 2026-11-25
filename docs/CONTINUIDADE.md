@@ -282,6 +282,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 268. [Bloqueio de atualização duplicada da previsão de chegada](ENTREGA-2026-11-25-BLOQUEIO-ATUALIZACAO-DUPLICADA-PREVISAO.md). Enquanto o prestador informa ou atualiza a previsão manual durante o deslocamento, um segundo evento é descartado e somente uma chamada `set_provider_eta` chega ao serviço; o intervalo selecionado permanece visível até a resposta e apenas uma previsão é persistida, sem GPS, pagamento, cobrança ou repasse.
 
+269. [Bloqueio de duplo envio do serviço extra](ENTREGA-2026-11-25-BLOQUEIO-DUPLO-ENVIO-SERVICO-EXTRA.md). Enquanto o prestador envia novo escopo e valor durante a execução, um segundo evento de submissão é descartado e somente uma chamada `propose_service_extra` chega ao serviço; os dados permanecem preenchidos até a resposta e apenas uma proposta aparece para decisão do cliente, sem pagamento, cobrança ou repasse.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
