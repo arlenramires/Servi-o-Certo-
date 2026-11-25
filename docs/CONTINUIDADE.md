@@ -278,6 +278,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 266. [Bloqueio de decisão duplicada do reagendamento](ENTREGA-2026-11-25-BLOQUEIO-DECISAO-DUPLICADA-REAGENDAMENTO.md). Enquanto uma parte aceita ou recusa a nova data, as duas opções ficam bloqueadas, um segundo evento é descartado e somente uma chamada `decide_service_reschedule` chega ao serviço; a proposta permanece pendente até a resposta e apenas uma decisão é aplicada, sem pagamento, cobrança ou repasse.
 
+267. [Bloqueio de retirada duplicada do reagendamento](ENTREGA-2026-11-25-BLOQUEIO-RETIRADA-DUPLICADA-REAGENDAMENTO.md). Enquanto o proponente retira a nova data, um segundo evento é descartado e somente uma chamada `cancel_service_reschedule` chega ao serviço; a proposta permanece pendente e o deslocamento bloqueado até a resposta, e apenas uma retirada libera o fluxo, sem pagamento, cobrança ou repasse.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
