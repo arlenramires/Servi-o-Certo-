@@ -272,6 +272,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 263. [Bloqueio de chegada duplicada do prestador](ENTREGA-2026-11-25-BLOQUEIO-CHEGADA-DUPLICADA-PRESTADOR.md). Enquanto o prestador informa que chegou ao local, um segundo evento é descartado e somente uma chamada `mark_provider_arrival` chega ao serviço; o estado de deslocamento permanece até a resposta e apenas um evento `chegou_local` aparece na linha do tempo, sem pagamento, cobrança ou repasse.
 
+264. [Bloqueio de confirmação duplicada da chegada](ENTREGA-2026-11-25-BLOQUEIO-CONFIRMACAO-DUPLICADA-CHEGADA.md). Enquanto o cliente confirma a chegada do prestador, um segundo evento é descartado e somente uma chamada `confirm_provider_arrival` chega ao serviço; a chegada permanece sem confirmação até a resposta e apenas um evento `chegada_confirmada_cliente` aparece na linha do tempo, sem pagamento, cobrança ou repasse.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
