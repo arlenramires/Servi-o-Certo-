@@ -284,6 +284,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 269. [Bloqueio de duplo envio do serviço extra](ENTREGA-2026-11-25-BLOQUEIO-DUPLO-ENVIO-SERVICO-EXTRA.md). Enquanto o prestador envia novo escopo e valor durante a execução, um segundo evento de submissão é descartado e somente uma chamada `propose_service_extra` chega ao serviço; os dados permanecem preenchidos até a resposta e apenas uma proposta aparece para decisão do cliente, sem pagamento, cobrança ou repasse.
 
+270. [Bloqueio de decisão duplicada do serviço extra](ENTREGA-2026-11-25-BLOQUEIO-DECISAO-DUPLICADA-SERVICO-EXTRA.md). Enquanto o cliente aceita ou recusa um extra pendente, as duas opções ficam bloqueadas, um segundo evento é descartado e somente uma chamada `decide_service_extra` chega ao serviço; a proposta permanece pendente até a resposta e apenas uma decisão é aplicada, sem pagamento, cobrança ou repasse.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
