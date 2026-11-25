@@ -43,7 +43,7 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
         }
       }
       if(pendingSchedule&&pendingSchedule.proposed_by===context.user.id){
-        const button=node('button','Retirar proposta','secondary');button.type='button';button.onclick=async()=>{try{check(await api.rpc('cancel_service_reschedule',{p_change_id:pendingSchedule.id}));message('Proposta retirada. O horário anterior foi mantido.');await onChanged();}catch(error){message(friendly(error));}};el('execution').append(button);
+        const button=node('button','Retirar proposta','secondary');button.type='button';button.onclick=async()=>{if(button.disabled)return;button.disabled=true;try{check(await api.rpc('cancel_service_reschedule',{p_change_id:pendingSchedule.id}));message('Proposta retirada. O horário anterior foi mantido.');await onChanged();}catch(error){message(friendly(error));}finally{button.disabled=false;}};el('execution').append(button);
       }
     }
     for(const update of updates)el('execution').append(node('p',update.progress_percent+'% — '+update.note,'notice'));
