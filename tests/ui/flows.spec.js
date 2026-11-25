@@ -1628,6 +1628,13 @@ test('provider proposes a reschedule before starting the journey',async({page})=
   await expect(page.locator('#execution')).toContainText('aguardando decisão da outra parte');await expect(page.getByLabel('Nova data proposta')).toHaveCount(0);
   expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='propose_service_reschedule').args)).toMatchObject({p_request_id:'contract-service',p_reason:'Indisponibilidade no horário inicialmente combinado.'});
 });
+test('provider double action proposes a reschedule only once',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
+  const proposed=new Date(Date.now()+172800000);await page.getByLabel('Nova data proposta').fill(proposed.toISOString().slice(0,16));await page.getByLabel('Motivo do reagendamento').fill('Indisponibilidade no horário inicialmente combinado.');
+  await page.evaluate(()=>{let release;window.testState.delayProposeServiceReschedule=new Promise(resolve=>{release=resolve;});window.releaseProposeServiceReschedule=release;const button=[...document.querySelectorAll('#execution button')].find(item=>item.textContent==='Propor reagendamento');button.dispatchEvent(new Event('click'));button.dispatchEvent(new Event('click'));});
+  await expect(page.getByRole('button',{name:'Propor reagendamento'})).toBeDisabled();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='propose_service_reschedule'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.scheduleChanges)).toHaveLength(0);await expect(page.getByLabel('Motivo do reagendamento')).toHaveValue('Indisponibilidade no horário inicialmente combinado.');
+  await page.evaluate(()=>window.releaseProposeServiceReschedule());await expect(page.locator('#execution')).toContainText('aguardando decisão da outra parte');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='propose_service_reschedule'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.scheduleChanges)).toHaveLength(1);
+});
 test('client accepts a provider proposed date and updates the schedule',async({page})=>{
   await login(page);await seedContractContext(page,{contract:true});const proposed=new Date(Date.now()+172800000).toISOString();
   await page.evaluate(proposed=>{const s=window.testState,r=s.requests[0];s.scheduleChanges.push({id:'schedule-1',request_id:r.id,provider_id:r.provider_id,proposed_by:r.provider_id,proposed_for:proposed,reason:'Indisponibilidade no horário inicialmente combinado.',status:'pendente',created_at:new Date().toISOString(),decided_at:null});},proposed);

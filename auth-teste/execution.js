@@ -33,7 +33,7 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
       if(!pendingSchedule){
         const dateLabel=node('label','Nova data proposta'),date=document.createElement('input'),reasonLabel=node('label','Motivo do reagendamento'),reason=document.createElement('textarea'),button=node('button','Propor reagendamento','secondary');
         date.type='datetime-local';date.setAttribute('aria-label','Nova data proposta');reason.setAttribute('aria-label','Motivo do reagendamento');reason.maxLength=500;reason.rows=2;button.type='button';
-        button.onclick=()=>{const proposed=new Date(date.value);if(!date.value||Number.isNaN(proposed.getTime())){message(friendly({code:'RA001'}));return;}action('propose_service_reschedule',request,'Reagendamento enviado para decisão do cliente.',{p_proposed_for:proposed.toISOString(),p_reason:reason.value.trim()});};
+        button.onclick=async()=>{if(button.disabled)return;const proposed=new Date(date.value);if(!date.value||Number.isNaN(proposed.getTime())){message(friendly({code:'RA001'}));return;}button.disabled=true;try{await action('propose_service_reschedule',request,'Reagendamento enviado para decisão do cliente.',{p_proposed_for:proposed.toISOString(),p_reason:reason.value.trim()});}finally{button.disabled=false;}};
         dateLabel.append(date);reasonLabel.append(reason);el('execution').append(dateLabel,reasonLabel,button);
       }
       if(pendingSchedule&&pendingSchedule.proposed_by!==context.user.id){

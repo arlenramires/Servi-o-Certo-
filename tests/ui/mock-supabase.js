@@ -57,6 +57,7 @@ export function createClient(){return {
     if(name==='add_service_progress_update'&&state.delayServiceProgressUpdate)await state.delayServiceProgressUpdate;
     if(name==='mark_provider_arrival'&&state.delayMarkProviderArrival)await state.delayMarkProviderArrival;
     if(name==='confirm_provider_arrival'&&state.delayConfirmProviderArrival)await state.delayConfirmProviderArrival;
+    if(name==='propose_service_reschedule'&&state.delayProposeServiceReschedule)await state.delayProposeServiceReschedule;
     if(name==='cancel_service_before_start'&&state.delayCancellation)await state.delayCancellation;
     if(name==='propose_service_contract'&&state.delayContractProposal)await state.delayContractProposal;
     if(name==='decide_service_contract'&&state.delayContractDecision)await state.delayContractDecision;
