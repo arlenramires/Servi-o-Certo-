@@ -1801,6 +1801,14 @@ test('provider proposes an exact-cent service extra without creating a charge',a
   expect(await page.evaluate(()=>window.testState.extras.map(x=>({amount_cents:x.amount_cents,description:x.description,status:x.status})))).toEqual([{amount_cents:2550,description:'Pintura adicional da parede externa',status:'proposto'}]);
 });
 
+test('provider double submit proposes only one service extra',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
+  await page.evaluate(()=>{const s=window.testState,r=s.requests.find(item=>item.id==='contract-service');r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()});});await page.locator('#refresh').click();
+  await page.locator('#extraAmount').fill('25,50');await page.locator('#extraDescription').fill('Pintura adicional da parede externa');await page.evaluate(()=>{let release;window.testState.delayProposeServiceExtra=new Promise(resolve=>{release=resolve;});window.releaseProposeServiceExtra=release;const form=document.getElementById('extraForm');form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+  await expect(page.locator('#proposeExtra')).toBeDisabled();await expect(page.locator('#extraAmount')).toHaveValue('25,50');await expect(page.locator('#extraDescription')).toHaveValue('Pintura adicional da parede externa');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='propose_service_extra'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.extras)).toHaveLength(0);
+  await page.evaluate(()=>window.releaseProposeServiceExtra());await expect(page.locator('#status')).toContainText('Nenhuma cobrança foi criada');await expect(page.locator('#extraForm')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='propose_service_extra').map(call=>call.args))).toEqual([{p_request_id:'contract-service',p_amount_cents:2550,p_description:'Pintura adicional da parede externa'}]);expect(await page.evaluate(()=>window.testState.extras)).toHaveLength(1);
+});
+
 test('client accepts a pending extra explicitly and keeps the decision visible',async({page})=>{
   await login(page);await seedContractContext(page,{contract:true});
   await page.evaluate(()=>{const s=window.testState,r=s.requests.find(r=>r.id==='contract-service');r.status='em_andamento';s.executionEvents.push({request_id:r.id,actor_id:r.provider_id,event_type:'iniciado',created_at:new Date().toISOString()});s.extras.push({id:'extra-pending',request_id:r.id,provider_id:r.provider_id,description:'Instalação adicional de acabamento',amount_cents:3000,status:'proposto',decided_by:null,created_at:new Date().toISOString(),decided_at:null});});

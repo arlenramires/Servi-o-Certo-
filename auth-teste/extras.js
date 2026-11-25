@@ -28,11 +28,11 @@ export function createExtrasPanel({api,getContext,message,friendly,onChanged}) {
       el('extras').append(article);
     }
   }
-  el('extraForm').onsubmit=async event=>{event.preventDefault();const context=getContext(),current=request;if(!current||context.profile?.role!=='prestador')return;el('proposeExtra').disabled=true;try{
+  el('extraForm').onsubmit=async event=>{event.preventDefault();const context=getContext(),current=request,button=el('proposeExtra');if(!current||context.profile?.role!=='prestador'||button.disabled)return;button.disabled=true;try{
     const amount=parseMoneyToCents(el('extraAmount').value),description=el('extraDescription').value.trim();
     if(amount===null)return message('Informe um valor positivo com até duas casas decimais.');
     if(description.length<10)return message('Descreva o serviço extra com pelo menos 10 caracteres.');
     check(await api.rpc('propose_service_extra',{p_request_id:current.id,p_amount_cents:amount,p_description:description}));el('extraForm').reset();message('Serviço extra enviado para decisão do cliente. Nenhuma cobrança foi criada.');await onChanged();
-  }catch(error){message(friendly(error));}finally{el('proposeExtra').disabled=false;}};
+  }catch(error){message(friendly(error));}finally{button.disabled=false;}};
   return {load,reset};
 }
