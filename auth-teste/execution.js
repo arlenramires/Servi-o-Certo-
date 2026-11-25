@@ -53,7 +53,7 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
       if(context.profile.role==='prestador'){
         const label=node('label','Previsão de chegada'),select=document.createElement('select'),button=node('button',eta?'Atualizar previsão':'Informar previsão','secondary');
         select.setAttribute('aria-label','Previsão de chegada');for(const minutes of [10,20,30,45,60,90])select.add(new Option(minutes+' minutos',String(minutes)));
-        button.type='button';button.onclick=()=>action('set_provider_eta',request,'Previsão de chegada atualizada para o cliente.',{p_minutes:Number(select.value)});
+        button.type='button';button.onclick=async()=>{if(button.disabled)return;button.disabled=true;try{await action('set_provider_eta',request,'Previsão de chegada atualizada para o cliente.',{p_minutes:Number(select.value)});}finally{button.disabled=false;}};
         label.append(select);el('execution').append(label,button);
       }
     }
