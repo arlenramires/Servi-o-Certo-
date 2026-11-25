@@ -1665,6 +1665,13 @@ test('provider reports ordered on-the-way and arrival statuses to the client',as
   const calls=await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='mark_provider_arrival').map(c=>c.args));
   expect(calls).toEqual([{p_request_id:'contract-service',p_event:'a_caminho'},{p_request_id:'contract-service',p_event:'chegou_local'}]);
 });
+test('provider double action reports the journey start only once',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
+  await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});await page.locator('#refresh').click();
+  await page.evaluate(()=>{let release;window.testState.delayMarkProviderArrival=new Promise(resolve=>{release=resolve;});window.releaseMarkProviderArrival=release;const button=[...document.querySelectorAll('#execution button')].find(item=>item.textContent==='Estou a caminho');button.dispatchEvent(new Event('click'));button.dispatchEvent(new Event('click'));});
+  await expect(page.getByRole('button',{name:'Estou a caminho'})).toBeDisabled();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='mark_provider_arrival'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.executionEvents)).toHaveLength(0);
+  await page.evaluate(()=>window.releaseMarkProviderArrival());await expect(page.locator('#execution')).toContainText('Prestador está a caminho');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='mark_provider_arrival'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.executionEvents.map(item=>item.event_type))).toEqual(['a_caminho']);
+});
 test('provider updates a manual arrival estimate only while on the way',async({page})=>{
   await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedContractContext(page,{provider:true,contract:true});
   await page.evaluate(()=>{const s=window.testState,c=s.contracts[0];s.contractDecisions.push({contract_id:c.id,actor_id:c.client_id,decision:'aceito',created_at:new Date().toISOString()});});

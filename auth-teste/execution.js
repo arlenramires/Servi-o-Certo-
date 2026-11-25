@@ -46,7 +46,7 @@ export function createExecutionPanel({api,getContext,message,friendly,onChanged}
       }
     }
     for(const update of updates)el('execution').append(node('p',update.progress_percent+'% — '+update.note,'notice'));
-    if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&!onWay&&!pendingSchedule){const b=node('button','Estou a caminho','secondary');b.onclick=()=>action('mark_provider_arrival',request,'Deslocamento informado ao cliente.',{p_event:'a_caminho'});el('execution').append(b);}
+    if(context.profile.role==='prestador'&&request.status==='aceito'&&bilateral&&!onWay&&!pendingSchedule){const b=node('button','Estou a caminho','secondary');b.onclick=async()=>{if(b.disabled)return;b.disabled=true;try{await action('mark_provider_arrival',request,'Deslocamento informado ao cliente.',{p_event:'a_caminho'});}finally{b.disabled=false;}};el('execution').append(b);}
     if(request.status==='aceito'&&onWay&&!arrived){
       if(eta)el('execution').append(node('p','Previsão informada: '+new Date(eta.estimated_arrival_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'.','notice'));
       if(context.profile.role==='prestador'){
