@@ -1832,6 +1832,13 @@ test('client opens a categorized dispute without implying a decision or charge',
   expect(await page.evaluate(()=>window.testState.disputes.map(d=>({category:d.category,description:d.description,status:d.status})))).toEqual([{category:'qualidade',description:'O acabamento ficou diferente do escopo combinado.',status:'aberta'}]);
 });
 
+test('client double submit opens only one dispute',async({page})=>{
+  await login(page);await seedContractContext(page,{contract:true});await page.evaluate(()=>{const r=window.testState.requests.find(item=>item.id==='contract-service');r.status='em_andamento';});await page.locator('#refresh').click();
+  await page.locator('#disputeCategory').selectOption('qualidade');await page.locator('#disputeDescription').fill('O acabamento ficou diferente do escopo combinado.');await page.evaluate(()=>{let release;window.testState.delayOpenServiceDispute=new Promise(resolve=>{release=resolve;});window.releaseOpenServiceDispute=release;const form=document.getElementById('disputeForm');form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+  await expect(page.locator('#openDispute')).toBeDisabled();await expect(page.locator('#disputeCategory')).toHaveValue('qualidade');await expect(page.locator('#disputeDescription')).toHaveValue('O acabamento ficou diferente do escopo combinado.');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='open_service_dispute'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.disputes)).toHaveLength(0);
+  await page.evaluate(()=>window.releaseOpenServiceDispute());await expect(page.locator('#status')).toContainText('Nenhuma decisão ou cobrança');await expect(page.locator('#disputeForm')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='open_service_dispute').map(call=>call.args))).toEqual([{p_request_id:'contract-service',p_category:'qualidade',p_description:'O acabamento ficou diferente do escopo combinado.'}]);expect(await page.evaluate(()=>window.testState.disputes)).toHaveLength(1);
+});
+
 test('other participant answers a dispute once and sees pending administrative analysis',async({page})=>{
   await login(page);await seedContractContext(page,{contract:true});
   await page.evaluate(()=>{const s=window.testState,r=s.requests.find(r=>r.id==='contract-service');r.status='em_andamento';s.disputes.push({id:'dispute-open',request_id:r.id,opened_by:r.provider_id,category:'prazo',description:'O prazo precisa ser revisto pelas partes envolvidas.',status:'aberta',response_by:null,response_body:null,created_at:new Date().toISOString(),responded_at:null});});
