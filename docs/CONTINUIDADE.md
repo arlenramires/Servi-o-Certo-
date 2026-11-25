@@ -280,6 +280,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 267. [Bloqueio de retirada duplicada do reagendamento](ENTREGA-2026-11-25-BLOQUEIO-RETIRADA-DUPLICADA-REAGENDAMENTO.md). Enquanto o proponente retira a nova data, um segundo evento é descartado e somente uma chamada `cancel_service_reschedule` chega ao serviço; a proposta permanece pendente e o deslocamento bloqueado até a resposta, e apenas uma retirada libera o fluxo, sem pagamento, cobrança ou repasse.
 
+268. [Bloqueio de atualização duplicada da previsão de chegada](ENTREGA-2026-11-25-BLOQUEIO-ATUALIZACAO-DUPLICADA-PREVISAO.md). Enquanto o prestador informa ou atualiza a previsão manual durante o deslocamento, um segundo evento é descartado e somente uma chamada `set_provider_eta` chega ao serviço; o intervalo selecionado permanece visível até a resposta e apenas uma previsão é persistida, sem GPS, pagamento, cobrança ou repasse.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
