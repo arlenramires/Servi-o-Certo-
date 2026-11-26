@@ -791,7 +791,7 @@ el('cancelRecovery').onclick=()=>busy('cancelRecovery',async()=>{
   check(await api.auth.signOut({scope:'local'}));recovery=false;
   history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Recuperação cancelada. Entre para continuar.');
 });
-el('logout').onclick=()=>busy('logout',async()=>{check(await api.auth.signOut({scope:'local'}));recovery=false;await loadAccount(null);message('Sessão encerrada.');});
+el('logout').onclick=()=>{if(el('logout').disabled)return;busy('logout',async()=>{check(await api.auth.signOut({scope:'local'}));recovery=false;await loadAccount(null);message('Sessão encerrada.');});};
 el('refreshApplications').onclick=()=>busy('refreshApplications',async()=>{
   if(profile?.role!=='cliente'||!user)throw new InputError('Entre com um perfil de cliente.');
   const accountId=user.id,ticket=generation,professionField=el('profession'),draftProfession=professionField.value;
