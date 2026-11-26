@@ -644,6 +644,13 @@ test('client changes urgency while an unassigned request remains open',async({pa
   await card.getByRole('button',{name:'Remover urgência'}).click();await expect(card).not.toContainText('Atendimento urgente');await expect(page.locator('#status')).toContainText('Urgência removida');
   expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_request_urgency').map(c=>c.args))).toEqual([{p_request_id:expect.any(String),p_urgent:true},{p_request_id:expect.any(String),p_urgent:false}]);
 });
+test('client double action changes an open request urgency only once',async({page})=>{
+  await login(page);await page.locator('#serviceProfession').selectOption('Eletricista');await page.locator('#description').fill('Reparo no quadro elétrico da residência.');await page.locator('#createRequest').click();
+  const card=page.locator('#requests .service').first(),button=card.getByRole('button',{name:'Marcar como urgente'});await page.evaluate(()=>{let release;window.testState.delaySetRequestUrgency=new Promise(resolve=>{release=resolve;});window.releaseSetRequestUrgency=release;const target=[...document.querySelectorAll('#requests .service button')].find(item=>item.textContent==='Marcar como urgente');target.dispatchEvent(new Event('click'));target.dispatchEvent(new Event('click'));});
+  await expect(button).toBeDisabled();await expect(card).not.toContainText('Atendimento urgente');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='set_request_urgency'))).toHaveLength(1);
+  await page.evaluate(()=>window.releaseSetRequestUrgency());await expect(page.locator('#status')).toContainText('marcado como urgente');await expect(card).toContainText('Atendimento urgente');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='set_request_urgency').map(call=>call.args))).toEqual([{p_request_id:expect.any(String),p_urgent:true}]);
+});
+
 test('client corrects a past schedule then removes it while a request remains open',async({page})=>{
   await login(page);await page.locator('#serviceProfession').selectOption('Pintor');await page.locator('#description').fill('Pintura da sala com preferência de horário para atendimento.');await page.locator('#createRequest').click();
   const card=page.locator('#requests .service').first(),schedule=card.getByLabel('Horário preferido');

@@ -494,7 +494,7 @@ async function refresh(ticket=generation) {
         message('Profissão do pedido atualizada. A busca considera agora a nova especialidade.');await refresh();
       }catch(error){message(friendly(error));}finally{saveProfession.disabled=false;}};
       const urgency=text('button',r.is_urgent?'Remover urgência':'Marcar como urgente','secondary');urgency.type='button';
-      urgency.onclick=async()=>{urgency.disabled=true;try{
+      urgency.onclick=async()=>{if(urgency.disabled)return;urgency.disabled=true;try{
         const next=!r.is_urgent;check(await api.rpc('set_request_urgency',{p_request_id:r.id,p_urgent:next}));
         message(next?'Pedido marcado como urgente. Prestadores elegíveis verão a prioridade.':'Urgência removida. O pedido continua disponível normalmente.');await refresh();
       }catch(error){message(friendly(error));}finally{urgency.disabled=false;}};
