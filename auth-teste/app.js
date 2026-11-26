@@ -526,7 +526,7 @@ async function refresh(ticket=generation) {
       const requestState=document.createElement('input');requestState.id=stateLabel.htmlFor;requestState.maxLength=2;requestState.value=r.state;
       requestState.addEventListener('input',event=>{event.currentTarget.value=event.currentTarget.value.toUpperCase();event.currentTarget.removeAttribute('aria-invalid');});
       const saveLocation=text('button','Atualizar região','secondary');saveLocation.type='button';
-      saveLocation.onclick=async()=>{saveLocation.disabled=true;try{
+      saveLocation.onclick=async()=>{if(saveLocation.disabled)return;saveLocation.disabled=true;try{
         const city=requestCity.value.trim(),state=requestState.value.trim().toUpperCase();
         requestCity.removeAttribute('aria-invalid');
         if(city.length<2||city.length>100){requestCity.setAttribute('aria-invalid','true');requestCity.focus();throw new InputError('Informe uma cidade com 2 a 100 caracteres. A UF foi preservada.');}

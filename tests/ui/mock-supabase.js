@@ -69,6 +69,7 @@ export function createClient(){return {
     if(name==='decide_service_inspection'&&state.delayDecideServiceInspection)await state.delayDecideServiceInspection;
     if(name==='set_open_request_profession'&&state.delaySetOpenRequestProfession)await state.delaySetOpenRequestProfession;
     if(name==='set_open_request_description'&&state.delaySetOpenRequestDescription)await state.delaySetOpenRequestDescription;
+    if(name==='set_open_request_location'&&state.delaySetOpenRequestLocation)await state.delaySetOpenRequestLocation;
     if(name==='cancel_service_before_start'&&state.delayCancellation)await state.delayCancellation;
     if(name==='propose_service_contract'&&state.delayContractProposal)await state.delayContractProposal;
     if(name==='decide_service_contract'&&state.delayContractDecision)await state.delayContractDecision;
