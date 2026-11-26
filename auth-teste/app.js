@@ -747,7 +747,7 @@ el('authForm').onsubmit=event=>{event.preventDefault();if(el('submit').disabled)
   }
   finally{if(action!=='reset'){el('password').value='';el('passwordConfirmation').value='';resetPasswordVisibility();hideCapsLockWarnings();}}
 });};
-el('resendConfirmation').onclick=()=>busy('resendConfirmation',async()=>{
+el('resendConfirmation').onclick=()=>{if(el('resendConfirmation').disabled)return;busy('resendConfirmation',async()=>{
   if(!pendingConfirmationEmail){el('resendConfirmation').hidden=true;return;}
   try {
     check(await api.auth.resend({type:'signup',email:pendingConfirmationEmail,options:{emailRedirectTo:authCallbackUrl()}}));
@@ -759,7 +759,7 @@ el('resendConfirmation').onclick=()=>busy('resendConfirmation',async()=>{
     if(error?.code==='validation_failed')throw new InputError('Não foi possível validar o reenvio. Entre novamente com seu e-mail para solicitar outra confirmação.');
     throw error;
   }
-});
+});};
 el('recoveryForm').onsubmit=event=>{event.preventDefault();if(el('savePassword').disabled)return;busy('savePassword',async()=>{
   const password=el('newPassword').value,passwordConfirmation=el('newPasswordConfirmation').value,nonce=el('recoveryNonce').value.trim();
   try {
