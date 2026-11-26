@@ -306,6 +306,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 280. [Bloqueio de restauração duplicada de oportunidade](ENTREGA-2026-11-26-BLOQUEIO-RESTAURACAO-DUPLICADA-OPORTUNIDADE.md). Enquanto o prestador devolve à lista uma oportunidade ocultada por ele, um segundo evento é descartado e somente uma chamada `restore_request_interest` chega ao serviço; a oportunidade permanece ocultada até a resposta e reaparece uma única vez após a confirmação.
 
+281. [Bloqueio de disponibilidade duplicada do prestador](ENTREGA-2026-11-26-BLOQUEIO-DISPONIBILIDADE-DUPLICADA-PRESTADOR.md). Enquanto o prestador altera a disponibilidade para novos serviços, um segundo evento é descartado e somente uma chamada `set_provider_availability` chega ao serviço; o controle permanece desabilitado até a resposta e conserva o estado confirmado.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
