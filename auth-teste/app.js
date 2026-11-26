@@ -787,10 +787,10 @@ el('resendRecoveryNonce').onclick=()=>busy('resendRecoveryNonce',async()=>{
   try{check(await api.auth.reauthenticate());}catch(error){if(invalidReauthenticationRecoveryCodes.has(error?.code)){rejectInvalidRecovery();return;}throw containReauthenticationRequestError(error);}
   el('recoveryNonce').focus();message('Novo código de verificação solicitado. Aguarde o e-mail antes de continuar.');
 });
-el('cancelRecovery').onclick=()=>busy('cancelRecovery',async()=>{
+el('cancelRecovery').onclick=()=>{if(el('cancelRecovery').disabled)return;busy('cancelRecovery',async()=>{
   check(await api.auth.signOut({scope:'local'}));recovery=false;
   history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Recuperação cancelada. Entre para continuar.');
-});
+});};
 el('logout').onclick=()=>{if(el('logout').disabled)return;busy('logout',async()=>{check(await api.auth.signOut({scope:'local'}));recovery=false;await loadAccount(null);message('Sessão encerrada.');});};
 el('refreshApplications').onclick=()=>busy('refreshApplications',async()=>{
   if(profile?.role!=='cliente'||!user)throw new InputError('Entre com um perfil de cliente.');
