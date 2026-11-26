@@ -865,7 +865,7 @@ el('available').onchange=()=>{if(el('available').disabled)return;busy('available
   try { if(!check(await api.rpc('set_provider_availability',{p_available:available})))throw new InputError('Somente prestadores aprovados com e-mail confirmado podem ficar disponíveis.');profile.is_available=available;await refresh(); }
   catch(error){el('available').checked=profile?.is_available||false;throw error;}
 });};
-el('refresh').onclick=()=>busy('refresh',()=>refresh());
+el('refresh').onclick=()=>{if(el('refresh').disabled)return;busy('refresh',()=>refresh());};
 el('requestFilter').onchange=()=>{requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
 el('requestSort').onchange=()=>{requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
 el('requestPageSize').onchange=()=>{requestPageSize=Number(el('requestPageSize').value);requestDisplayLimit=requestPageSize;busy('refresh',()=>refresh());};
