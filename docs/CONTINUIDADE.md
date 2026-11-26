@@ -314,6 +314,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 284. [Bloqueio de cancelamento duplicado da recuperação](ENTREGA-2026-11-26-BLOQUEIO-CANCELAMENTO-DUPLICADO-RECUPERACAO.md). Enquanto o cancelamento da recuperação aguarda resposta, um segundo evento é descartado e somente uma chamada `auth.signOut` chega ao serviço; o botão permanece desabilitado, os campos ficam preservados até a resposta e são limpos após a confirmação, sem alterar senha ou permissões.
 
+285. [Bloqueio de reenvio duplicado da reautenticação](ENTREGA-2026-11-26-BLOQUEIO-REENVIO-DUPLICADO-REAUTENTICACAO.md). Enquanto o reenvio do código de reautenticação aguarda resposta, um segundo evento é descartado e somente uma chamada adicional `auth.reauthenticate` chega ao serviço; o botão permanece indisponível até a resposta, sem alterar senha ou permissões.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
