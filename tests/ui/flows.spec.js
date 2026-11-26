@@ -680,6 +680,12 @@ test('client changes the profession while a request remains open',async({page})=
   await expect(page.locator('#status')).toContainText('Profissão do pedido atualizada');await expect(card.getByRole('heading')).toHaveText('Eletricista');
   expect(await page.evaluate(()=>window.testState.calls.find(c=>c.rpc==='set_open_request_profession').args)).toEqual({p_request_id:expect.any(String),p_profession:'Eletricista'});
 });
+test('client double action updates an open request profession only once',async({page})=>{
+  await login(page);await page.locator('#serviceProfession').selectOption('Pintor');await page.locator('#description').fill('Pintura de uma sala com correção do acabamento.');await page.locator('#createRequest').click();
+  const card=page.locator('#requests .service').first(),profession=card.getByLabel('Profissão do pedido'),button=card.getByRole('button',{name:'Atualizar profissão'});await profession.selectOption('Eletricista');await page.evaluate(()=>{let release;window.testState.delaySetOpenRequestProfession=new Promise(resolve=>{release=resolve;});window.releaseSetOpenRequestProfession=release;const target=[...document.querySelectorAll('#requests .service button')].find(item=>item.textContent==='Atualizar profissão');target.dispatchEvent(new Event('click'));target.dispatchEvent(new Event('click'));});
+  await expect(button).toBeDisabled();await expect(profession).toHaveValue('Eletricista');await expect(card.getByRole('heading')).toHaveText('Pintor');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='set_open_request_profession'))).toHaveLength(1);
+  await page.evaluate(()=>window.releaseSetOpenRequestProfession());await expect(page.locator('#status')).toContainText('Profissão do pedido atualizada');await expect(card.getByRole('heading')).toHaveText('Eletricista');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='set_open_request_profession').map(call=>call.args))).toEqual([{p_request_id:expect.any(String),p_profession:'Eletricista'}]);
+});
 test('incoming messages show an unread count that clears when conversation opens',async({page})=>{
   await login(page);
   await page.evaluate(()=>{

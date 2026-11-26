@@ -488,7 +488,7 @@ async function refresh(ticket=generation) {
       for(const option of el('serviceProfession').options)if(option.value)requestProfession.add(new Option(option.textContent,option.value));
       requestProfession.value=r.profession;
       const saveProfession=text('button','Atualizar profissão','secondary');saveProfession.type='button';
-      saveProfession.onclick=async()=>{saveProfession.disabled=true;try{
+      saveProfession.onclick=async()=>{if(saveProfession.disabled)return;saveProfession.disabled=true;try{
         const profession=requestProfession.value;if(!profession)throw new InputError('Escolha uma profissão disponível no catálogo.');
         check(await api.rpc('set_open_request_profession',{p_request_id:r.id,p_profession:profession}));
         message('Profissão do pedido atualizada. A busca considera agora a nova especialidade.');await refresh();
