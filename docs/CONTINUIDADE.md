@@ -316,6 +316,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 285. [Bloqueio de reenvio duplicado da reautenticação](ENTREGA-2026-11-26-BLOQUEIO-REENVIO-DUPLICADO-REAUTENTICACAO.md). Enquanto o reenvio do código de reautenticação aguarda resposta, um segundo evento é descartado e somente uma chamada adicional `auth.reauthenticate` chega ao serviço; o botão permanece indisponível até a resposta, sem alterar senha ou permissões.
 
+286. [Bloqueio de atualização duplicada das candidaturas](ENTREGA-2026-11-26-BLOQUEIO-ATUALIZACAO-DUPLICADA-CANDIDATURAS.md). Enquanto o cliente atualiza suas candidaturas a prestador, um segundo evento é descartado e somente uma nova consulta de `provider_applications` chega ao serviço; o botão permanece indisponível, e a lista e o rascunho ficam preservados até a resposta, sem conceder permissões.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
