@@ -503,7 +503,7 @@ async function refresh(ticket=generation) {
       schedule.addEventListener('input',()=>schedule.removeAttribute('aria-invalid'));
       if(r.scheduled_for){const date=new Date(r.scheduled_for);if(!Number.isNaN(date.getTime()))schedule.value=new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);}
       const saveSchedule=text('button','Atualizar horário','secondary');saveSchedule.type='button';
-      saveSchedule.onclick=async()=>{saveSchedule.disabled=true;try{
+      saveSchedule.onclick=async()=>{if(saveSchedule.disabled)return;saveSchedule.disabled=true;try{
         const next=schedule.value?new Date(schedule.value).toISOString():null;
         schedule.removeAttribute('aria-invalid');
         if(next&&new Date(next)<=new Date()){schedule.setAttribute('aria-invalid','true');schedule.focus();throw new InputError('Escolha um horário futuro. O pedido foi preservado.');}

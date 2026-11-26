@@ -655,6 +655,12 @@ test('client corrects a past schedule then removes it while a request remains op
   await expect(page.locator('#status')).toContainText('Horário preferido removido');await expect(card).not.toContainText('Horário preferido:');
   expect(await page.evaluate(()=>window.testState.calls.filter(c=>c.rpc==='set_open_request_schedule').map(c=>c.args))).toEqual([{p_request_id:expect.any(String),p_scheduled_for:expect.any(String)},{p_request_id:expect.any(String),p_scheduled_for:null}]);
 });
+test('client double action updates an open request schedule only once',async({page})=>{
+  await login(page);await page.locator('#serviceProfession').selectOption('Pintor');await page.locator('#description').fill('Pintura da sala com preferência de horário para atendimento.');await page.locator('#createRequest').click();
+  const card=page.locator('#requests .service').first(),schedule=card.getByLabel('Horário preferido'),button=card.getByRole('button',{name:'Atualizar horário'});await schedule.fill('2027-01-15T14:30');await page.evaluate(()=>{let release;window.testState.delaySetOpenRequestSchedule=new Promise(resolve=>{release=resolve;});window.releaseSetOpenRequestSchedule=release;const target=[...document.querySelectorAll('#requests .service button')].find(item=>item.textContent==='Atualizar horário');target.dispatchEvent(new Event('click'));target.dispatchEvent(new Event('click'));});
+  await expect(button).toBeDisabled();await expect(schedule).toHaveValue('2027-01-15T14:30');await expect(card.locator('small').filter({hasText:'Horário preferido:'})).toHaveCount(0);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='set_open_request_schedule'))).toHaveLength(1);
+  await page.evaluate(()=>window.releaseSetOpenRequestSchedule());await expect(page.locator('#status')).toContainText('Horário preferido atualizado');await expect(card.locator('small').filter({hasText:'Horário preferido:'})).toHaveCount(1);expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='set_open_request_schedule').map(call=>call.args))).toEqual([{p_request_id:expect.any(String),p_scheduled_for:expect.any(String)}]);
+});
 test('client corrects the description while a request remains open',async({page})=>{
   await login(page);await page.locator('#serviceProfession').selectOption('Eletricista');await page.locator('#description').fill('Trocar tomada antiga da sala.');await page.locator('#createRequest').click();
   const card=page.locator('#requests .service').first(),description=card.getByLabel('Descrição do pedido');

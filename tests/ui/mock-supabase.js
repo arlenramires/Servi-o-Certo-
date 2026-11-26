@@ -156,7 +156,7 @@ export function createClient(){return {
     if(name==='accept_request'){if(state.acceptRequestResult)state.acceptedOpportunity=true;return {data:!!state.acceptRequestResult,error:null};}
     if(name==='restore_request_interest'){const index=state.declinedRequests.indexOf(args.p_request_id);if(index<0)return {data:false,error:null};state.declinedRequests.splice(index,1);return {data:true,error:null};}
     if(name==='set_request_urgency'){request.is_urgent=args.p_urgent;return {data:true,error:null};}
-    if(name==='set_open_request_schedule'){request.scheduled_for=args.p_scheduled_for;return {data:true,error:null};}
+    if(name==='set_open_request_schedule'){if(state.delaySetOpenRequestSchedule)await state.delaySetOpenRequestSchedule;request.scheduled_for=args.p_scheduled_for;return {data:true,error:null};}
     if(name==='set_open_request_description'){request.description=args.p_description;return {data:true,error:null};}
     if(name==='set_open_request_location'){request.city=args.p_city;request.state=args.p_state;request.latitude=null;request.longitude=null;return {data:true,error:null};}
     if(name==='set_open_request_profession'){request.profession=args.p_profession;return {data:true,error:null};}
