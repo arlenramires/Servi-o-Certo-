@@ -290,6 +290,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 272. [Bloqueio de duplo envio da resposta à contestação](ENTREGA-2026-11-25-BLOQUEIO-DUPLO-ENVIO-RESPOSTA-CONTESTACAO.md). Enquanto a outra parte registra sua manifestação, um segundo evento de submissão é descartado e somente uma chamada `respond_service_dispute` chega ao serviço; o relato permanece preenchido até a resposta e apenas uma manifestação é registrada, mantendo a contestação pendente de análise administrativa e sem pagamento, cobrança, estorno ou repasse.
 
+273. [Bloqueio de duplo envio da proposta de vistoria](ENTREGA-2026-11-25-BLOQUEIO-DUPLO-ENVIO-PROPOSTA-VISTORIA.md). Enquanto o prestador envia finalidade, data e valor da vistoria prévia, um segundo evento de submissão é descartado e somente uma chamada `propose_service_inspection` chega ao serviço; os campos permanecem preenchidos até a resposta e apenas uma proposta privada é criada, sem confirmar agendamento, pagamento, cobrança, estorno ou repasse.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
