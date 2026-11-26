@@ -300,6 +300,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 277. [Bloqueio de atualização duplicada da região do pedido](ENTREGA-2026-11-26-BLOQUEIO-ATUALIZACAO-DUPLICADA-REGIAO-PEDIDO.md). Enquanto o cliente corrige cidade e UF de um pedido aberto, um segundo evento é descartado e somente uma chamada `set_open_request_location` chega ao serviço; os valores corrigidos permanecem nos campos, o cartão só muda após a resposta e nenhuma outra informação do pedido é alterada.
 
+278. [Bloqueio de atualização duplicada do horário preferido do pedido](ENTREGA-2026-11-26-BLOQUEIO-ATUALIZACAO-DUPLICADA-HORARIO-PEDIDO.md). Enquanto o cliente corrige o horário preferido de um pedido aberto, um segundo evento é descartado e somente uma chamada `set_open_request_schedule` chega ao serviço; a nova preferência permanece no campo, o cartão só muda após a resposta e nenhuma outra informação do pedido é alterada.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
