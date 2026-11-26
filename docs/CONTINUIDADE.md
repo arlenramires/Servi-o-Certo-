@@ -294,6 +294,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 274. [Bloqueio de decisão duplicada da vistoria](ENTREGA-2026-11-25-BLOQUEIO-DECISAO-DUPLICADA-VISTORIA.md). Enquanto o cliente aceita ou recusa uma proposta de vistoria, as duas opções ficam bloqueadas, um segundo evento conflitante é descartado e somente uma chamada `decide_service_inspection` chega ao serviço; a proposta permanece pendente até a resposta e apenas uma decisão é aplicada, mantendo pagamento e confirmação pendentes e sem cobrança, estorno ou repasse.
 
+275. [Bloqueio de atualização duplicada da profissão do pedido](ENTREGA-2026-11-25-BLOQUEIO-ATUALIZACAO-DUPLICADA-PROFISSAO-PEDIDO.md). Enquanto o cliente corrige a profissão de um pedido aberto, um segundo evento é descartado e somente uma chamada `set_open_request_profession` chega ao serviço; a nova opção permanece selecionada, o cartão só muda após a resposta e o catálogo das 82 profissões permanece intacto, sem aprovação automática.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
