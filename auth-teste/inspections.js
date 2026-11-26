@@ -19,7 +19,7 @@ export function createInspectionsPanel({api,getContext,message,friendly,onChange
     article.append(node('small',status));
     if(context.profile.role==='cliente'&&inspection.status==='proposta'&&request.status==='aceito'){
       for(const [decision,label] of [['aceita_pendente_pagamento','Aceitar proposta de vistoria'],['recusada','Recusar proposta de vistoria']]){
-        const button=node('button',label,decision==='recusada'?'secondary':'');button.type='button';button.onclick=async()=>{
+        const button=node('button',label,decision==='recusada'?'secondary':'');button.type='button';button.onclick=async()=>{if(button.disabled)return;
           article.querySelectorAll('button').forEach(b=>b.disabled=true);
           try{check(await api.rpc('decide_service_inspection',{p_inspection_id:inspection.id,p_decision:decision}));message(decision==='recusada'?'Vistoria recusada e decisão registrada.':'Proposta aceita. A vistoria só será confirmada após integração de pagamento em sandbox.');await onChanged();}
           catch(error){message(friendly(error));}finally{article.querySelectorAll('button').forEach(b=>b.disabled=false);}
