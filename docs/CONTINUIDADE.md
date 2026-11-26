@@ -302,6 +302,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 278. [Bloqueio de atualização duplicada do horário preferido do pedido](ENTREGA-2026-11-26-BLOQUEIO-ATUALIZACAO-DUPLICADA-HORARIO-PEDIDO.md). Enquanto o cliente corrige o horário preferido de um pedido aberto, um segundo evento é descartado e somente uma chamada `set_open_request_schedule` chega ao serviço; a nova preferência permanece no campo, o cartão só muda após a resposta e nenhuma outra informação do pedido é alterada.
 
+279. [Bloqueio de atualização duplicada da urgência do pedido](ENTREGA-2026-11-26-BLOQUEIO-ATUALIZACAO-DUPLICADA-URGENCIA-PEDIDO.md). Enquanto o cliente altera a urgência de um pedido aberto, um segundo evento é descartado e somente uma chamada `set_request_urgency` chega ao serviço; o cartão conserva o estado anterior até a resposta e aplica uma única mudança sem alterar as demais informações do pedido.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
