@@ -298,6 +298,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 276. [Bloqueio de atualização duplicada da descrição do pedido](ENTREGA-2026-11-25-BLOQUEIO-ATUALIZACAO-DUPLICADA-DESCRICAO-PEDIDO.md). Enquanto o cliente corrige a descrição de um pedido aberto, um segundo evento é descartado e somente uma chamada `set_open_request_description` chega ao serviço; o texto corrigido permanece no campo, o cartão só muda após a resposta e nenhuma outra informação do pedido é alterada.
 
+277. [Bloqueio de atualização duplicada da região do pedido](ENTREGA-2026-11-26-BLOQUEIO-ATUALIZACAO-DUPLICADA-REGIAO-PEDIDO.md). Enquanto o cliente corrige cidade e UF de um pedido aberto, um segundo evento é descartado e somente uma chamada `set_open_request_location` chega ao serviço; os valores corrigidos permanecem nos campos, o cartão só muda após a resposta e nenhuma outra informação do pedido é alterada.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
