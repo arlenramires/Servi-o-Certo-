@@ -781,12 +781,12 @@ el('recoveryForm').onsubmit=event=>{event.preventDefault();if(el('savePassword')
   }
   finally{el('newPassword').value='';el('newPasswordConfirmation').value='';resetPasswordVisibility();hideCapsLockWarnings();}
 });};
-el('resendRecoveryNonce').onclick=()=>busy('resendRecoveryNonce',async()=>{
+el('resendRecoveryNonce').onclick=()=>{if(el('resendRecoveryNonce').disabled)return;busy('resendRecoveryNonce',async()=>{
   if(!recovery||!recoveryNeedsReauthentication||!recoveryNonceResendAvailable){el('resendRecoveryNonce').hidden=true;return;}
   recoveryNonceResendAvailable=false;el('resendRecoveryNonce').hidden=true;el('recoveryNonce').value='';
   try{check(await api.auth.reauthenticate());}catch(error){if(invalidReauthenticationRecoveryCodes.has(error?.code)){rejectInvalidRecovery();return;}throw containReauthenticationRequestError(error);}
   el('recoveryNonce').focus();message('Novo código de verificação solicitado. Aguarde o e-mail antes de continuar.');
-});
+});};
 el('cancelRecovery').onclick=()=>{if(el('cancelRecovery').disabled)return;busy('cancelRecovery',async()=>{
   check(await api.auth.signOut({scope:'local'}));recovery=false;
   history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Recuperação cancelada. Entre para continuar.');
