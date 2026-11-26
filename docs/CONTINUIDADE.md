@@ -292,6 +292,8 @@ Trabalhar na branch `desenvolvimento-login-supabase`, preservando `main` e os ar
 
 273. [Bloqueio de duplo envio da proposta de vistoria](ENTREGA-2026-11-25-BLOQUEIO-DUPLO-ENVIO-PROPOSTA-VISTORIA.md). Enquanto o prestador envia finalidade, data e valor da vistoria prévia, um segundo evento de submissão é descartado e somente uma chamada `propose_service_inspection` chega ao serviço; os campos permanecem preenchidos até a resposta e apenas uma proposta privada é criada, sem confirmar agendamento, pagamento, cobrança, estorno ou repasse.
 
+274. [Bloqueio de decisão duplicada da vistoria](ENTREGA-2026-11-25-BLOQUEIO-DECISAO-DUPLICADA-VISTORIA.md). Enquanto o cliente aceita ou recusa uma proposta de vistoria, as duas opções ficam bloqueadas, um segundo evento conflitante é descartado e somente uma chamada `decide_service_inspection` chega ao serviço; a proposta permanece pendente até a resposta e apenas uma decisão é aplicada, mantendo pagamento e confirmação pendentes e sem cobrança, estorno ou repasse.
+
 ## Próximas entregas prioritárias
 
 - Acordos: revisar texto/processo com responsável jurídico e homologar com contas confirmadas. O comprovante exportável já foi implementado, mas não tratar o arquivo, hash ou aceite como assinatura certificada ou validação jurídica.
