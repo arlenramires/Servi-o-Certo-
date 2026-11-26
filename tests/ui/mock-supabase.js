@@ -47,6 +47,7 @@ export function createClient(){return {
   from:table=>new Query(table),
   rpc:async(name,args)=>{
     state.calls.push({rpc:name,args});
+    if(name==='set_provider_availability'&&state.delaySetProviderAvailability)await state.delaySetProviderAvailability;
     if(name==='accept_request'&&state.delayAcceptRequest)await state.delayAcceptRequest;
     if(name==='start_service'&&state.delayStartService)await state.delayStartService;
     if(name==='request_service_completion'&&state.delayRequestServiceCompletion)await state.delayRequestServiceCompletion;
