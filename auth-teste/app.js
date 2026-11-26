@@ -792,7 +792,7 @@ el('cancelRecovery').onclick=()=>{if(el('cancelRecovery').disabled)return;busy('
   history.replaceState(null,'',authCallbackUrl());await loadAccount(null);message('Recuperação cancelada. Entre para continuar.');
 });};
 el('logout').onclick=()=>{if(el('logout').disabled)return;busy('logout',async()=>{check(await api.auth.signOut({scope:'local'}));recovery=false;await loadAccount(null);message('Sessão encerrada.');});};
-el('refreshApplications').onclick=()=>busy('refreshApplications',async()=>{
+el('refreshApplications').onclick=()=>{if(el('refreshApplications').disabled)return;busy('refreshApplications',async()=>{
   if(profile?.role!=='cliente'||!user)throw new InputError('Entre com um perfil de cliente.');
   const accountId=user.id,ticket=generation,professionField=el('profession'),draftProfession=professionField.value;
   try{
@@ -805,7 +805,7 @@ el('refreshApplications').onclick=()=>busy('refreshApplications',async()=>{
     if(ticket!==generation||user?.id!==accountId)return;
     throw new InputError('Não foi possível atualizar as candidaturas. Os dados exibidos e o rascunho foram preservados. Tente novamente.');
   }
-});
+});};
 el('applicationForm').onsubmit=event=>{event.preventDefault();if(el('applyProvider').disabled)return;busy('applyProvider',async()=>{
   if(profile?.role!=='cliente')throw new InputError('Entre com um perfil de cliente.');
   const professionField=el('profession'),profession=professionField.value,experienceField=el('experience'),experience=experienceField.value.trim();professionField.removeAttribute('aria-invalid');experienceField.removeAttribute('aria-invalid');
