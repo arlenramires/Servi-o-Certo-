@@ -931,6 +931,12 @@ test('provider restores a personally hidden opportunity',async({page})=>{
   await expect(page.locator('#status')).toContainText('devolvido à sua lista');await expect(page.getByRole('button',{name:'Aceitar chamado'})).toBeVisible();
   expect(await page.evaluate(()=>({declined:window.testState.declinedRequests,call:window.testState.calls.find(c=>c.rpc==='restore_request_interest').args}))).toEqual({declined:[],call:{p_request_id:'open-request'}});
 });
+test('provider double action restores a personally hidden opportunity only once',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await page.getByRole('button',{name:'Não tenho interesse'}).click();
+  const button=page.getByRole('button',{name:'Mostrar novamente'});await page.evaluate(()=>{let release;window.testState.delayRestoreRequestInterest=new Promise(resolve=>{release=resolve;});window.releaseRestoreRequestInterest=release;const target=[...document.querySelectorAll('#opportunities button')].find(item=>item.textContent==='Mostrar novamente');target.dispatchEvent(new Event('click'));target.dispatchEvent(new Event('click'));});
+  await expect(button).toBeDisabled();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='restore_request_interest'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.declinedRequests)).toEqual(['open-request']);
+  await page.evaluate(()=>window.releaseRestoreRequestInterest());await expect(page.locator('#status')).toContainText('devolvido à sua lista');await expect(page.getByRole('button',{name:'Aceitar chamado'})).toBeVisible();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='restore_request_interest').map(call=>call.args))).toEqual([{p_request_id:'open-request'}]);
+});
 test('missing server profile keeps workspace closed',async({page})=>{
   await page.addInitScript(()=>window.missingProfile=true);await page.goto('/auth-teste/');await page.locator('#email').fill('teste@example.invalid');await page.locator('#password').fill('validpass123');await page.locator('#submit').click();await expect(page.locator('#status')).toContainText('permanece bloqueado');await expect(page.locator('#workspace')).toBeHidden();
 });

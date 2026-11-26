@@ -587,7 +587,7 @@ async function refresh(ticket=generation) {
     for(const r of declinedRequests) {
       const card=text('article','','service'),restore=text('button','Mostrar novamente','secondary');
       card.append(text('h3',r.requested_profession),text('small','Ocultado em '+new Date(r.declined_at).toLocaleString('pt-BR')),restore);
-      restore.onclick=async()=>{restore.disabled=true;try{
+      restore.onclick=async()=>{if(restore.disabled)return;restore.disabled=true;try{
         const restored=check(await api.rpc('restore_request_interest',{p_request_id:r.request_id}));
         message(restored?'Chamado devolvido à sua lista de oportunidades.':'O chamado já não estava oculto para você.');
         await refresh();
