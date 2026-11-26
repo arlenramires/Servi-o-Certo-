@@ -28,12 +28,12 @@ export function createInspectionsPanel({api,getContext,message,friendly,onChange
     }
     el('inspections').append(article);
   }
-  el('inspectionForm').onsubmit=async event=>{event.preventDefault();const context=getContext(),current=request;if(!current||context.profile?.role!=='prestador')return;el('proposeInspection').disabled=true;try{
+  el('inspectionForm').onsubmit=async event=>{event.preventDefault();const context=getContext(),current=request,button=el('proposeInspection');if(!current||context.profile?.role!=='prestador'||button.disabled)return;button.disabled=true;try{
     const fee=parseMoneyToCents(el('inspectionFee').value),purpose=el('inspectionPurpose').value.trim(),raw=el('inspectionScheduled').value,scheduled=raw?new Date(raw):null;
     if(fee===null)return message('Informe um valor positivo com até duas casas decimais.');
     if(purpose.length<20)return message('Explique a finalidade da vistoria com pelo menos 20 caracteres.');
     if(!scheduled||Number.isNaN(scheduled.valueOf())||scheduled<=new Date())return message('Escolha uma data futura para a vistoria.');
     check(await api.rpc('propose_service_inspection',{p_request_id:current.id,p_fee_cents:fee,p_scheduled_for:scheduled.toISOString(),p_purpose:purpose}));el('inspectionForm').reset();message('Proposta de vistoria enviada. Nenhuma cobrança ou confirmação foi criada.');await onChanged();
-  }catch(error){message(friendly(error));}finally{el('proposeInspection').disabled=false;}};
+  }catch(error){message(friendly(error));}finally{button.disabled=false;}};
   return {load,reset};
 }

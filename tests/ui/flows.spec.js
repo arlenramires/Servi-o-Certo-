@@ -1863,6 +1863,14 @@ test('provider proposes a pre-quote inspection without creating a charge',async(
   expect(await page.evaluate(()=>window.testState.inspections.map(i=>({fee_cents:i.fee_cents,purpose:i.purpose,status:i.status})))).toEqual([{fee_cents:7500,purpose:'Avaliar a estrutura antes de elaborar o orçamento completo.',status:'proposta'}]);
 });
 
+test('provider double submit proposes only one pre-quote inspection',async({page})=>{
+  await page.addInitScript(()=>window.testRole='prestador');await login(page);await seedAcceptedService(page);
+  const future=new Date(Date.now()+172800000).toISOString().slice(0,16),scheduled=new Date(future).toISOString();await page.locator('#inspectionPurpose').fill('Avaliar a estrutura antes de elaborar o orçamento completo.');await page.locator('#inspectionScheduled').fill(future);await page.locator('#inspectionFee').fill('75,00');
+  await page.evaluate(()=>{let release;window.testState.delayProposeServiceInspection=new Promise(resolve=>{release=resolve;});window.releaseProposeServiceInspection=release;const form=document.getElementById('inspectionForm');form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));});
+  await expect(page.locator('#proposeInspection')).toBeDisabled();await expect(page.locator('#inspectionPurpose')).toHaveValue('Avaliar a estrutura antes de elaborar o orçamento completo.');await expect(page.locator('#inspectionScheduled')).toHaveValue(future);await expect(page.locator('#inspectionFee')).toHaveValue('75,00');expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='propose_service_inspection'))).toHaveLength(1);expect(await page.evaluate(()=>window.testState.inspections)).toHaveLength(0);
+  await page.evaluate(()=>window.releaseProposeServiceInspection());await expect(page.locator('#status')).toContainText('Nenhuma cobrança ou confirmação');await expect(page.locator('#inspectionForm')).toBeHidden();expect(await page.evaluate(()=>window.testState.calls.filter(call=>call.rpc==='propose_service_inspection').map(call=>call.args))).toEqual([{p_request_id:'accepted-service',p_fee_cents:7500,p_scheduled_for:scheduled,p_purpose:'Avaliar a estrutura antes de elaborar o orçamento completo.'}]);expect(await page.evaluate(()=>window.testState.inspections)).toHaveLength(1);
+});
+
 test('client accepts inspection proposal as pending payment, not confirmed appointment',async({page})=>{
   await login(page);await seedAcceptedService(page);
   await page.evaluate(()=>{const s=window.testState,r=s.requests.find(r=>r.id==='accepted-service');s.inspections.push({id:'inspection-pending',request_id:r.id,provider_id:r.provider_id,purpose:'Avaliar o local antes de elaborar o orçamento completo.',scheduled_for:new Date(Date.now()+172800000).toISOString(),fee_cents:7500,status:'proposta',decided_by:null,created_at:new Date().toISOString(),decided_at:null});});
